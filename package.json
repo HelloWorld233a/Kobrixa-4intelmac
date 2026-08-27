@@ -1,0 +1,12 @@
+{
+  "name": "kobrixa",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @kobrixa/desktop dev",
+    "build": "pnpm --filter @kobrixa/desktop build",
+    "check": "pnpm --filter @kobrixa/desktop check",
+    "test": "pnpm --filter @kobrixa/desktop test"
+  }
+}
+

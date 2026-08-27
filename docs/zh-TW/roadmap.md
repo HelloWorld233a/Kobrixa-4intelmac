@@ -6,7 +6,7 @@
 ## Phase 0 — 基礎
 
 - 確認 Kobrixa 的商標、程式碼倉庫、套件註冊表、社群帳號與網域可用性。
-- 建立 Tauri 2、React、TypeScript、Monaco 與 Rust workspace 骨架。
+- 建立 Electron、React、TypeScript、Monaco 與 Node.js/pnpm workspace 骨架。
 - 鎖定 toolchain，建立 Windows、macOS、Linux CI。
 - 定義版本化 manifest、診斷、IR、成品與設備契約。
 - 加入文件連結與雙語一致性檢查。
@@ -27,7 +27,7 @@
 
 - 擴充 `.bp` 相容案例與 EV3 API 覆蓋。
 - 改進補全、格式化、效能、無障礙、本地化與復原體驗。
-- 在相同 compiler 與 device crate 上加入 headless `kobrixa` CLI。
+- 在相同 compiler 與 device package 上加入 headless Node.js `kobrixa` CLI。
 
 退出條件：編譯器和設備 API 足夠穩定，可讓 CLI 與桌面程式獨立發布。
 
@@ -39,10 +39,11 @@
 ## v3 — TypeScript 前端
 
 - 加入 TypeScript parsing 與型別感知 lowering。
-- 文件化支援的 runtime 語意，並明確拒絕瀏覽器、Node.js 與動態程式碼功能。
+- 文件化支援的 runtime 語意，並明確拒絕使用者程式中的瀏覽器、Node.js 與動態程式碼功能。
 
 ## v4 — C++ 前端
 
+- C++ 原始碼支援是面向使用者的語言前端，與 Kobrixa 的 Node.js 與 TypeScript 內部實作技術分開。
 - 定義 freestanding C++ EV3 profile 與支援的標準函式庫範圍。
 - 將支援的結構 lowering 為 `KobrixaIR`；不支援的 runtime 功能在編譯期回報。
 

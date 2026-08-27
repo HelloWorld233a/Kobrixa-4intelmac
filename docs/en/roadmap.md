@@ -6,7 +6,7 @@
 ## Phase 0 — foundation
 
 - Confirm trademark, repository, package-registry, social-handle, and domain availability for Kobrixa.
-- Scaffold Tauri 2, React, TypeScript, Monaco, and the Rust workspace.
+- Scaffold Electron, React, TypeScript, Monaco, and the Node.js/pnpm workspace.
 - Pin toolchains and establish Windows, macOS, and Linux CI.
 - Define versioned manifest, diagnostic, IR, artifact, and device contracts.
 - Add documentation link and bilingual-parity checks.
@@ -27,7 +27,7 @@ Exit: every criterion in the [product specification](product.md) and [device spe
 
 - Expand `.bp` compatibility cases and EV3 API coverage.
 - Improve completion, formatting, performance, accessibility, localization, and recovery UX.
-- Add a headless `kobrixa` CLI over the same compiler and device crates.
+- Add a headless Node.js `kobrixa` CLI over the same compiler and device packages.
 
 Exit: compiler and device APIs are stable enough for independent CLI and desktop release cycles.
 
@@ -39,10 +39,11 @@ Exit: compiler and device APIs are stable enough for independent CLI and desktop
 ## v3 — TypeScript frontend
 
 - Add TypeScript parsing and type-aware lowering.
-- Document supported runtime semantics and reject browser, Node.js, and dynamic-code features explicitly.
+- Document supported runtime semantics and explicitly reject browser, Node.js, and dynamic-code features in user programs.
 
 ## v4 — C++ frontend
 
+- Treat C++ source support as a user-facing language frontend, separate from Kobrixa's Node.js and TypeScript implementation stack.
 - Define a freestanding C++ EV3 profile and supported standard-library surface.
 - Lower supported constructs through `KobrixaIR`; report unsupported runtime features at compile time.
 

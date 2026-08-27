@@ -45,12 +45,14 @@ Later language frontends will share the same typed intermediate representation a
 
 ## Planned technology
 
-- Tauri 2 desktop shell
-- React and TypeScript user interface
+- Electron desktop shell
+- React and TypeScript renderer
 - Monaco Editor
-- Rust compiler core, EV3 backend, and device services
+- Node.js and TypeScript compiler core, EV3 backend, and device services
 - Native EV3 VM as the v1 execution target
 - Apache License 2.0
+
+Node.js and TypeScript describe Kobrixa's implementation stack. C++ remains a separately planned source-language frontend for user programs after the TypeScript frontend.
 
 ## Documentation
 
@@ -64,14 +66,14 @@ Later language frontends will share the same typed intermediate representation a
 ## Intended repository layout
 
 ```text
-apps/desktop/          Tauri and React desktop application
-crates/compiler/       Compiler orchestration and diagnostics
-crates/ir/             KobrixaIR definitions and validation
-crates/backend-ev3/    EV3 bytecode and .rbf generation
-crates/device/         USB and Wi-Fi transports
-frontends/basic-plus/  v1 Basic Plus frontend
-tests/compat/          Clean-room behavioral compatibility tests
-docs/                  Product and engineering documentation
+apps/desktop/           Electron main/preload and React renderer
+packages/compiler/      Compiler orchestration and diagnostics
+packages/ir/            KobrixaIR definitions and validation
+packages/backend-ev3/   EV3 bytecode and .rbf generation
+packages/device/        USB and Wi-Fi transports
+frontends/basic-plus/   v1 Basic Plus frontend
+tests/compat/           Clean-room behavioral compatibility tests
+docs/                   Product and engineering documentation
 ```
 
 This layout is a contract for implementation, not evidence that these components exist today.

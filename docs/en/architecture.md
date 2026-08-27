@@ -6,33 +6,31 @@
 ## System shape
 
 ```text
-Monaco editor + React UI
-          │ Tauri commands/events
+Monaco editor + React renderer
+          │ allowlisted contextBridge API
           ▼
-Workspace service ───── Device service ───── USB HID / Wi-Fi
-          │
+Electron preload bridge
+          │ validated Electron IPC
           ▼
-Language frontend (.bp in v1)
-          │
-          ▼
-Typed KobrixaIR + validation
-          │
-          ▼
-EV3 backend → .rbf artifact
+Electron main process (Node.js)
+          ├─ Workspace service → Language frontend (.bp in v1)
+          │                       → Typed KobrixaIR + validation
+          │                       → EV3 backend → .rbf artifact
+          └─ Device service ────────────────────→ USB HID / Wi-Fi
 ```
 
-The React application owns presentation state only. Rust services own filesystem access, compiler execution, cancellation, device sessions, and structured errors. No compiler phase may depend on the UI.
+The React renderer owns presentation state only and has no direct access to Node.js or Electron APIs. A narrow preload API uses `contextBridge` to invoke validated IPC handlers in the Electron main process. Node.js services own filesystem access, compiler execution, cancellation, device sessions, and structured errors. No compiler phase may depend on the UI.
 
 ## Repository boundaries
 
-- `apps/desktop`: Tauri commands, React UI, Monaco integration, localization, and user workflows.
-- `crates/compiler`: build-session orchestration and diagnostic aggregation.
-- `crates/ir`: versioned IR types, validation, and serialization used by language frontends and backends.
-- `crates/backend-ev3`: deterministic EV3 VM lowering and `.rbf` packaging.
-- `crates/device`: transport-neutral device operations with USB and Wi-Fi implementations.
+- `apps/desktop`: Electron main and preload processes, React renderer, Monaco integration, localization, and user workflows.
+- `packages/compiler`: build-session orchestration and diagnostic aggregation.
+- `packages/ir`: versioned IR types, validation, and serialization used by language frontends and backends.
+- `packages/backend-ev3`: deterministic EV3 VM lowering and `.rbf` packaging.
+- `packages/device`: transport-neutral device operations with USB and Wi-Fi implementations.
 - `frontends/basic-plus`: clean-room lexer, parser, semantic analysis, and IR lowering.
 
-Dependencies point inward toward shared contracts. The compiler and device crates must be usable by a future CLI without importing desktop code.
+Dependencies point inward toward shared contracts. The compiler and device packages must be usable by a future Node.js CLI without importing Electron desktop code.
 
 ## Project manifest
 
@@ -130,4 +128,8 @@ Only one operation may mutate a session at a time. Disconnect is idempotent. Eve
 - Existing successful artifacts are replaced only by atomic rename after validation.
 - Device writes require an active session and explicit user action.
 - Logs exclude source contents and personal paths by default.
-- Tauri permissions expose only commands required by the documented workflows.
+- Production windows load packaged local content only. Renderer sandboxing and `contextIsolation` remain enabled, and `nodeIntegration` remains disabled.
+- The preload bridge exposes only documented, task-specific methods through `contextBridge`; it never exposes raw `ipcRenderer` or Node.js primitives.
+- The main process validates the IPC sender and payload before every privileged filesystem, compiler, or device operation.
+
+These boundaries follow Electron's [security recommendations](https://www.electronjs.org/docs/latest/tutorial/security).

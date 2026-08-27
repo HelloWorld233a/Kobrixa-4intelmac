@@ -33,6 +33,8 @@ Clean-room 前端的目標是與支援的舊版程式行為相容，包括：
 
 ## C++ — TypeScript 之後規劃
 
+這是供使用者編寫程式的來源語言前端，不是 Kobrixa 的實作語言；編譯器與桌面服務使用 Node.js 與 TypeScript 實作。
+
 前端以文件化的 freestanding EV3 profile 為目標。不保證支援主機作業系統 API、動態函式庫、inline assembly、exception、RTTI 與不受限的動態配置。支援的原始碼會 lowering 為 IR，而不是將任意 ARM 原生碼隱藏在 `.rbf` 中。
 
 ## 診斷政策

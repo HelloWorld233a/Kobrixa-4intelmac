@@ -45,12 +45,14 @@ Kobrixa 將以 clean-room 方式實作，對常用舊版 `.bp` 程式提供行�
 
 ## 規劃技術
 
-- Tauri 2 桌面外殼
-- React 與 TypeScript 使用者介面
+- Electron 桌面外殼
+- React 與 TypeScript renderer
 - Monaco Editor
-- Rust 編譯器核心、EV3 後端與設備服務
+- 以 Node.js 與 TypeScript 實作的編譯器核心、EV3 後端與設備服務
 - v1 以原生 EV3 VM 為執行目標
 - Apache License 2.0
+
+Node.js 與 TypeScript 是 Kobrixa 的內部實作技術；C++ 則仍是 TypeScript 前端之後另行規劃、供使用者程式採用的來源語言前端。
 
 ## 文件
 
@@ -64,14 +66,14 @@ Kobrixa 將以 clean-room 方式實作，對常用舊版 `.bp` 程式提供行�
 ## 預定倉庫結構
 
 ```text
-apps/desktop/          Tauri 與 React 桌面應用程式
-crates/compiler/       編譯協調與診斷
-crates/ir/             KobrixaIR 定義與驗證
-crates/backend-ev3/    EV3 bytecode 與 .rbf 產生器
-crates/device/         USB 與 Wi-Fi transport
-frontends/basic-plus/  v1 Basic Plus 前端
-tests/compat/          clean-room 行為相容測試
-docs/                  產品與工程文件
+apps/desktop/           Electron main／preload 與 React renderer
+packages/compiler/      編譯協調與診斷
+packages/ir/            KobrixaIR 定義與驗證
+packages/backend-ev3/   EV3 bytecode 與 .rbf 產生器
+packages/device/        USB 與 Wi-Fi transport
+frontends/basic-plus/   v1 Basic Plus 前端
+tests/compat/           clean-room 行為相容測試
+docs/                   產品與工程文件
 ```
 
 這是實作契約，不代表上述元件目前已經存在。

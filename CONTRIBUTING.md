@@ -6,9 +6,8 @@ Kobrixa is currently specification-first. Contributions should preserve the docu
 
 ### Development baseline
 
-- Current stable Rust toolchain
 - Current Node.js LTS and pnpm
-- Tauri 2 prerequisites for the contributor's operating system
+- Electron build and packaging prerequisites for the contributor's operating system
 - One supported EV3 brick for hardware changes; transport-independent work may use mocks
 
 Exact minimum versions must be pinned in the implementation repository before the first buildable commit.
@@ -24,8 +23,8 @@ Exact minimum versions must be pinned in the implementation repository before th
 
 ### Required checks
 
-- Rust formatting, linting, unit tests, and integration tests pass.
 - TypeScript formatting, linting, type checking, and tests pass.
+- The Electron application builds and its smoke tests pass on every affected operating system.
 - Compiler changes include valid, invalid, and regression fixtures.
 - USB or Wi-Fi changes include mocked tests and results from each affected operating system.
 - Documentation links resolve and English/Traditional Chinese content remains semantically aligned.
@@ -49,9 +48,8 @@ Kobrixa 目前採用規格優先方式。貢獻內容必須維持已定義的邊
 
 ### 開發基線
 
-- 當前穩定版 Rust toolchain
 - 當前 Node.js LTS 與 pnpm
-- 貢獻者作業系統所需的 Tauri 2 前置環境
+- 貢獻者作業系統所需的 Electron 建置與封裝前置環境
 - 修改硬體功能時需要一台支援的 EV3；與 transport 無關的工作可以使用 mock
 
 第一個可建置提交之前，實作倉庫必須鎖定確切最低版本。
@@ -67,8 +65,8 @@ Kobrixa 目前採用規格優先方式。貢獻內容必須維持已定義的邊
 
 ### 必要檢查
 
-- Rust 格式、lint、單元測試與整合測試通過。
 - TypeScript 格式、lint、型別檢查與測試通過。
+- Electron 應用程式必須能在每個受影響的作業系統建置，且 smoke test 通過。
 - 編譯器變更包含有效、無效與回歸 fixture。
 - USB 或 Wi-Fi 變更包含 mock 測試，以及每個受影響作業系統的實測結果。
 - 文件連結有效，英文與繁中內容語意一致。

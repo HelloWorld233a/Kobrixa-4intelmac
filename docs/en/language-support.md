@@ -33,6 +33,8 @@ The frontend will use TypeScript syntax and static type information where availa
 
 ## C++ — planned after TypeScript
 
+This is a user-facing source-language frontend, not Kobrixa's implementation language; the compiler and desktop services are implemented with Node.js and TypeScript.
+
 The frontend will target a documented freestanding EV3 profile. Host operating-system APIs, dynamic libraries, inline assembly, exceptions, RTTI, and unrestricted allocation are not guaranteed. Supported source lowers to IR; it is not compiled into arbitrary native ARM code hidden inside `.rbf`.
 
 ## Diagnostics policy

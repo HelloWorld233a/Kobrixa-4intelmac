@@ -1,1 +1,8 @@
+/target
+/node_modules
+/apps/desktop/dist
+/apps/desktop/node_modules
+*.tmp
+*.log
 .DS_Store
+
