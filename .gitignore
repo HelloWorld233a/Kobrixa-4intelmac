@@ -1,6 +1,7 @@
 /target
 **/node_modules
 /**/dist
+/examples/**/build
 /.pnpm-store
 /.corepack
 /apps/desktop/dist
