@@ -1,0 +1,93 @@
+# Kobrixa IDE
+
+**Code motion. Build ideas.**
+
+Kobrixa IDE is a planned, open-source, cross-platform development environment for programming LEGO® MINDSTORMS® EV3 robots. It is designed for students and makers who want a focused path from source code to a program running on a physical EV3 brick.
+
+> [繁體中文版](README.zh-TW.md)
+
+## Project status
+
+**Planning / pre-implementation.** This repository currently defines the product and engineering contracts. It does not yet contain a working IDE or compiler.
+
+| Capability | Status |
+| --- | --- |
+| Basic Plus (`.bp`) frontend | Planned for v1 |
+| Native EV3 `.rbf` output | Planned for v1 |
+| USB HID on Windows, macOS, and Linux | Planned for v1 |
+| Wi-Fi on Windows, macOS, and Linux | Planned for v1 |
+| Python frontend | Planned after v1 |
+| TypeScript frontend | Planned after Python |
+| C++ frontend | Planned after TypeScript |
+| Bluetooth, simulator, block editor | Long-term |
+
+No planned capability should be interpreted as already available.
+
+## Product direction
+
+The v1 workflow is intentionally narrow:
+
+```text
+Edit .bp source
+      ↓
+Compile to KobrixaIR
+      ↓
+Generate native EV3 bytecode (.rbf)
+      ↓
+Upload over USB or Wi-Fi
+      ↓
+Run on the EV3 brick
+```
+
+Kobrixa will use a clean-room implementation to provide behavioral compatibility with commonly used legacy `.bp` programs. Compatibility means that a supported program runs without source changes and produces equivalent observable behavior; byte-for-byte equality with another compiler's `.rbf` output is not required.
+
+Later language frontends will share the same typed intermediate representation and EV3 backend. Kobrixa will parse as much standard Python, TypeScript, and C++ syntax as practical, but the original EV3 runtime cannot provide their complete desktop runtimes or standard libraries. Features that cannot be represented safely must produce explicit compile-time diagnostics.
+
+## Planned technology
+
+- Tauri 2 desktop shell
+- React and TypeScript user interface
+- Monaco Editor
+- Rust compiler core, EV3 backend, and device services
+- Native EV3 VM as the v1 execution target
+- Apache License 2.0
+
+## Documentation
+
+- [Product specification](docs/en/product.md)
+- [Architecture and public contracts](docs/en/architecture.md)
+- [Language support policy](docs/en/language-support.md)
+- [Device and platform support](docs/en/device-support.md)
+- [Roadmap](docs/en/roadmap.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Intended repository layout
+
+```text
+apps/desktop/          Tauri and React desktop application
+crates/compiler/       Compiler orchestration and diagnostics
+crates/ir/             KobrixaIR definitions and validation
+crates/backend-ev3/    EV3 bytecode and .rbf generation
+crates/device/         USB and Wi-Fi transports
+frontends/basic-plus/  v1 Basic Plus frontend
+tests/compat/          Clean-room behavioral compatibility tests
+docs/                  Product and engineering documentation
+```
+
+This layout is a contract for implementation, not evidence that these components exist today.
+
+## Legal and naming
+
+Kobrixa is an independent project and is not affiliated with, endorsed by, or sponsored by the LEGO Group. LEGO, MINDSTORMS, and EV3 are trademarks of the LEGO Group.
+
+The Apache-2.0 license in this repository applies only to original Kobrixa work. It does not grant rights to code, assets, documentation, trademarks, or other material owned by Clev3r, EV3Basic, the LEGO Group, or any other third party. Kobrixa must not copy Clev3r source code, visual assets, or documentation; compatibility work must be based on public behavior specifications and independently authored tests.
+
+The name “Kobrixa” passed a basic web and package-name collision check during planning. This is not trademark clearance. Before public release, maintainers must perform appropriate trademark, repository, package-registry, social-handle, and domain checks.
+
+## Contributing
+
+Kobrixa welcomes specification review, independently authored compatibility cases, compiler work, device testing, and documentation improvements. Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing.
+
+## License
+
+Original Kobrixa work is licensed under the [Apache License 2.0](LICENSE).

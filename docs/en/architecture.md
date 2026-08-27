@@ -1,0 +1,133 @@
+# Architecture and public contracts
+
+> Status: Planning. Interfaces are implementation contracts for v1.  
+> Language: English · [繁體中文](../zh-TW/architecture.md)
+
+## System shape
+
+```text
+Monaco editor + React UI
+          │ Tauri commands/events
+          ▼
+Workspace service ───── Device service ───── USB HID / Wi-Fi
+          │
+          ▼
+Language frontend (.bp in v1)
+          │
+          ▼
+Typed KobrixaIR + validation
+          │
+          ▼
+EV3 backend → .rbf artifact
+```
+
+The React application owns presentation state only. Rust services own filesystem access, compiler execution, cancellation, device sessions, and structured errors. No compiler phase may depend on the UI.
+
+## Repository boundaries
+
+- `apps/desktop`: Tauri commands, React UI, Monaco integration, localization, and user workflows.
+- `crates/compiler`: build-session orchestration and diagnostic aggregation.
+- `crates/ir`: versioned IR types, validation, and serialization used by language frontends and backends.
+- `crates/backend-ev3`: deterministic EV3 VM lowering and `.rbf` packaging.
+- `crates/device`: transport-neutral device operations with USB and Wi-Fi implementations.
+- `frontends/basic-plus`: clean-room lexer, parser, semantic analysis, and IR lowering.
+
+Dependencies point inward toward shared contracts. The compiler and device crates must be usable by a future CLI without importing desktop code.
+
+## Project manifest
+
+Each project uses `kobrixa.json`. Unknown fields are allowed for forward compatibility; invalid known fields are errors.
+
+```json
+{
+  "schemaVersion": 1,
+  "name": "line-follower",
+  "language": "bp",
+  "entry": "src/main.bp",
+  "target": "ev3-native",
+  "assets": ["assets/**/*"],
+  "outputDir": "build"
+}
+```
+
+Contract:
+
+- `schemaVersion`: positive integer; v1 accepts only `1`.
+- `name`: non-empty project and default EV3 program name.
+- `language`: v1 accepts `bp`; planned values are `python`, `typescript`, and `cpp`.
+- `entry`: project-relative source path that must remain inside the project root.
+- `target`: v1 accepts only `ev3-native`.
+- `assets`: project-relative files or glob patterns; resolved paths must stay inside the project root.
+- `outputDir`: project-relative directory; it must not equal or contain the source root.
+
+## Compiler contracts
+
+Every frontend implements the conceptual contract:
+
+```ts
+interface LanguageFrontend {
+  id: "bp" | "python" | "typescript" | "cpp";
+  compile(input: SourceProject, signal: AbortSignal): Promise<FrontendResult>;
+}
+
+interface FrontendResult {
+  ir?: KobrixaIR;
+  diagnostics: Diagnostic[];
+}
+```
+
+`KobrixaIR` is versioned and typed. It carries declarations, primitive and aggregate types, functions, control-flow blocks, EV3 API calls, resource references, and source spans. Frontends must not inject raw backend bytecode. IR validation runs before backend lowering and rejects invalid control flow, unresolved symbols, unsupported types, and invalid EV3 operations.
+
+The public build result is:
+
+```ts
+interface CompileResult {
+  success: boolean;
+  diagnostics: Diagnostic[];
+  artifacts: BuildArtifact[];
+}
+
+interface Diagnostic {
+  code: string;
+  severity: "error" | "warning" | "info";
+  file: string;
+  range: { startLine: number; startColumn: number; endLine: number; endColumn: number };
+  message: string;
+}
+
+interface BuildArtifact {
+  kind: "rbf" | "ir" | "listing";
+  path: string;
+  sha256: string;
+}
+```
+
+Line and column numbers are one-based in public results. `success` is true only when no error diagnostic exists and a valid `rbf` artifact was committed atomically. Temporary output is removed after failure or cancellation.
+
+## Device contract
+
+```ts
+interface DeviceTransport {
+  discover(signal: AbortSignal): Promise<DeviceDescriptor[]>;
+  connect(target: DeviceDescriptor, signal: AbortSignal): Promise<DeviceSession>;
+}
+
+interface DeviceSession {
+  disconnect(): Promise<void>;
+  upload(remotePath: string, data: Uint8Array, signal: AbortSignal): Promise<void>;
+  run(remotePath: string, signal: AbortSignal): Promise<void>;
+  stop(programName?: string, signal?: AbortSignal): Promise<void>;
+  delete(remotePath: string, signal: AbortSignal): Promise<void>;
+}
+```
+
+Only one operation may mutate a session at a time. Disconnect is idempotent. Every operation has a bounded timeout and returns a structured category: `permission`, `not-found`, `connection`, `timeout`, `protocol`, `transfer`, `device`, `cancelled`, or `internal`. UI text is localized outside the device layer.
+
+## State and safety rules
+
+- Each build receives a new session; compiler state is never global.
+- Paths are canonicalized and confined to the project root except for user-approved import/export locations.
+- Existing successful artifacts are replaced only by atomic rename after validation.
+- Device writes require an active session and explicit user action.
+- Logs exclude source contents and personal paths by default.
+- Tauri permissions expose only commands required by the documented workflows.
