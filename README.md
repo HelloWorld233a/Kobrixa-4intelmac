@@ -8,18 +8,18 @@ Kobrixa IDE is a planned, open-source, cross-platform development environment fo
 
 ## Project status
 
-**Planning / pre-implementation.** This repository currently defines the product and engineering contracts. It does not yet contain a working IDE or compiler.
+**v1 candidate implementation.** The repository contains a buildable IDE, compiler pipeline, EV3 image backend, and USB/Wi-Fi device services. Basic Plus compatibility coverage and the three-platform physical-brick matrix remain release gates.
 
-| Capability | Status |
-| --- | --- |
-| Basic Plus (`.bp`) frontend | Planned for v1 |
-| Native EV3 `.rbf` output | Planned for v1 |
-| USB HID on Windows, macOS, and Linux | Planned for v1 |
-| Wi-Fi on Windows, macOS, and Linux | Planned for v1 |
-| Python frontend | Planned after v1 |
-| TypeScript frontend | Planned after Python |
-| C++ frontend | Planned after TypeScript |
-| Bluetooth, simulator, block editor | Long-term |
+| Capability                           | Status                             |
+| ------------------------------------ | ---------------------------------- |
+| Basic Plus (`.bp`) frontend          | v1 candidate                       |
+| Native EV3 `.rbf` output             | v1 candidate                       |
+| USB HID on Windows, macOS, and Linux | Candidate; physical matrix pending |
+| Wi-Fi on Windows, macOS, and Linux   | Candidate; physical matrix pending |
+| Python frontend                      | Planned after v1                   |
+| TypeScript frontend                  | Planned after Python               |
+| C++ frontend                         | Planned after TypeScript           |
+| Bluetooth, simulator, block editor   | Long-term                          |
 
 No planned capability should be interpreted as already available.
 
@@ -61,6 +61,7 @@ Node.js and TypeScript describe Kobrixa's implementation stack. C++ remains a se
 - [Language support policy](docs/en/language-support.md)
 - [Device and platform support](docs/en/device-support.md)
 - [Roadmap](docs/en/roadmap.md)
+- [Installation and recovery](docs/en/installation.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Intended repository layout

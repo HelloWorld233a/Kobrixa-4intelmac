@@ -1,0 +1,7 @@
+' Independently authored Kobrixa example
+LCD.Clear()
+LCD.Text(8, 18, "Hello from Kobrixa")
+LCD.Line(8, 38, 165, 38)
+LCD.Update()
+Speaker.Tone(35, 440, 180)
+Program.Delay(250)

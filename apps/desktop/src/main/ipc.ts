@@ -1,0 +1,110 @@
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import { isIP } from "node:net";
+import { z } from "zod";
+import type { BuildService } from "./build.js";
+import type { DeviceService } from "./device.js";
+import type { WorkspaceService } from "./workspace.js";
+
+const id = z.string().uuid();
+const file = z
+  .string()
+  .min(1)
+  .max(1024)
+  .refine((value) => !value.includes("\0"));
+const content = z.string().max(8 * 1024 * 1024);
+const descriptor = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  transport: z.enum(["usb", "wifi", "mock"]),
+  address: z.string().optional(),
+  serialNumber: z.string().optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
+});
+
+function parseDescriptor(value: unknown) {
+  const parsed = descriptor.parse(value);
+  return {
+    id: parsed.id,
+    name: parsed.name,
+    transport: parsed.transport,
+    ...(parsed.address ? { address: parsed.address } : {}),
+    ...(parsed.serialNumber ? { serialNumber: parsed.serialNumber } : {}),
+    ...(parsed.metadata ? { metadata: parsed.metadata } : {}),
+  };
+}
+
+export function registerIpc(
+  trustedRenderer: () => WebContents | undefined,
+  workspaces: WorkspaceService,
+  builds: BuildService,
+  devices: DeviceService,
+): void {
+  const trusted = (event: IpcMainInvokeEvent): void => {
+    const renderer = trustedRenderer();
+    if (!renderer || event.sender.id !== renderer.id || event.senderFrame !== renderer.mainFrame) {
+      throw new Error("Rejected IPC from an untrusted sender.");
+    }
+  };
+  const handle = <T extends unknown[], R>(
+    channel: string,
+    action: (event: IpcMainInvokeEvent, ...args: T) => R,
+  ): void => {
+    ipcMain.handle(channel, (event, ...args: T) => {
+      trusted(event);
+      return action(event, ...args);
+    });
+  };
+
+  handle("workspace:open", () => workspaces.open());
+  handle("workspace:create", (_event, name: unknown) =>
+    workspaces.create(z.string().min(1).max(80).parse(name)),
+  );
+  handle("workspace:select-entry", (_event, workspaceId: unknown, entry: unknown) =>
+    workspaces.selectEntry(id.parse(workspaceId), file.parse(entry)),
+  );
+  handle("workspace:read", (_event, workspaceId: unknown, sourceFile: unknown) =>
+    workspaces.read(id.parse(workspaceId), file.parse(sourceFile)),
+  );
+  handle("workspace:write", (_event, workspaceId: unknown, sourceFile: unknown, source: unknown) =>
+    workspaces.write(id.parse(workspaceId), file.parse(sourceFile), content.parse(source)),
+  );
+  handle(
+    "workspace:save-draft",
+    (_event, workspaceId: unknown, sourceFile: unknown, source: unknown) =>
+      workspaces.saveDraft(
+        id.parse(workspaceId),
+        file.parse(sourceFile),
+        z.union([content, z.undefined()]).parse(source),
+      ),
+  );
+
+  handle("build:start", (_event, workspaceId: unknown, overlays: unknown) =>
+    builds.start(id.parse(workspaceId), z.record(file, content).parse(overlays)),
+  );
+  handle("build:cancel", (_event, buildId: unknown) => builds.cancel(id.parse(buildId)));
+  handle("build:artifacts", (_event, buildId: unknown) => builds.artifacts(id.parse(buildId)));
+
+  handle("device:discover", () => devices.discover());
+  handle("device:connect", (_event, target: unknown) => devices.connect(parseDescriptor(target)));
+  handle("device:connect-wifi", (_event, address: unknown) =>
+    devices.connectWifi(
+      z
+        .string()
+        .refine((value) => isIP(value) !== 0, "Expected an IPv4 or IPv6 address.")
+        .parse(address),
+    ),
+  );
+  handle("device:disconnect", (_event, sessionId: unknown) =>
+    devices.disconnect(id.parse(sessionId)),
+  );
+  handle("device:upload", (_event, sessionId: unknown, buildId: unknown, remotePath: unknown) =>
+    devices.upload(id.parse(sessionId), id.parse(buildId), file.parse(remotePath)),
+  );
+  handle("device:run", (_event, sessionId: unknown, remotePath: unknown) =>
+    devices.run(id.parse(sessionId), file.parse(remotePath)),
+  );
+  handle("device:stop", (_event, sessionId: unknown) => devices.stop(id.parse(sessionId)));
+  handle("device:delete", (_event, sessionId: unknown, remotePath: unknown) =>
+    devices.delete(id.parse(sessionId), file.parse(remotePath)),
+  );
+}

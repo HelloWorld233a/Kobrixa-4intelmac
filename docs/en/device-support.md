@@ -5,11 +5,11 @@
 
 ## v1 support matrix
 
-| Platform | USB HID | Wi-Fi | Bluetooth |
-| --- | --- | --- | --- |
-| Windows | Planned for v1 | Planned for v1 | Long-term |
-| macOS | Planned for v1 | Planned for v1 | Long-term |
-| Linux | Planned for v1 | Planned for v1 | Long-term |
+| Platform | USB HID        | Wi-Fi          | Bluetooth |
+| -------- | -------------- | -------------- | --------- |
+| Windows  | Planned for v1 | Planned for v1 | Long-term |
+| macOS    | Planned for v1 | Planned for v1 | Long-term |
+| Linux    | Planned for v1 | Planned for v1 | Long-term |
 
 Support is not considered shipped until automated transport tests and physical reference-brick tests pass on that platform.
 

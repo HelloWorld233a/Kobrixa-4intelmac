@@ -1,12 +1,29 @@
 {
   "name": "kobrixa",
   "private": true,
+  "version": "0.1.0-v1-candidate.0",
   "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
-    "dev": "pnpm --filter @kobrixa/desktop dev",
-    "build": "pnpm --filter @kobrixa/desktop build",
-    "check": "pnpm --filter @kobrixa/desktop check",
-    "test": "pnpm --filter @kobrixa/desktop test"
+    "dev": "pnpm -r --filter '!@kobrixa/desktop' build && pnpm --filter @kobrixa/desktop dev",
+    "build": "pnpm -r build",
+    "check": "pnpm -r check && eslint .",
+    "test": "pnpm -r test",
+    "test:hardware": "node tests/hardware/run.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "package": "pnpm -r --filter '!@kobrixa/desktop' build && pnpm --filter @kobrixa/desktop package"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "@types/node": "^24.3.0",
+    "eslint": "^9.34.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.41.0",
+    "vitest": "^3.2.4"
   }
 }
-

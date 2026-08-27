@@ -1,0 +1,37 @@
+import { describe, expect, it } from "vitest";
+import {
+  DeviceOperationError,
+  MockTransport,
+  frameMessage,
+  normalizeRemotePath,
+  parseFrame,
+} from "./index.js";
+
+describe("device protocol", () => {
+  it("round-trips framed payloads", () => {
+    const parsed = parseFrame(frameMessage(42, Uint8Array.from([1, 2, 3])));
+    expect(parsed.counter).toBe(42);
+    expect([...parsed.payload]).toEqual([1, 2, 3]);
+  });
+
+  it("rejects remote traversal before I/O", () => {
+    expect(() => normalizeRemotePath("../bad.rbf")).toThrow(DeviceOperationError);
+  });
+
+  it("supports upload over a deterministic mock", async () => {
+    const commands: number[] = [];
+    const transport = new MockTransport((payload) => {
+      commands.push(payload[1]!);
+      return payload[1] === 0x92
+        ? Uint8Array.from([0x03, 0x92, 0x00, 7])
+        : Uint8Array.from([0x03, payload[1]!, 0x00]);
+    });
+    const session = await transport.connect(transport.descriptor, new AbortController().signal);
+    await session.upload(
+      "/home/root/lms2012/prjs/demo/main.rbf",
+      Uint8Array.from([1, 2]),
+      new AbortController().signal,
+    );
+    expect(commands).toEqual([0x92, 0x93]);
+  });
+});

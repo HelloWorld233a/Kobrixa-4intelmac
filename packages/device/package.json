@@ -1,0 +1,19 @@
+{
+  "name": "@kobrixa/device",
+  "version": "0.1.0-v1-candidate.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -b tsconfig.json",
+    "test": "vitest run"
+  },
+  "optionalDependencies": {
+    "node-hid": "^3.2.0"
+  }
+}

@@ -1,3 +1,9 @@
 packages:
-  - "apps/*"
+  - apps/*
+  - packages/*
+  - frontends/*
 
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+  - node-hid

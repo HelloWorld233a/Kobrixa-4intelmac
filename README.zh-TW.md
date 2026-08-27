@@ -8,18 +8,18 @@ Kobrixa IDE 是一個規劃中的開源跨平台開發環境，用於編寫 LEGO
 
 ## 專案狀態
 
-**規劃／實作前階段。** 本文件包目前定義產品與工程契約，尚未包含可運行的 IDE 或編譯器。
+**v1 候選實作。** 本倉庫已包含可建置的 IDE、編譯流程、EV3 image 後端，以及 USB／Wi‑Fi 設備服務。Basic Plus 相容覆蓋與三平台 EV3 實機矩陣仍是發布門檻。
 
-| 能力 | 狀態 |
-| --- | --- |
-| Basic Plus（`.bp`）前端 | v1 規劃中 |
-| 原生 EV3 `.rbf` 輸出 | v1 規劃中 |
-| Windows、macOS、Linux USB HID | v1 規劃中 |
-| Windows、macOS、Linux Wi-Fi | v1 規劃中 |
-| Python 前端 | v1 之後規劃 |
-| TypeScript 前端 | Python 之後規劃 |
-| C++ 前端 | TypeScript 之後規劃 |
-| Bluetooth、模擬器、積木編輯器 | 長期規劃 |
+| 能力                          | 狀態                   |
+| ----------------------------- | ---------------------- |
+| Basic Plus（`.bp`）前端       | v1 候選版              |
+| 原生 EV3 `.rbf` 輸出          | v1 候選版              |
+| Windows、macOS、Linux USB HID | 候選版；實機矩陣待完成 |
+| Windows、macOS、Linux Wi-Fi   | 候選版；實機矩陣待完成 |
+| Python 前端                   | v1 之後規劃            |
+| TypeScript 前端               | Python 之後規劃        |
+| C++ 前端                      | TypeScript 之後規劃    |
+| Bluetooth、模擬器、積木編輯器 | 長期規劃               |
 
 任何「規劃中」能力都不應被理解為目前已經可用。
 
@@ -61,6 +61,7 @@ Node.js 與 TypeScript 是 Kobrixa 的內部實作技術；C++ 則仍是 TypeScr
 - [語言支援政策](docs/zh-TW/language-support.md)
 - [設備與平台支援](docs/zh-TW/device-support.md)
 - [路線圖](docs/zh-TW/roadmap.md)
+- [安裝與復原](docs/zh-TW/installation.md)
 - [貢獻指南](CONTRIBUTING.md)
 
 ## 預定倉庫結構
