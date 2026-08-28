@@ -1,0 +1,11 @@
+# Program / 程式
+
+<a href="../README.md">English index</a> · <a href="../README.zh-TW.md">繁中索引</a>
+
+Control EV3 program timing and termination explicitly.
+
+明確控制 EV3 程式的等待與結束行為。
+
+## Projects / 專案
+
+- [program-end](./program-end/) — Display a message, wait, and call `Program.End()`.／顯示訊息、等待並呼叫 `Program.End()`。

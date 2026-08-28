@@ -2,34 +2,36 @@
 
 These 24 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
 
-| Category        | Example                | What it teaches                                  | Hardware notes                       |
-| --------------- | ---------------------- | ------------------------------------------------ | ------------------------------------ |
-| Getting started | `hello-ev3`            | Text, a line, a tone, and a delay                | Display and speaker                  |
-| Display         | `display-write`        | Simple black text with `LCD.Write`               | Display                              |
-| Display         | `display-fonts`        | Tiny, small, and big fonts                       | Display                              |
-| Display         | `display-shapes`       | Lines, concentric circles, and coordinates       | Display                              |
-| Sound           | `speaker-scale`        | A four-note scale with arithmetic                | Speaker                              |
-| Sound           | `speaker-interrupt`    | Stop a long tone early                           | Speaker                              |
-| Control flow    | `control-flow`         | Variables, arithmetic, `For`, and drawing        | Display and speaker                  |
-| Control flow    | `while-loop`           | A finite `While` loop                            | Display                              |
-| Control flow    | `if-elseif`            | `If` / `ElseIf` / `Else`                         | Display and speaker                  |
-| Control flow    | `boolean-logic`        | Boolean values, `And`, and `Not`                 | Display and speaker                  |
-| Control flow    | `comparison-operators` | Parentheses, `>=`, `<>`, and combined conditions | Display                              |
-| Control flow    | `nested-control`       | An `If` nested inside a `For` loop               | Display                              |
-| Control flow    | `labels-and-goto`      | Labels, forward `Goto`, and relocation           | Display and speaker                  |
-| Language        | `case-insensitive`     | Mixed-case keywords, identifiers, and APIs       | Display                              |
-| Program         | `program-end`          | Explicitly end an EV3 program                    | Display                              |
-| Project         | `include-settings`     | One extension-free `Include` and shared values   | Motors A and D must be clear to move |
-| Project         | `include-multiple`     | Multiple project-relative `.bpi` files           | Motor A must be clear to move        |
-| Motor           | `motor-move`           | Blocking movement, delay, and brake              | Motors A and D                       |
-| Motor           | `motor-start-stop`     | Start motors continuously, then stop safely      | Motors A and D                       |
-| Motor           | `motor-reverse`        | Negative speed and reverse movement              | Motor A                              |
-| Motor           | `motor-sequence`       | Two blocking moves in sequence                   | Motors A and D                       |
-| Motor           | `motor-counter`        | Read a motor encoder and branch with `If`        | Motor A                              |
-| Sensor          | `sensor-threshold`     | Wait, read a percentage, and select feedback     | Touch sensor on input port 1         |
-| Sensor          | `sensor-sampling`      | Repeated sensor sampling in a finite loop        | Touch sensor on input port 1         |
+<a href="./getting-started/">Getting started</a> · <a href="./display/">Display</a> · <a href="./sound/">Sound</a> · <a href="./control-flow/">Control flow</a> · <a href="./language/">Language</a> · <a href="./program/">Program</a> · <a href="./projects/">Projects</a> · <a href="./motors/">Motors</a> · <a href="./sensors/">Sensors</a>
 
-Open a directory, its `kobrixa.json`, or its `src/main.bp` in Kobrixa. Build before connecting to an EV3. For motor examples, lift the robot so its wheels can turn safely during the first run.
+| Category        | Example                                                    | What it teaches                                  | Hardware notes                       |
+| --------------- | ---------------------------------------------------------- | ------------------------------------------------ | ------------------------------------ |
+| Getting started | [hello-ev3](getting-started/hello-ev3/)                    | Text, a line, a tone, and a delay                | Display and speaker                  |
+| Display         | [display-write](display/display-write/)                    | Simple black text with `LCD.Write`               | Display                              |
+| Display         | [display-fonts](display/display-fonts/)                    | Tiny, small, and big fonts                       | Display                              |
+| Display         | [display-shapes](display/display-shapes/)                  | Lines, concentric circles, and coordinates       | Display                              |
+| Sound           | [speaker-scale](sound/speaker-scale/)                      | A four-note scale with arithmetic                | Speaker                              |
+| Sound           | [speaker-interrupt](sound/speaker-interrupt/)              | Stop a long tone early                           | Speaker                              |
+| Control flow    | [control-flow](control-flow/control-flow/)                 | Variables, arithmetic, `For`, and drawing        | Display and speaker                  |
+| Control flow    | [while-loop](control-flow/while-loop/)                     | A finite `While` loop                            | Display                              |
+| Control flow    | [if-elseif](control-flow/if-elseif/)                       | `If` / `ElseIf` / `Else`                         | Display and speaker                  |
+| Control flow    | [boolean-logic](control-flow/boolean-logic/)               | Boolean values, `And`, and `Not`                 | Display and speaker                  |
+| Control flow    | [comparison-operators](control-flow/comparison-operators/) | Parentheses, `>=`, `<>`, and combined conditions | Display                              |
+| Control flow    | [nested-control](control-flow/nested-control/)             | An `If` nested inside a `For` loop               | Display                              |
+| Control flow    | [labels-and-goto](control-flow/labels-and-goto/)           | Labels, forward `Goto`, and relocation           | Display and speaker                  |
+| Language        | [case-insensitive](language/case-insensitive/)             | Mixed-case keywords, identifiers, and APIs       | Display                              |
+| Program         | [program-end](program/program-end/)                        | Explicitly end an EV3 program                    | Display                              |
+| Project         | [include-settings](projects/include-settings/)             | One extension-free `Include` and shared values   | Motors A and D must be clear to move |
+| Project         | [include-multiple](projects/include-multiple/)             | Multiple project-relative `.bpi` files           | Motor A must be clear to move        |
+| Motor           | [motor-move](motors/motor-move/)                           | Blocking movement, delay, and brake              | Motors A and D                       |
+| Motor           | [motor-start-stop](motors/motor-start-stop/)               | Start motors continuously, then stop safely      | Motors A and D                       |
+| Motor           | [motor-reverse](motors/motor-reverse/)                     | Negative speed and reverse movement              | Motor A                              |
+| Motor           | [motor-sequence](motors/motor-sequence/)                   | Two blocking moves in sequence                   | Motors A and D                       |
+| Motor           | [motor-counter](motors/motor-counter/)                     | Read a motor encoder and branch with `If`        | Motor A                              |
+| Sensor          | [sensor-threshold](sensors/sensor-threshold/)              | Wait, read a percentage, and select feedback     | Touch sensor on input port 1         |
+| Sensor          | [sensor-sampling](sensors/sensor-sampling/)                | Repeated sensor sampling in a finite loop        | Touch sensor on input port 1         |
+
+Each category is a physical folder under `examples/`; every link above opens the corresponding project folder. Open a project directory, its `kobrixa.json`, or its `src/main.bp` in Kobrixa. Build before connecting to an EV3. For motor examples, lift the robot so its wheels can turn safely during the first run.
 
 ## Verification status
 
