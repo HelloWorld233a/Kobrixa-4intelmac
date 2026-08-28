@@ -7,14 +7,14 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "pnpm -r --filter '!@kobrixa/desktop' build && pnpm --filter @kobrixa/desktop dev",
+    "dev": "pnpm -r --filter=!@kobrixa/desktop build && pnpm --filter @kobrixa/desktop dev",
     "build": "pnpm -r build",
     "check": "pnpm -r check && eslint .",
     "test": "pnpm -r test",
     "test:hardware": "node tests/hardware/run.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "package": "pnpm -r --filter '!@kobrixa/desktop' build && pnpm --filter @kobrixa/desktop package"
+    "package": "pnpm -r --filter=!@kobrixa/desktop build && pnpm --filter @kobrixa/desktop package"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
