@@ -1,0 +1,10 @@
+' Independently authored Kobrixa example
+' Parentheses make the two comparisons easy to read.
+value = 10
+LCD.Clear()
+If (value >= 5) And (value <> 7) Then
+  LCD.Text(1, 8, 18, 1, "Both tests passed")
+Else
+  LCD.Text(1, 8, 18, 1, "A test failed")
+EndIf
+LCD.Update()

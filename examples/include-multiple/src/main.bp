@@ -1,0 +1,7 @@
+' Independently authored Kobrixa example
+Include "shared/config"
+Include "shared/banner"
+
+Motor.Move("A", motorSpeed, motorDegrees, true)
+Program.Delay(pauseMs)
+Speaker.Tone(20, 660, 100)

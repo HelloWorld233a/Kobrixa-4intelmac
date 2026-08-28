@@ -8,13 +8,42 @@ import { loadProject } from "@kobrixa/compiler";
 import { validateIR } from "@kobrixa/ir";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
+const documentedExamples = [
+  "boolean-logic",
+  "case-insensitive",
+  "comparison-operators",
+  "control-flow",
+  "display-fonts",
+  "display-shapes",
+  "display-write",
+  "hello-ev3",
+  "if-elseif",
+  "include-multiple",
+  "include-settings",
+  "labels-and-goto",
+  "motor-counter",
+  "motor-move",
+  "motor-reverse",
+  "motor-sequence",
+  "motor-start-stop",
+  "nested-control",
+  "program-end",
+  "sensor-sampling",
+  "sensor-threshold",
+  "speaker-interrupt",
+  "speaker-scale",
+  "while-loop",
+];
 
 describe("shipped examples", () => {
   it("compiles every example to a valid native RBF image", async () => {
     const examplesRoot = path.join(repositoryRoot, "examples");
     const entries = await readdir(examplesRoot, { withFileTypes: true });
-    const examples = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-    expect(examples.length).toBeGreaterThan(1);
+    const examples = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    expect(examples).toEqual(documentedExamples);
 
     for (const name of examples) {
       const loaded = await loadProject(path.join(examplesRoot, name));

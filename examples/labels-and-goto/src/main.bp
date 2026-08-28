@@ -1,0 +1,10 @@
+' Independently authored Kobrixa example
+' Jump over an operation and continue at a named label.
+LCD.Clear()
+Goto Ready
+Speaker.Tone(30, 110, 500)
+
+Ready:
+LCD.Text(1, 8, 18, 1, "Reached Ready label")
+LCD.Update()
+Speaker.Tone(25, 660, 120)

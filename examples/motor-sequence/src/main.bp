@@ -1,0 +1,9 @@
+' Independently authored Kobrixa example
+' Lift the robot before running. Each blocking move finishes in order.
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "A then D")
+LCD.Update()
+Motor.Move("A", 30, 180, true)
+Program.Delay(150)
+Motor.Move("D", 30, 180, true)
+Speaker.Tone(20, 770, 100)

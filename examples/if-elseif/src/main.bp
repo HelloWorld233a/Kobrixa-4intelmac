@@ -1,0 +1,15 @@
+' Independently authored Kobrixa example
+' Select exactly one branch from an If / ElseIf / Else chain.
+level = 2
+LCD.Clear()
+If level = 1 Then
+  LCD.Text(1, 8, 18, 1, "Level one")
+  Speaker.Tone(20, 330, 100)
+ElseIf level = 2 Then
+  LCD.Text(1, 8, 18, 1, "Level two")
+  Speaker.Tone(20, 550, 100)
+Else
+  LCD.Text(1, 8, 18, 1, "Other level")
+  Speaker.Tone(20, 770, 100)
+EndIf
+LCD.Update()

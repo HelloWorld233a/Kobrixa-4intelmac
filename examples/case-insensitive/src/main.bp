@@ -1,0 +1,10 @@
+' Independently authored Kobrixa example
+' Basic Plus keywords, identifiers, and APIs are case-insensitive.
+CoUnT = 0
+lCd.ClEaR()
+wHiLe count < 3
+  X = 40 + COUNT * 48
+  lcd.CIRCLE(1, x, 52, 10)
+  cOuNt = Count + 1
+EnDwHiLe
+LCD.update()

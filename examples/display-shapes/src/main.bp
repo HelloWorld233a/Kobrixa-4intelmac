@@ -1,0 +1,9 @@
+' Independently authored Kobrixa example
+' Draw a small target using lines and circles.
+LCD.Clear()
+LCD.Circle(1, 89, 55, 30)
+LCD.Circle(1, 89, 55, 14)
+LCD.Line(1, 44, 55, 134, 55)
+LCD.Line(1, 89, 10, 89, 100)
+LCD.Update()
+Program.Delay(1200)

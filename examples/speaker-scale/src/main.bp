@@ -1,0 +1,8 @@
+' Independently authored Kobrixa example
+' Raise the pitch four times using integer arithmetic.
+pitch = 220
+For note = 1 To 4
+  Speaker.Tone(25, pitch, 120)
+  Program.Delay(150)
+  pitch = pitch + 110
+EndFor

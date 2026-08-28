@@ -1,0 +1,7 @@
+' Independently authored Kobrixa example
+' Display a message, wait briefly, and explicitly end the EV3 program.
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Program ending")
+LCD.Update()
+Program.Delay(500)
+Program.End()

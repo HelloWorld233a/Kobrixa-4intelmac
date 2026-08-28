@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Combine Boolean values with And and Not.
+armed = true
+blocked = false
+LCD.Clear()
+If armed And Not blocked Then
+  LCD.Text(1, 8, 18, 1, "Ready to run")
+  Speaker.Tone(25, 660, 120)
+Else
+  LCD.Text(1, 8, 18, 1, "Blocked")
+  Speaker.Tone(25, 220, 120)
+EndIf
+LCD.Update()

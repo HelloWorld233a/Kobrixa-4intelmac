@@ -1,0 +1,11 @@
+' Independently authored Kobrixa example
+' A finite While loop draws five circles from left to right.
+index = 0
+LCD.Clear()
+While index < 5
+  x = 22 + index * 33
+  LCD.Circle(1, x, 52, 9)
+  index = index + 1
+EndWhile
+LCD.Update()
+Program.Delay(1000)

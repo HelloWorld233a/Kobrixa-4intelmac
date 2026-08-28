@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Use an If inside a For loop to vary a drawing.
+LCD.Clear()
+For row = 1 To 3
+  y = row * 28
+  If row = 2 Then
+    LCD.Circle(1, 89, y, 12)
+  Else
+    LCD.Line(1, 42, y, 136, y)
+  EndIf
+EndFor
+LCD.Update()
+Program.Delay(1000)
