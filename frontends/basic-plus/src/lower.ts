@@ -23,6 +23,13 @@ function canonical(name: string): string {
   return name.toLocaleLowerCase("en-US");
 }
 
+function textualBoolean(value: string): boolean | undefined {
+  const normalized = value.toLocaleLowerCase("en-US");
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return undefined;
+}
+
 function toDiagnostic(code: string, message: string, span: SourceSpan): Diagnostic {
   return {
     code,
@@ -156,7 +163,7 @@ class FunctionBuilder {
     for (const branch of statement.branches) {
       const body = this.createBlock("if_body");
       const next = this.createBlock("if_next");
-      const condition = this.lowerExpression(branch.condition);
+      const condition = this.lowerExpression(branch.condition, { kind: "boolean" });
       this.terminate({
         op: "branch",
         condition: condition.value,
@@ -180,7 +187,7 @@ class FunctionBuilder {
     const end = this.createBlock("while_end");
     this.terminate({ op: "jump", target: conditionBlock.id, span: statement.span });
     this.switchTo(conditionBlock);
-    const condition = this.lowerExpression(statement.condition);
+    const condition = this.lowerExpression(statement.condition, { kind: "boolean" });
     this.terminate({
       op: "branch",
       condition: condition.value,
@@ -249,13 +256,18 @@ class FunctionBuilder {
     this.switchTo(end);
   }
 
-  private lowerExpression(expression: Expression): LoweredValue {
+  private lowerExpression(expression: Expression, expected?: IRType): LoweredValue {
     switch (expression.kind) {
       case "literal": {
         if (typeof expression.value === "boolean")
           return { value: { kind: "boolean", value: expression.value }, type: { kind: "boolean" } };
-        if (typeof expression.value === "string")
-          return { value: { kind: "string", value: expression.value }, type: { kind: "string" } };
+        if (typeof expression.value === "string") {
+          const booleanValue =
+            expected?.kind === "boolean" ? textualBoolean(expression.value) : undefined;
+          return booleanValue === undefined
+            ? { value: { kind: "string", value: expression.value }, type: { kind: "string" } }
+            : { value: { kind: "boolean", value: booleanValue }, type: { kind: "boolean" } };
+        }
         return Number.isInteger(expression.value)
           ? {
               value: { kind: "integer", value: expression.value },
@@ -268,7 +280,10 @@ class FunctionBuilder {
         return { value: { kind: "variable", name: variable.name }, type: variable.type };
       }
       case "unary": {
-        const value = this.lowerExpression(expression.value);
+        const value = this.lowerExpression(
+          expression.value,
+          expression.operator === "not" ? { kind: "boolean" } : undefined,
+        );
         const type: IRType =
           expression.operator === "not"
             ? { kind: "boolean" }
@@ -286,8 +301,11 @@ class FunctionBuilder {
         return { value: { kind: "variable", name: target.name }, type };
       }
       case "binary": {
-        const left = this.lowerExpression(expression.left);
-        const right = this.lowerExpression(expression.right);
+        const expectedOperand = ["and", "or"].includes(expression.operator)
+          ? ({ kind: "boolean" } as const)
+          : undefined;
+        const left = this.lowerExpression(expression.left, expectedOperand);
+        const right = this.lowerExpression(expression.right, expectedOperand);
         const booleanResult = ["=", "<>", "<", "<=", ">", ">=", "and", "or"].includes(
           expression.operator,
         );
@@ -326,8 +344,11 @@ class FunctionBuilder {
     expression: Extract<Expression, { kind: "call" }>,
     needsValue: boolean,
   ): LoweredValue | undefined {
-    const args = expression.args.map((argument) => this.lowerExpression(argument));
     const operation = getEV3Operation(expression.name);
+    const args = expression.args.map((argument, index) => {
+      const expected = operation?.parameters[index];
+      return this.lowerExpression(argument, expected ? { kind: expected } : undefined);
+    });
     if (operation) {
       if (operation.parameters.length !== args.length) {
         this.diagnostics.push(

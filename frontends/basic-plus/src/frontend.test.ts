@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SourceProject } from "@kobrixa/compiler";
+import { validateIR } from "@kobrixa/ir";
 import { BasicPlusFrontend, formatBasicPlus } from "./index.js";
 
 function project(content: string): SourceProject {
@@ -37,6 +38,39 @@ describe("BasicPlusFrontend", () => {
       new AbortController().signal,
     );
     expect(result.diagnostics[0]?.code).toBe("BP3001");
+  });
+
+  it("accepts bare and quoted Boolean values without turning display text into a Boolean", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(
+        'If "TrUe" Then\n  LCD.Text(1, 0, 0, 1, "True")\nEndIf\nWhile "False"\n  LCD.Clear()\nEndWhile\nMotor.Stop("A", true)\nMotor.Stop("A", "FaLsE")\n',
+      ),
+      new AbortController().signal,
+    );
+
+    expect(result.diagnostics).toEqual([]);
+    expect(validateIR(result.ir!)).toEqual([]);
+    const blocks = result.ir!.functions[0]!.blocks;
+    const branches = blocks.map((block) => block.terminator).filter((item) => item.op === "branch");
+    expect(branches.map((branch) => branch.condition)).toEqual(
+      expect.arrayContaining([
+        { kind: "boolean", value: true },
+        { kind: "boolean", value: false },
+      ]),
+    );
+    const calls = blocks
+      .flatMap((block) => block.instructions)
+      .filter((instruction) => instruction.op === "ev3-call");
+    expect(calls.find((call) => call.operation === "LCD.Text")?.args[4]).toEqual({
+      kind: "string",
+      value: "True",
+    });
+    expect(
+      calls.filter((call) => call.operation === "Motor.Stop").map((call) => call.args[1]),
+    ).toEqual([
+      { kind: "boolean", value: true },
+      { kind: "boolean", value: false },
+    ]);
   });
 
   it("formats blocks", () =>

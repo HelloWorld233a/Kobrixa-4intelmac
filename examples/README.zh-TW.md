@@ -35,7 +35,7 @@
 
 ## 驗證狀態
 
-語法與參數順序已逐項對照公開的 [CLEV3R English Help](https://github.com/iCheh/Clev3r-1/tree/main/Clever/bin/Release/Help/en)。範例現在使用 `LCD.Text(color, x, y, font, text)`、顏色在前的繪圖呼叫、`Motor.Move(ports, speed, degrees, brake)`、從 1 起算的感測器連接埠，以及省略副檔名的 `Include` 路徑。自動測試會解析所有範例、lowering 成 version 1 IR、驗證 IR，並產生結構有效的 `.rbf`；後端回歸測試也依 [LEGO EV3 Firmware Developer Kit](https://assets.education.lego.com/v3/assets/blt293eea581807678a/blt469be1e11ad37696/5f880384f71916144453a49f/lego-mindstorms-ev3-firmware-developer-kit.pdf?locale=en-us)檢查整數 operand、感測器連接埠轉換，以及 `Motor.Move` 的阻塞行為。
+語法與參數順序已逐項對照公開的 [CLEV3R English Help](https://github.com/iCheh/Clev3r-1/tree/main/Clever/bin/Release/Help/en)。範例現在使用 `LCD.Text(color, x, y, font, text)`、顏色在前的繪圖呼叫、`Motor.Move(ports, speed, degrees, brake)`、裸寫與舊式帶引號的兩種布林值、從 1 起算的感測器連接埠，以及省略副檔名的 `Include` 路徑。自動測試會解析所有範例、lowering 成 version 1 IR、驗證 IR，並產生結構有效的 `.rbf`；後端回歸測試也依 [LEGO EV3 Firmware Developer Kit](https://assets.education.lego.com/v3/assets/blt293eea581807678a/blt469be1e11ad37696/5f880384f71916144453a49f/lego-mindstorms-ev3-firmware-developer-kit.pdf?locale=en-us)檢查整數 operand、感測器連接埠轉換，以及 `Motor.Move` 的阻塞行為。
 
 因此目前可稱為已通過編譯器與 bytecode 驗證的 v1 candidate；USB／Wi-Fi 上傳及實機執行仍需在指定硬體上完成驗收，尚不宣稱已通過硬體認證。
 
