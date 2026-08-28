@@ -197,7 +197,7 @@ class FunctionBuilder {
 
   private compileFor(statement: Extract<Statement, { kind: "for" }>): void {
     const initial = this.lowerExpression(statement.start);
-    const variable = this.ensureVariable(statement.variable, { kind: "number" }, statement.span);
+    const variable = this.ensureVariable(statement.variable, initial.type, statement.span);
     this.emit({ op: "assign", target: variable.name, value: initial.value, span: statement.span });
     const conditionBlock = this.createBlock("for_condition");
     const body = this.createBlock("for_body");
@@ -225,7 +225,11 @@ class FunctionBuilder {
     this.compileStatements(statement.body);
     if (!this.#terminated) {
       const step = this.lowerExpression(statement.step);
-      const updated = this.newTemporary({ kind: "number" }, statement.span);
+      const updatedType: IRType =
+        variable.type.kind === "integer" && step.type.kind === "integer"
+          ? { kind: "integer" }
+          : { kind: "number" };
+      const updated = this.newTemporary(updatedType, statement.span);
       this.emit({
         op: "binary",
         target: updated.name,
@@ -252,7 +256,12 @@ class FunctionBuilder {
           return { value: { kind: "boolean", value: expression.value }, type: { kind: "boolean" } };
         if (typeof expression.value === "string")
           return { value: { kind: "string", value: expression.value }, type: { kind: "string" } };
-        return { value: { kind: "number", value: expression.value }, type: { kind: "number" } };
+        return Number.isInteger(expression.value)
+          ? {
+              value: { kind: "integer", value: expression.value },
+              type: { kind: "integer" },
+            }
+          : { value: { kind: "number", value: expression.value }, type: { kind: "number" } };
       }
       case "name": {
         const variable = this.ensureVariable(expression.name, { kind: "number" }, expression.span);
@@ -261,7 +270,11 @@ class FunctionBuilder {
       case "unary": {
         const value = this.lowerExpression(expression.value);
         const type: IRType =
-          expression.operator === "not" ? { kind: "boolean" } : { kind: "number" };
+          expression.operator === "not"
+            ? { kind: "boolean" }
+            : value.type.kind === "integer"
+              ? { kind: "integer" }
+              : { kind: "number" };
         const target = this.newTemporary(type, expression.span);
         this.emit({
           op: "unary",
@@ -283,7 +296,11 @@ class FunctionBuilder {
           : expression.operator === "+" &&
               (left.type.kind === "string" || right.type.kind === "string")
             ? { kind: "string" }
-            : { kind: "number" };
+            : left.type.kind === "integer" &&
+                right.type.kind === "integer" &&
+                expression.operator !== "/"
+              ? { kind: "integer" }
+              : { kind: "number" };
         const target = this.newTemporary(type, expression.span);
         this.emit({
           op: "binary",
@@ -321,6 +338,18 @@ class FunctionBuilder {
           ),
         );
       }
+      operation.parameters.forEach((expected, index) => {
+        const actual = args[index]?.type.kind;
+        if (actual && actual !== expected && !(expected === "number" && actual === "integer")) {
+          this.diagnostics.push(
+            toDiagnostic(
+              "BP3004",
+              `Argument ${index + 1} of '${operation.name}' expects ${expected}, got ${actual}.`,
+              expression.args[index]?.span ?? expression.span,
+            ),
+          );
+        }
+      });
       const type: IRType = { kind: operation.returns };
       const target =
         operation.returns !== "void" ? this.newTemporary(type, expression.span) : undefined;

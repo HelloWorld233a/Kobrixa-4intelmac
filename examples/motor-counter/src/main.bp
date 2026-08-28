@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Turn motor A by hand before running to test the encoder branch.
+count = Motor.GetCount("A")
+
+LCD.Clear()
+If count > 0 Then
+  LCD.Text(1, 8, 18, 1, "Encoder is positive")
+  Speaker.Tone(25, 660, 120)
+Else
+  LCD.Text(1, 8, 18, 1, "Encoder is zero/negative")
+  Speaker.Tone(25, 330, 120)
+EndIf
+LCD.Update()

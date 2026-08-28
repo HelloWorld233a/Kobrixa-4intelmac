@@ -95,6 +95,23 @@ function validateFunction(fn: IRFunction, globals: Map<string, IRType>): IRValid
               instruction.span,
             ),
           );
+        } else {
+          signature.parameters.forEach((expected, index) => {
+            const actual = valueType(instruction.args[index]!, symbols);
+            if (
+              actual &&
+              !sameType({ kind: expected }, actual) &&
+              !(expected === "number" && actual.kind === "integer")
+            ) {
+              issues.push(
+                issue(
+                  "IR1102",
+                  `Argument ${index + 1} of '${signature.name}' expects ${expected}, got ${actual.kind}.`,
+                  instruction.span,
+                ),
+              );
+            }
+          });
         }
       }
     }

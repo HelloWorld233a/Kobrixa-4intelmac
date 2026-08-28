@@ -1,0 +1,11 @@
+' Independently authored Kobrixa example
+' Lift the robot before the first run. Motors A and D move together.
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Moving motors A + D")
+LCD.Update()
+
+Motor.Move("AD", 35, 360, true)
+Program.Delay(500)
+Motor.Stop("AD", true)
+
+Speaker.Tone(25, 660, 120)

@@ -108,6 +108,18 @@ class ObjectAssembler {
     return lv(allocation.offset);
   }
 
+  private typeOf(value: IRValue): IRType | undefined {
+    if (value.kind !== "variable") return { kind: value.kind };
+    return this.allocations.get(value.name.toLocaleLowerCase("en-US"))?.type;
+  }
+
+  private sensorPort(value: IRValue): number[] | undefined {
+    if ((value.kind === "integer" || value.kind === "number") && Number.isInteger(value.value)) {
+      return value.value >= 1 && value.value <= 4 ? lc(value.value - 1) : undefined;
+    }
+    return undefined;
+  }
+
   private instruction(instruction: IRInstruction): void {
     const target =
       "target" in instruction && instruction.target
@@ -144,7 +156,9 @@ class ObjectAssembler {
       const source = this.parameter(instruction.value);
       if (!source) return;
       if (instruction.operator === "not")
-        this.bytes.push(OP.CP_EQ_F, ...source, ...lcf(0), ...lv(target.offset));
+        this.bytes.push(OP.CP_EQ_8, ...source, ...lc(0), ...lv(target.offset));
+      else if (target.type.kind === "integer")
+        this.bytes.push(OP.SUB_32, ...lc(0), ...source, ...lv(target.offset));
       else this.bytes.push(OP.SUB_F, ...lcf(0), ...source, ...lv(target.offset));
       return;
     }
@@ -152,21 +166,40 @@ class ObjectAssembler {
       const left = this.parameter(instruction.left);
       const right = this.parameter(instruction.right);
       if (!left || !right) return;
-      const opcodes: Partial<Record<Extract<IRInstruction, { op: "binary" }>["operator"], number>> =
-        {
-          "+": OP.ADD_F,
-          "-": OP.SUB_F,
-          "*": OP.MUL_F,
-          "/": OP.DIV_F,
-          and: OP.AND_8,
-          or: OP.OR_8,
-          "<": OP.CP_LT_F,
-          ">": OP.CP_GT_F,
-          "<=": OP.CP_LTEQ_F,
-          ">=": OP.CP_GTEQ_F,
-          "=": OP.CP_EQ_F,
-          "<>": OP.CP_NEQ_F,
-        };
+      const integerOperands =
+        this.typeOf(instruction.left)?.kind === "integer" &&
+        this.typeOf(instruction.right)?.kind === "integer";
+      const floatOpcodes: Partial<
+        Record<Extract<IRInstruction, { op: "binary" }>["operator"], number>
+      > = {
+        "+": OP.ADD_F,
+        "-": OP.SUB_F,
+        "*": OP.MUL_F,
+        "/": OP.DIV_F,
+        "<": OP.CP_LT_F,
+        ">": OP.CP_GT_F,
+        "<=": OP.CP_LTEQ_F,
+        ">=": OP.CP_GTEQ_F,
+        "=": OP.CP_EQ_F,
+        "<>": OP.CP_NEQ_F,
+      };
+      const integerOpcodes: typeof floatOpcodes = {
+        "+": OP.ADD_32,
+        "-": OP.SUB_32,
+        "*": OP.MUL_32,
+        "/": OP.DIV_32,
+        "<": OP.CP_LT_32,
+        ">": OP.CP_GT_32,
+        "<=": OP.CP_LTEQ_32,
+        ">=": OP.CP_GTEQ_32,
+        "=": OP.CP_EQ_32,
+        "<>": OP.CP_NEQ_32,
+      };
+      const opcodes: typeof floatOpcodes = {
+        ...(integerOperands ? integerOpcodes : floatOpcodes),
+        and: OP.AND_8,
+        or: OP.OR_8,
+      };
       const opcode = opcodes[instruction.operator];
       if (opcode === undefined || instruction.operator === "%") {
         this.diagnostics.push(
@@ -214,27 +247,38 @@ class ObjectAssembler {
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.UPDATE));
         return;
       case "LCD.Text":
+        this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.SELECT_FONT), ...arg(3));
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.TEXT),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(4),
+        );
+        return;
+      case "LCD.Write":
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.TEXT), ...lc(1), ...arg(0), ...arg(1), ...arg(2));
         return;
       case "LCD.Line":
         this.bytes.push(
           OP.UI_DRAW,
           ...lc(UI_DRAW.LINE),
-          ...lc(1),
           ...arg(0),
           ...arg(1),
           ...arg(2),
           ...arg(3),
+          ...arg(4),
         );
         return;
       case "LCD.Circle":
         this.bytes.push(
           OP.UI_DRAW,
           ...lc(UI_DRAW.CIRCLE),
-          ...lc(1),
           ...arg(0),
           ...arg(1),
           ...arg(2),
+          ...arg(3),
         );
         return;
       case "Speaker.Tone":
@@ -246,7 +290,7 @@ class ObjectAssembler {
       case "Speaker.Stop":
         this.bytes.push(OP.SOUND, ...lc(SOUND.BREAK));
         return;
-      case "Program.Stop":
+      case "Program.End":
         this.bytes.push(OP.PROGRAM_STOP, ...lc(1));
         return;
       case "Program.Delay": {
@@ -288,6 +332,7 @@ class ObjectAssembler {
           ...lc(0),
           ...arg(3),
         );
+        this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
         return;
       }
       case "Motor.GetCount": {
@@ -298,16 +343,33 @@ class ObjectAssembler {
         this.bytes.push(OP.OUTPUT_GET_COUNT, ...lc(0), ...lc(port), ...lv(target.offset));
         return;
       }
-      case "Sensor.Read": {
+      case "Sensor.ReadPercent": {
         if (!target) break;
+        const port = this.sensorPort(instruction.args[0]!);
+        if (!port) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32011",
+              "Sensor port must be a constant from 1 through 4 in v1.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
         this.bytes.push(
-          OP.INPUT_READ_SI,
+          OP.INPUT_READ,
           ...lc(0),
-          ...arg(0),
+          ...port,
           ...lc(0),
-          ...arg(1),
+          ...lc(-1),
           ...lv(target.offset),
         );
+        return;
+      }
+      case "Sensor.Wait": {
+        const port = this.sensorPort(instruction.args[0]!);
+        if (!port) break;
+        this.bytes.push(OP.INPUT_READY, ...lc(0), ...port);
         return;
       }
     }

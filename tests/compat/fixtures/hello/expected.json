@@ -2,7 +2,7 @@
   "compile": "success",
   "events": [
     { "operation": "LCD.Clear", "arguments": [] },
-    { "operation": "LCD.Text", "arguments": [0, 0, "Hello"] },
+    { "operation": "LCD.Write", "arguments": [0, 0, "Hello"] },
     { "operation": "LCD.Update", "arguments": [] }
   ]
 }

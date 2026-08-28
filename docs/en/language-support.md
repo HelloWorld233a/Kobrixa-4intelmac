@@ -21,7 +21,7 @@ The clean-room frontend targets behavioral compatibility with supported legacy p
 
 Compatibility means the original source runs without modification and has equivalent observable behavior on the reference brick. Whitespace, generated listings, instruction layout, and `.rbf` bytes may differ.
 
-Compatibility is established from public behavior specifications and independently written cases. Clev3r source, assets, documentation, and protected implementation expression are not inputs to Kobrixa.
+Compatibility is established from public behavior specifications and independently written cases. Public Help may be consulted for externally visible syntax and behavior, but CLEV3R source, documentation text, assets, generated output, and protected implementation expression are not copied into Kobrixa.
 
 ## Python — planned after v1
 

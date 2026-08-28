@@ -23,7 +23,7 @@ describe("v1 compiler pipeline", () => {
     );
     await writeFile(
       path.join(root, "main.bp"),
-      'LCD.Clear()\nLCD.Text(0, 0, "Hello")\nLCD.Update()\n',
+      'LCD.Clear()\nLCD.Text(1, 0, 0, 1, "Hello")\nLCD.Update()\n',
     );
     const loaded = await loadProject(root);
     expect(loaded.diagnostics).toEqual([]);

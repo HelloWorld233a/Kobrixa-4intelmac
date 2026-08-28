@@ -1,0 +1,14 @@
+' Independently authored Kobrixa example
+' Draw four circles while raising the tone pitch.
+LCD.Clear()
+
+For step = 1 To 4
+  x = step * 34
+  pitch = 220 + step * 110
+  LCD.Circle(1, x, 58, 10)
+  Speaker.Tone(25, pitch, 90)
+  Program.Delay(120)
+EndFor
+
+LCD.Line(1, 8, 92, 169, 92)
+LCD.Update()

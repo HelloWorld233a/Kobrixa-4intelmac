@@ -62,6 +62,7 @@ Node.js and TypeScript describe Kobrixa's implementation stack. C++ remains a se
 - [Device and platform support](docs/en/device-support.md)
 - [Roadmap](docs/en/roadmap.md)
 - [Installation and recovery](docs/en/installation.md)
+- [Examples](examples/README.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Intended repository layout

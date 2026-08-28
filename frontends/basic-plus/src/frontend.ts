@@ -63,19 +63,23 @@ export class BasicPlusFrontend implements LanguageFrontend {
       if (visited.has(file.file)) return;
       active.add(file.file);
       for (const include of file.includes) {
-        const includePath = path.posix.normalize(
+        const requestedPath = path.posix.normalize(
           path.posix.join(path.posix.dirname(file.file), include.path),
         );
         if (
-          includePath === ".." ||
-          includePath.startsWith("../") ||
-          path.posix.isAbsolute(includePath)
+          requestedPath === ".." ||
+          requestedPath.startsWith("../") ||
+          path.posix.isAbsolute(requestedPath)
         ) {
           diagnostics.push(
             includeDiagnostic("BP1101", "Include path escapes the project root.", include),
           );
           continue;
         }
+        const candidates = path.posix.extname(requestedPath)
+          ? [requestedPath]
+          : [`${requestedPath}.bpi`, requestedPath];
+        const includePath = candidates.find((candidate) => parsed.has(candidate)) ?? candidates[0]!;
         if (active.has(includePath)) {
           diagnostics.push(
             includeDiagnostic("BP1102", `Include cycle detected at '${includePath}'.`, include),

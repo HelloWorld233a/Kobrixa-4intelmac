@@ -54,7 +54,7 @@ export class WorkspaceService {
     });
     await writeFile(
       path.join(sourceDir, "main.bp"),
-      'LCD.Clear()\nLCD.Text(8, 18, "Hello from Kobrixa")\nLCD.Update()\n',
+      'LCD.Clear()\nLCD.Text(1, 8, 18, 1, "Hello from Kobrixa")\nLCD.Update()\n',
       { flag: "wx" },
     );
     return this.register(root);

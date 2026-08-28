@@ -1,0 +1,9 @@
+' Independently authored Kobrixa example
+Include "lib/settings"
+
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Using shared settings")
+LCD.Update()
+Motor.Move("AD", driveSpeed, travelDegrees, true)
+Program.Delay(pauseMs)
+Motor.Stop("AD", true)

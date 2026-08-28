@@ -1,0 +1,14 @@
+' Independently authored Kobrixa example
+' Wait for the touch sensor on input port 1, then read its percentage value.
+Sensor.Wait(1)
+reading = Sensor.ReadPercent(1)
+
+LCD.Clear()
+If reading < 20 Then
+  LCD.Text(1, 8, 18, 1, "Below threshold")
+  Speaker.Tone(30, 880, 160)
+Else
+  LCD.Text(1, 8, 18, 1, "Threshold is clear")
+  Speaker.Tone(20, 440, 100)
+EndIf
+LCD.Update()

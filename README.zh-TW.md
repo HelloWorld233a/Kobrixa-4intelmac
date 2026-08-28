@@ -62,6 +62,7 @@ Node.js 與 TypeScript 是 Kobrixa 的內部實作技術；C++ 則仍是 TypeScr
 - [設備與平台支援](docs/zh-TW/device-support.md)
 - [路線圖](docs/zh-TW/roadmap.md)
 - [安裝與復原](docs/zh-TW/installation.md)
+- [範例](examples/README.zh-TW.md)
 - [貢獻指南](CONTRIBUTING.md)
 
 ## 預定倉庫結構

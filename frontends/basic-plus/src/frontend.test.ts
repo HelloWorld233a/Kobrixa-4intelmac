@@ -23,7 +23,7 @@ describe("BasicPlusFrontend", () => {
   it("lowers case-insensitive control flow and EV3 calls", async () => {
     const result = await new BasicPlusFrontend().compile(
       project(
-        'Count = 0\nWHILE Count < 2\n  LCD.Text(0, 0, "Hi")\n  Count = Count + 1\nEndWhile\n',
+        'Count = 0\nWHILE Count < 2\n  LCD.Text(1, 0, 0, 1, "Hi")\n  Count = Count + 1\nEndWhile\n',
       ),
       new AbortController().signal,
     );

@@ -8,49 +8,61 @@ export interface EV3OperationSignature {
 }
 
 const operations: EV3OperationSignature[] = [
-  { name: "Motor.Start", category: "motor", parameters: ["string", "number"], returns: "void" },
+  { name: "Motor.Start", category: "motor", parameters: ["string", "integer"], returns: "void" },
   { name: "Motor.Stop", category: "motor", parameters: ["string", "boolean"], returns: "void" },
   {
     name: "Motor.Move",
     category: "motor",
-    parameters: ["string", "number", "number", "boolean"],
+    parameters: ["string", "integer", "integer", "boolean"],
     returns: "void",
   },
-  { name: "Motor.GetCount", category: "motor", parameters: ["string"], returns: "number" },
+  { name: "Motor.GetCount", category: "motor", parameters: ["string"], returns: "integer" },
   {
-    name: "Sensor.Read",
+    name: "Sensor.ReadPercent",
+    category: "sensor",
+    parameters: ["integer"],
+    returns: "integer",
+  },
+  {
+    name: "Sensor.ReadRawValue",
     category: "sensor",
     parameters: ["integer", "integer"],
-    returns: "number",
+    returns: "integer",
   },
-  { name: "Sensor.Wait", category: "sensor", parameters: ["integer", "number"], returns: "void" },
+  { name: "Sensor.Wait", category: "sensor", parameters: ["integer"], returns: "void" },
   { name: "LCD.Clear", category: "display", parameters: [], returns: "void" },
   {
-    name: "LCD.Text",
+    name: "LCD.Write",
     category: "display",
     parameters: ["integer", "integer", "string"],
     returns: "void",
   },
   {
+    name: "LCD.Text",
+    category: "display",
+    parameters: ["integer", "integer", "integer", "integer", "string"],
+    returns: "void",
+  },
+  {
     name: "LCD.Line",
     category: "display",
-    parameters: ["integer", "integer", "integer", "integer"],
+    parameters: ["integer", "integer", "integer", "integer", "integer"],
     returns: "void",
   },
   {
     name: "LCD.Circle",
     category: "display",
-    parameters: ["integer", "integer", "integer"],
+    parameters: ["integer", "integer", "integer", "integer"],
     returns: "void",
   },
   { name: "LCD.Update", category: "display", parameters: [], returns: "void" },
   {
     name: "Speaker.Tone",
     category: "speaker",
-    parameters: ["number", "number", "number"],
+    parameters: ["integer", "integer", "integer"],
     returns: "void",
   },
-  { name: "Speaker.Play", category: "speaker", parameters: ["number", "string"], returns: "void" },
+  { name: "Speaker.Play", category: "speaker", parameters: ["integer", "string"], returns: "void" },
   { name: "Speaker.Stop", category: "speaker", parameters: [], returns: "void" },
   { name: "Button.IsPressed", category: "button", parameters: ["string"], returns: "boolean" },
   { name: "EV3File.OpenRead", category: "file", parameters: ["string"], returns: "integer" },
@@ -65,8 +77,8 @@ const operations: EV3OperationSignature[] = [
   },
   { name: "Mailbox.Send", category: "mailbox", parameters: ["string", "string"], returns: "void" },
   { name: "Mailbox.Receive", category: "mailbox", parameters: ["string"], returns: "string" },
-  { name: "Program.Delay", category: "program", parameters: ["number"], returns: "void" },
-  { name: "Program.Stop", category: "program", parameters: [], returns: "void" },
+  { name: "Program.Delay", category: "program", parameters: ["integer"], returns: "void" },
+  { name: "Program.End", category: "program", parameters: [], returns: "void" },
 ];
 
 export const EV3_OPERATION_CATALOG = new Map(
