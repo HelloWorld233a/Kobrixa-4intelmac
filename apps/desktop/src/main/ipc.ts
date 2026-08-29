@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import { z } from "zod";
 import type { BuildService } from "./build.js";
 import type { DeviceService } from "./device.js";
+import type { LanguageService } from "./language.js";
 import type { WorkspaceService } from "./workspace.js";
 
 const id = z.string().uuid();
@@ -10,6 +11,15 @@ const file = z
   .string()
   .min(1)
   .max(1024)
+  .refine((value) => !value.includes("\0"));
+const directory = z
+  .string()
+  .max(1024)
+  .refine((value) => !value.includes("\0"));
+const entryName = z
+  .string()
+  .min(1)
+  .max(255)
   .refine((value) => !value.includes("\0"));
 const content = z.string().max(8 * 1024 * 1024);
 const descriptor = z.object({
@@ -37,6 +47,7 @@ export function registerIpc(
   trustedRenderer: () => WebContents | undefined,
   workspaces: WorkspaceService,
   builds: BuildService,
+  language: LanguageService,
   devices: DeviceService,
 ): void {
   const trusted = (event: IpcMainInvokeEvent): void => {
@@ -77,12 +88,32 @@ export function registerIpc(
         z.union([content, z.undefined()]).parse(source),
       ),
   );
+  handle(
+    "workspace:create-entry",
+    (_event, workspaceId: unknown, parent: unknown, kind: unknown, name: unknown) =>
+      workspaces.createEntry(
+        id.parse(workspaceId),
+        directory.parse(parent),
+        z.enum(["file", "directory"]).parse(kind),
+        entryName.parse(name),
+      ),
+  );
+  handle("workspace:move-entry", (_event, workspaceId: unknown, source: unknown, target: unknown) =>
+    workspaces.moveEntry(id.parse(workspaceId), file.parse(source), file.parse(target)),
+  );
+  handle("workspace:trash-entry", (_event, workspaceId: unknown, entry: unknown) =>
+    workspaces.trashEntry(id.parse(workspaceId), file.parse(entry)),
+  );
 
   handle("build:start", (_event, workspaceId: unknown, overlays: unknown) =>
     builds.start(id.parse(workspaceId), z.record(file, content).parse(overlays)),
   );
   handle("build:cancel", (_event, buildId: unknown) => builds.cancel(id.parse(buildId)));
   handle("build:artifacts", (_event, buildId: unknown) => builds.artifacts(id.parse(buildId)));
+
+  handle("language:diagnostics", (_event, workspaceId: unknown, overlays: unknown) =>
+    language.diagnostics(id.parse(workspaceId), z.record(file, content).parse(overlays)),
+  );
 
   handle("device:discover", () => devices.discover());
   handle("device:connect", (_event, target: unknown) => devices.connect(parseDescriptor(target)));

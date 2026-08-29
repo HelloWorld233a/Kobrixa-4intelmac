@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { SourceProject } from "@kobrixa/compiler";
 import { validateIR } from "@kobrixa/ir";
-import { BasicPlusFrontend, formatBasicPlus } from "./index.js";
+import {
+  BASIC_PLUS_API_COMPLETIONS,
+  BASIC_PLUS_KEYWORDS,
+  BasicPlusFrontend,
+  formatBasicPlus,
+} from "./index.js";
 
 function project(content: string): SourceProject {
   return {
@@ -75,4 +80,18 @@ describe("BasicPlusFrontend", () => {
 
   it("formats blocks", () =>
     expect(formatBasicPlus("If True Then\nLCD.Clear()\nEndIf\n")).toContain("  LCD.Clear()"));
+
+  it("describes keyword and EV3 API completions", () => {
+    expect(BASIC_PLUS_KEYWORDS).toContain("Dim");
+    expect(BASIC_PLUS_API_COMPLETIONS.find((item) => item.label === "Motor.Start")).toMatchObject({
+      signature: "Motor.Start(string, integer)",
+      insertText: 'Motor.Start("${1}", ${2:0})',
+      category: "motor",
+    });
+    expect(
+      BASIC_PLUS_API_COMPLETIONS.find((item) => item.label === "Button.IsPressed"),
+    ).toMatchObject({
+      signature: "Button.IsPressed(string): boolean",
+    });
+  });
 });

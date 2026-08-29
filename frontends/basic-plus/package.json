@@ -4,7 +4,10 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./language": "./dist/language.js"
+  },
   "files": [
     "dist"
   ],

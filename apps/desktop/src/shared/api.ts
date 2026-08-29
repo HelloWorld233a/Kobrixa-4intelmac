@@ -12,10 +12,22 @@ export interface WorkspaceSummary {
   name: string;
   rootLabel: string;
   files: string[];
+  entries: WorkspaceEntry[];
   manifest?: ProjectManifest;
   implicit: boolean;
   entryCandidates: string[];
   drafts: Record<string, string>;
+}
+
+export interface WorkspaceEntry {
+  path: string;
+  kind: "file" | "directory";
+}
+
+export interface WorkspaceMutationResult {
+  workspace: WorkspaceSummary;
+  moved: Record<string, string>;
+  removed: string[];
 }
 
 export type BuildEvent =
@@ -39,12 +51,27 @@ export interface KobrixaApi {
     read(workspaceId: string, file: string): Promise<string>;
     write(workspaceId: string, file: string, content: string): Promise<void>;
     saveDraft(workspaceId: string, file: string, content: string | undefined): Promise<void>;
+    createEntry(
+      workspaceId: string,
+      parent: string,
+      kind: WorkspaceEntry["kind"],
+      name: string,
+    ): Promise<WorkspaceMutationResult>;
+    moveEntry(
+      workspaceId: string,
+      source: string,
+      target: string,
+    ): Promise<WorkspaceMutationResult>;
+    trashEntry(workspaceId: string, entry: string): Promise<WorkspaceMutationResult>;
   };
   build: {
     start(workspaceId: string, overlays: Record<string, string>): Promise<string>;
     cancel(buildId: string): Promise<void>;
     artifacts(buildId: string): Promise<BuildArtifact[]>;
     onEvent(listener: (event: BuildEvent) => void): () => void;
+  };
+  language: {
+    diagnostics(workspaceId: string, overlays: Record<string, string>): Promise<Diagnostic[]>;
   };
   device: {
     discover(): Promise<DeviceDescriptor[]>;

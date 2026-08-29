@@ -1,7 +1,8 @@
-import { EV3_OPERATION_CATALOG } from "@kobrixa/ir";
+import { EV3_OPERATION_CATALOG, type IRPrimitiveType } from "@kobrixa/ir";
 
 export const BASIC_PLUS_KEYWORDS = [
   "And",
+  "Dim",
   "Else",
   "ElseIf",
   "EndFor",
@@ -29,9 +30,52 @@ export const BASIC_PLUS_KEYWORDS = [
   "While",
 ] as const;
 
+export interface BasicPlusApiCompletion {
+  label: string;
+  category: string;
+  signature: string;
+  insertText: string;
+  documentation: string;
+}
+
+const placeholderByType: Record<IRPrimitiveType, string> = {
+  boolean: "True",
+  integer: "0",
+  number: "0",
+  string: "",
+  void: "",
+};
+
+function argumentSnippet(type: IRPrimitiveType, tabstop: number): string {
+  return type === "string" ? `"\${${tabstop}}"` : `\${${tabstop}:${placeholderByType[type]}}`;
+}
+
+export const BASIC_PLUS_API_COMPLETIONS: readonly BasicPlusApiCompletion[] = [
+  ...EV3_OPERATION_CATALOG.values(),
+]
+  .map((operation) => {
+    const parameters = operation.parameters.join(", ");
+    const signature = `${operation.name}(${parameters})${
+      operation.returns === "void" ? "" : `: ${operation.returns}`
+    }`;
+    const argumentsSnippet = operation.parameters
+      .map((type, index) => argumentSnippet(type, index + 1))
+      .join(", ");
+    return {
+      label: operation.name,
+      category: operation.category,
+      signature,
+      insertText: `${operation.name}(${argumentsSnippet})`,
+      documentation: `EV3 ${operation.category} API. ${
+        operation.returns === "void" ? "Does not return a value." : `Returns ${operation.returns}.`
+      }`,
+    };
+  })
+  .sort((left, right) => left.label.localeCompare(right.label));
+
 export const BASIC_PLUS_COMPLETIONS = [
   ...BASIC_PLUS_KEYWORDS,
-  ...[...EV3_OPERATION_CATALOG.values()].map((operation) => operation.name),
+  ...BASIC_PLUS_API_COMPLETIONS.map((completion) => completion.label),
 ].sort((left, right) => left.localeCompare(right));
 
 export function formatBasicPlus(source: string): string {

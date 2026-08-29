@@ -12,6 +12,12 @@ const api: KobrixaApi = {
       ipcRenderer.invoke("workspace:write", workspaceId, file, content),
     saveDraft: (workspaceId, file, content) =>
       ipcRenderer.invoke("workspace:save-draft", workspaceId, file, content),
+    createEntry: (workspaceId, parent, kind, name) =>
+      ipcRenderer.invoke("workspace:create-entry", workspaceId, parent, kind, name),
+    moveEntry: (workspaceId, source, target) =>
+      ipcRenderer.invoke("workspace:move-entry", workspaceId, source, target),
+    trashEntry: (workspaceId, entry) =>
+      ipcRenderer.invoke("workspace:trash-entry", workspaceId, entry),
   },
   build: {
     start: (workspaceId, overlays) => ipcRenderer.invoke("build:start", workspaceId, overlays),
@@ -23,6 +29,10 @@ const api: KobrixaApi = {
       ipcRenderer.on("build:event", handler);
       return () => ipcRenderer.removeListener("build:event", handler);
     },
+  },
+  language: {
+    diagnostics: (workspaceId, overlays) =>
+      ipcRenderer.invoke("language:diagnostics", workspaceId, overlays),
   },
   device: {
     discover: () => ipcRenderer.invoke("device:discover"),

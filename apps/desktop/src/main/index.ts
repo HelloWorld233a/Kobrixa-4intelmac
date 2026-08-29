@@ -3,6 +3,7 @@ import { app, BrowserWindow, session, shell } from "electron";
 import { BuildService } from "./build.js";
 import { DeviceService } from "./device.js";
 import { registerIpc } from "./ipc.js";
+import { LanguageService } from "./language.js";
 import { WorkspaceService } from "./workspace.js";
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -62,8 +63,9 @@ void app.whenReady().then(() => {
   const workspaces = new WorkspaceService();
   const renderer = () => mainWindow?.webContents;
   const builds = new BuildService(workspaces, renderer);
+  const language = new LanguageService(workspaces);
   const devices = new DeviceService(builds, renderer);
-  registerIpc(renderer, workspaces, builds, devices);
+  registerIpc(renderer, workspaces, builds, language, devices);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

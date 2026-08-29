@@ -1,6 +1,10 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as monaco from "monaco-editor";
-import { BASIC_PLUS_COMPLETIONS, BASIC_PLUS_KEYWORDS, formatBasicPlus } from "@kobrixa/basic-plus";
+import {
+  BASIC_PLUS_API_COMPLETIONS,
+  BASIC_PLUS_KEYWORDS,
+  formatBasicPlus,
+} from "@kobrixa/basic-plus/language";
 import type { Diagnostic } from "../shared/api.js";
 
 let registered = false;
@@ -8,30 +12,100 @@ function registerLanguage(): void {
   if (registered) return;
   registered = true;
   monaco.languages.register({ id: "basic-plus", extensions: [".bp", ".bpi", ".bpm"] });
+  monaco.languages.setLanguageConfiguration("basic-plus", {
+    comments: { lineComment: "'" },
+    brackets: [
+      ["(", ")"],
+      ["[", "]"],
+    ],
+    autoClosingPairs: [
+      { open: "(", close: ")" },
+      { open: "[", close: "]" },
+      { open: '"', close: '"', notIn: ["string", "comment"] },
+    ],
+    surroundingPairs: [
+      { open: "(", close: ")" },
+      { open: "[", close: "]" },
+      { open: '"', close: '"' },
+    ],
+    indentationRules: {
+      increaseIndentPattern:
+        /^\s*(?:If\b.*\bThen\s*$|Else\s*$|ElseIf\b.*\bThen\s*$|While\b|For\b|Sub\b|Function\b|Module\b)/i,
+      decreaseIndentPattern:
+        /^\s*(?:Else\s*$|ElseIf\b|EndIf\b|EndWhile\b|EndFor\b|EndSub\b|EndFunction\b|EndModule\b)/i,
+    },
+  });
+  const ev3Namespaces = [
+    ...new Set(BASIC_PLUS_API_COMPLETIONS.map((item) => item.label.split(".")[0]!)),
+  ];
   monaco.languages.setMonarchTokensProvider("basic-plus", {
     ignoreCase: true,
     keywords: [...BASIC_PLUS_KEYWORDS],
+    ev3Namespaces,
     tokenizer: {
       root: [
-        [/[A-Za-z_][\w.]*/, { cases: { "@keywords": "keyword", "@default": "identifier" } }],
-        [/\d+(?:\.\d+)?/, "number"],
-        [/"(?:[^"]|"")*"/, "string"],
+        [/[ \t\r]+/, "white"],
         [/'[^\n]*/, "comment"],
+        [/[A-Za-z_]\w*(?=\s*\()/, { cases: { "@keywords": "keyword", "@default": "function" } }],
+        [
+          /[A-Za-z_]\w*/,
+          {
+            cases: {
+              "@keywords": "keyword",
+              "@ev3Namespaces": "ev3.namespace",
+              "@default": "identifier",
+            },
+          },
+        ],
+        [/(?:\d+\.\d*|\.\d+|\d+)/, "number"],
+        [/"(?:[^"]|"")*"/, "string"],
+        [/"[^\n]*$/, "string.invalid"],
         [/[=<>+\-*/%]+/, "operator"],
+        [/[()[\],.:]/, "delimiter"],
       ],
     },
   });
+  monaco.editor.defineTheme("kobrixa-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "ev3.namespace", foreground: "4EC9B0", fontStyle: "bold" },
+      { token: "function", foreground: "DCDCAA" },
+    ],
+    colors: {},
+  });
   monaco.languages.registerCompletionItemProvider("basic-plus", {
-    provideCompletionItems: () => ({
-      suggestions: BASIC_PLUS_COMPLETIONS.map((label) => ({
-        label,
-        kind: label.includes(".")
-          ? monaco.languages.CompletionItemKind.Method
-          : monaco.languages.CompletionItemKind.Keyword,
-        insertText: label,
-        range: undefined as never,
-      })),
-    }),
+    triggerCharacters: ["."],
+    provideCompletionItems: (model, position) => {
+      const beforeCursor = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+      const prefix = beforeCursor.match(/[A-Za-z_][\w.]*$/)?.[0] ?? "";
+      const range = new monaco.Range(
+        position.lineNumber,
+        position.column - prefix.length,
+        position.lineNumber,
+        position.column,
+      );
+      const keywordSuggestions = prefix.includes(".")
+        ? []
+        : BASIC_PLUS_KEYWORDS.map((label) => ({
+            label,
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: label,
+            range,
+          }));
+      const apiSuggestions = BASIC_PLUS_API_COMPLETIONS.map((completion) => ({
+        label: completion.label,
+        kind: monaco.languages.CompletionItemKind.Method,
+        insertText: completion.insertText,
+        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        detail: completion.signature,
+        documentation: {
+          value: `**${completion.signature}**\n\n${completion.documentation}`,
+        },
+        range,
+      }));
+      return { suggestions: [...keywordSuggestions, ...apiSuggestions] };
+    },
   });
   monaco.languages.registerDocumentFormattingEditProvider("basic-plus", {
     provideDocumentFormattingEdits: (model) => [
@@ -40,37 +114,118 @@ function registerLanguage(): void {
   });
 }
 
+export interface CursorPosition {
+  line: number;
+  column: number;
+}
+
+export interface EditorFocusTarget {
+  file: string;
+  range: Diagnostic["range"];
+  requestId: number;
+}
+
+export interface EditorHandle {
+  focus(): void;
+  format(): Promise<void>;
+  reveal(range: Diagnostic["range"]): void;
+  remapFiles(moved: Readonly<Record<string, string>>): void;
+}
+
 interface EditorProps {
   file: string;
   value: string;
+  openFiles: string[];
   diagnostics: Diagnostic[];
-  focusLine: number | undefined;
-  onChange(value: string): void;
+  focusTarget: EditorFocusTarget | undefined;
+  ariaLabel: string;
+  onChange(file: string, value: string): void;
+  onCursorChange(position: CursorPosition): void;
 }
 
-export function Editor({
-  file,
-  value,
-  diagnostics,
-  focusLine,
-  onChange,
-}: EditorProps): React.JSX.Element {
+function modelUri(file: string): monaco.Uri {
+  return monaco.Uri.from({ scheme: "kobrixa", path: `/${file}` });
+}
+
+function languageFor(file: string): string {
+  return file.toLocaleLowerCase("en-US").endsWith(".json") ? "json" : "basic-plus";
+}
+
+function markerSeverity(severity: Diagnostic["severity"]): monaco.MarkerSeverity {
+  if (severity === "error") return monaco.MarkerSeverity.Error;
+  if (severity === "warning") return monaco.MarkerSeverity.Warning;
+  return monaco.MarkerSeverity.Info;
+}
+
+function toMonacoRange(range: Diagnostic["range"]): monaco.Range {
+  return new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn);
+}
+
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
+  { file, value, openFiles, diagnostics, focusTarget, ariaLabel, onChange, onCursorChange },
+  handleRef,
+): React.JSX.Element {
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | undefined>(undefined);
+  const models = useRef(new Map<string, monaco.editor.ITextModel>());
+  const viewStates = useRef(new Map<string, monaco.editor.ICodeEditorViewState>());
+  const activeFile = useRef<string | undefined>(undefined);
   const onChangeRef = useRef(onChange);
+  const onCursorChangeRef = useRef(onCursorChange);
   onChangeRef.current = onChange;
+  onCursorChangeRef.current = onCursorChange;
+
+  const reveal = (range: Diagnostic["range"]): void => {
+    const instance = editor.current;
+    const model = instance?.getModel();
+    if (!instance || !model) return;
+    const validated = model.validateRange(toMonacoRange(range));
+    instance.setSelection(validated);
+    instance.revealRangeInCenter(validated, monaco.editor.ScrollType.Smooth);
+    instance.focus();
+  };
+
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      focus: () => editor.current?.focus(),
+      format: async () => {
+        await editor.current?.getAction("editor.action.formatDocument")?.run();
+      },
+      reveal,
+      remapFiles: (moved) => {
+        const instance = editor.current;
+        const currentFile = activeFile.current;
+        if (instance && currentFile) {
+          const state = instance.saveViewState();
+          if (state) viewStates.current.set(currentFile, state);
+        }
+        for (const [source, target] of Object.entries(moved)) {
+          const model = models.current.get(source);
+          if (model) {
+            models.current.delete(source);
+            models.current.set(target, model);
+            monaco.editor.setModelLanguage(model, languageFor(target));
+          }
+          const state = viewStates.current.get(source);
+          if (state) {
+            viewStates.current.delete(source);
+            viewStates.current.set(target, state);
+          }
+        }
+        if (currentFile && moved[currentFile]) activeFile.current = moved[currentFile];
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     registerLanguage();
     if (!container.current) return undefined;
-    const model = monaco.editor.createModel(
-      value,
-      file.endsWith(".json") ? "json" : "basic-plus",
-      monaco.Uri.file(`/${file}`),
-    );
     const instance = monaco.editor.create(container.current, {
-      model,
-      theme: "vs-dark",
+      model: null,
+      theme: "kobrixa-dark",
+      ariaLabel,
       automaticLayout: true,
       minimap: { enabled: false },
       fontFamily: "JetBrains Mono, SFMono-Regular, Consolas, monospace",
@@ -78,56 +233,100 @@ export function Editor({
       lineHeight: 22,
       padding: { top: 16 },
       bracketPairColorization: { enabled: true },
+      guides: { bracketPairs: true, indentation: true },
+      glyphMargin: true,
+      folding: true,
+      lineNumbersMinChars: 3,
       smoothScrolling: true,
+      cursorSmoothCaretAnimation: "on",
       renderWhitespace: "selection",
+      renderValidationDecorations: "on",
+      scrollBeyondLastLine: false,
+      formatOnPaste: true,
+      stickyScroll: { enabled: true, maxLineCount: 3 },
+      overviewRulerBorder: false,
     });
     editor.current = instance;
-    const subscription = instance.onDidChangeModelContent(() =>
-      onChangeRef.current(instance.getValue()),
+    instance.focus();
+    const contentSubscription = instance.onDidChangeModelContent(() => {
+      const currentFile = activeFile.current;
+      if (currentFile) onChangeRef.current(currentFile, instance.getValue());
+    });
+    const cursorSubscription = instance.onDidChangeCursorPosition(({ position }) =>
+      onCursorChangeRef.current({ line: position.lineNumber, column: position.column }),
     );
     return () => {
-      subscription.dispose();
+      contentSubscription.dispose();
+      cursorSubscription.dispose();
       instance.dispose();
-      model.dispose();
+      for (const model of models.current.values()) model.dispose();
+      models.current.clear();
+      viewStates.current.clear();
     };
+  }, []);
+
+  useEffect(() => {
+    const instance = editor.current;
+    if (!instance) return;
+    const previousFile = activeFile.current;
+    if (previousFile) {
+      const state = instance.saveViewState();
+      if (state) viewStates.current.set(previousFile, state);
+    }
+    let model = models.current.get(file);
+    if (!model) {
+      model = monaco.editor.createModel(value, languageFor(file), modelUri(file));
+      models.current.set(file, model);
+    }
+    activeFile.current = file;
+    instance.setModel(model);
+    const savedState = viewStates.current.get(file);
+    if (savedState) instance.restoreViewState(savedState);
+    const position = instance.getPosition();
+    if (position) onCursorChangeRef.current({ line: position.lineNumber, column: position.column });
   }, [file]);
 
   useEffect(() => {
-    const model = editor.current?.getModel();
-    if (!model || model.getValue() === value) return;
-    model.setValue(value);
-  }, [value]);
+    const open = new Set(openFiles);
+    for (const [modelFile, model] of models.current) {
+      if (open.has(modelFile)) continue;
+      models.current.delete(modelFile);
+      viewStates.current.delete(modelFile);
+      model.dispose();
+    }
+  }, [openFiles]);
 
   useEffect(() => {
-    const model = editor.current?.getModel();
-    if (!model) return;
-    monaco.editor.setModelMarkers(
-      model,
-      "kobrixa",
-      diagnostics
-        .filter((item) => item.file === file)
-        .map((item) => ({
-          severity:
-            item.severity === "error"
-              ? monaco.MarkerSeverity.Error
-              : item.severity === "warning"
-                ? monaco.MarkerSeverity.Warning
-                : monaco.MarkerSeverity.Info,
-          message: `${item.code}: ${item.message}`,
-          startLineNumber: item.range.startLine,
-          startColumn: item.range.startColumn,
-          endLineNumber: item.range.endLine,
-          endColumn: item.range.endColumn,
-        })),
-    );
-  }, [diagnostics, file]);
+    editor.current?.updateOptions({ ariaLabel });
+  }, [ariaLabel]);
 
   useEffect(() => {
-    if (!focusLine || !editor.current) return;
-    editor.current.revealLineInCenter(focusLine);
-    editor.current.setPosition({ lineNumber: focusLine, column: 1 });
-    editor.current.focus();
-  }, [focusLine]);
+    const model = models.current.get(file);
+    if (model && model.getValue() !== value) model.setValue(value);
+  }, [file, value]);
+
+  useEffect(() => {
+    for (const [modelFile, model] of models.current) {
+      monaco.editor.setModelMarkers(
+        model,
+        "kobrixa",
+        diagnostics
+          .filter((item) => item.file === modelFile)
+          .map((item) => ({
+            severity: markerSeverity(item.severity),
+            message: `${item.code}: ${item.message}`,
+            startLineNumber: item.range.startLine,
+            startColumn: item.range.startColumn,
+            endLineNumber: item.range.endLine,
+            endColumn: item.range.endColumn,
+          })),
+      );
+    }
+  }, [diagnostics, file, openFiles]);
+
+  useEffect(() => {
+    if (focusTarget?.file === file) reveal(focusTarget.range);
+  }, [file, focusTarget]);
 
   return <div className="editor" ref={container} />;
-}
+});
