@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type DragEvent,
   type KeyboardEvent,
+  type PointerEvent,
 } from "react";
 import type { WorkspaceEntry } from "../shared/api.js";
 import {
@@ -61,6 +61,14 @@ interface ContextMenuState {
   y: number;
 }
 
+interface PointerDragState {
+  path: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  active: boolean;
+}
+
 function fileBadge(entryPath: string): string {
   return entryPath.toLocaleLowerCase("en-US").endsWith(".json") ? "{}" : "BP";
 }
@@ -103,7 +111,8 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
   const [renamingPath, setRenamingPath] = useState<string>();
   const [renameValue, setRenameValue] = useState("");
   const [menu, setMenu] = useState<ContextMenuState>();
-  const draggingPath = useRef<string | undefined>(undefined);
+  const pointerDrag = useRef<PointerDragState | undefined>(undefined);
+  const suppressClick = useRef(false);
   const [dropPath, setDropPath] = useState<string>();
 
   const selectedNode = allNodes.get(selectedPath) ?? root;
@@ -268,32 +277,64 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
     if (nextPath !== undefined) select(nextPath, true);
   }
 
-  function beginDrag(event: DragEvent<HTMLDivElement>, entryPath: string): void {
-    if (protectedEntry(entryPath)) {
-      event.preventDefault();
+  function dropTargetAt(
+    clientX: number,
+    clientY: number,
+    source: string,
+  ): FileTreeNode | undefined {
+    const target = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-tree-path]")?.dataset.treePath;
+    const node = target === undefined ? undefined : allNodes.get(target);
+    return node?.kind === "directory" && !pathContains(source, node.path) ? node : undefined;
+  }
+
+  function beginPointerDrag(event: PointerEvent<HTMLDivElement>, entryPath: string): void {
+    if (
+      event.button !== 0 ||
+      busy ||
+      protectedEntry(entryPath) ||
+      (event.target instanceof Element && event.target.closest("button, input"))
+    )
       return;
-    }
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("application/x-kobrixa-path", entryPath);
-    draggingPath.current = entryPath;
+    pointerDrag.current = {
+      path: entryPath,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function allowDrop(event: DragEvent<HTMLDivElement>, node: FileTreeNode): void {
-    const source = draggingPath.current;
-    if (!source || node.kind !== "directory" || pathContains(source, node.path)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    setDropPath(node.path);
+  function updatePointerDrag(event: PointerEvent<HTMLDivElement>): void {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5)
+      return;
+    drag.active = true;
+    suppressClick.current = true;
+    setDropPath(dropTargetAt(event.clientX, event.clientY, drag.path)?.path);
   }
 
-  async function drop(event: DragEvent<HTMLDivElement>, node: FileTreeNode): Promise<void> {
-    event.preventDefault();
-    const source = event.dataTransfer.getData("application/x-kobrixa-path") || draggingPath.current;
+  async function finishPointerDrag(event: PointerEvent<HTMLDivElement>): Promise<void> {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const node = drag.active ? dropTargetAt(event.clientX, event.clientY, drag.path) : undefined;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    pointerDrag.current = undefined;
     setDropPath(undefined);
-    draggingPath.current = undefined;
-    if (!source || node.kind !== "directory" || pathContains(source, node.path)) return;
-    const target = node.path ? `${node.path}/${pathName(source)}` : pathName(source);
-    if (target !== source) await onMove(source, target);
+    if (!node) return;
+    const target = node.path ? `${node.path}/${pathName(drag.path)}` : pathName(drag.path);
+    if (target !== drag.path) await onMove(drag.path, target);
+  }
+
+  function cancelPointerDrag(event: PointerEvent<HTMLDivElement>): void {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    pointerDrag.current = undefined;
+    setDropPath(undefined);
   }
 
   function renderNode(node: FileTreeNode, depth: number): React.JSX.Element {
@@ -318,46 +359,44 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
         <div
           className={`tree-row ${selected ? "selected" : ""} ${active ? "active" : ""} ${
             isDropTarget ? "drop-target" : ""
-          }`}
-          draggable={!busy && !protectedEntry(node.path)}
+          } ${node.path === "" ? "root" : ""}`}
+          data-tree-path={node.path}
           style={{ "--tree-depth": depth } as CSSProperties}
           title={node.path || rootLabel}
-          onClick={() => {
+          onClick={(event) => {
+            if (suppressClick.current) {
+              suppressClick.current = false;
+              return;
+            }
             select(node.path, true);
             if (node.kind === "file") onOpenFile(node.path);
+            else if (event.detail <= 1) toggle(node);
           }}
-          onDoubleClick={() => node.kind === "directory" && toggle(node)}
           onContextMenu={(event) => {
             event.preventDefault();
             openMenu(node.path, event.clientX, event.clientY);
           }}
-          onDragStart={(event) => beginDrag(event, node.path)}
-          onDragEnd={() => {
-            draggingPath.current = undefined;
-            setDropPath(undefined);
-          }}
-          onDragOver={(event) => allowDrop(event, node)}
-          onDragLeave={() => setDropPath((value) => (value === node.path ? undefined : value))}
-          onDrop={(event) => void drop(event, node)}
+          onPointerCancel={cancelPointerDrag}
+          onPointerDown={(event) => beginPointerDrag(event, node.path)}
+          onPointerMove={updatePointerDrag}
+          onPointerUp={(event) => void finishPointerDrag(event)}
         >
           {node.kind === "directory" ? (
             <button
               aria-label={`${expanded ? copy.collapse : copy.expand}: ${node.name}`}
-              className="tree-chevron"
+              className={`tree-chevron ${expanded ? "expanded" : ""}`}
               tabIndex={-1}
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 toggle(node);
               }}
-            >
-              {expanded ? "⌄" : "›"}
-            </button>
+            />
           ) : (
-            <span className="tree-chevron-spacer" />
+            <span aria-hidden="true" className="tree-chevron-spacer" />
           )}
           <span className={`tree-kind ${node.kind}`} aria-hidden="true">
-            {node.kind === "directory" ? (expanded ? "▾" : "▸") : fileBadge(node.path)}
+            {node.kind === "file" ? fileBadge(node.path) : ""}
           </span>
           {renamingPath === node.path ? (
             <input
@@ -384,7 +423,13 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
           )}
         </div>
         {node.kind === "directory" && expanded && node.children.length > 0 && (
-          <div role="group">{node.children.map((child) => renderNode(child, depth + 1))}</div>
+          <div
+            className="tree-group"
+            role="group"
+            style={{ "--tree-guide-depth": depth } as CSSProperties}
+          >
+            {node.children.map((child) => renderNode(child, depth + 1))}
+          </div>
         )}
       </div>
     );
@@ -404,7 +449,9 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
             type="button"
             onClick={() => onCreate("file", creationParent)}
           >
-            +F
+            <svg aria-hidden="true" className="tree-action-icon" viewBox="0 0 16 16">
+              <path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3M8 7v5M5.5 9.5h5" />
+            </svg>
           </button>
           <button
             aria-label={copy.newFolder}
@@ -413,7 +460,9 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
             type="button"
             onClick={() => onCreate("directory", creationParent)}
           >
-            +▰
+            <svg aria-hidden="true" className="tree-action-icon" viewBox="0 0 16 16">
+              <path d="M1.5 4.5h5l1.5 2h6.5v7.5h-13zM8 8v4M6 10h4" />
+            </svg>
           </button>
           <button
             aria-label={copy.moreActions}
@@ -426,7 +475,11 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, ProjectTreeProps>(funct
               openMenu(selectedNode.path, bounds?.left ?? 16, bounds?.bottom ?? 16);
             }}
           >
-            ⋯
+            <svg aria-hidden="true" className="tree-action-icon" viewBox="0 0 16 16">
+              <circle cx="3" cy="8" r="0.8" />
+              <circle cx="8" cy="8" r="0.8" />
+              <circle cx="13" cy="8" r="0.8" />
+            </svg>
           </button>
         </div>
       </div>

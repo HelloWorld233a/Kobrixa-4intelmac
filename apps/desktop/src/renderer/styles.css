@@ -311,9 +311,21 @@ button.danger:hover:not(:disabled) {
   font-size: 10px;
 }
 .files-panel {
+  position: relative;
   border-right: 1px solid #ffffff12;
   display: flex;
   flex-direction: column;
+  padding: 0;
+}
+.files-panel > h2 {
+  display: flex;
+  align-items: center;
+  flex: 0 0 35px;
+  padding: 0 12px;
+  color: #aab5b0;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 500;
 }
 .project-name {
   min-width: 0;
@@ -325,73 +337,119 @@ button.danger:hover:not(:disabled) {
   white-space: nowrap;
 }
 .tree-toolbar {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  right: 7px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  margin: 10px 0 7px;
-  padding-left: 7px;
+  height: 25px;
 }
 .tree-toolbar-actions {
   display: flex;
   gap: 1px;
 }
 .tree-toolbar-actions button {
-  min-width: 26px;
-  height: 25px;
-  padding: 2px 5px;
-  border-radius: 5px;
-  color: #8fa099;
-  font: 700 10px/1 monospace;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  color: #aab5b0;
+  background: transparent;
+  font: 600 10px/1 monospace;
+}
+.tree-toolbar-actions button:hover:not(:disabled) {
+  border: 0;
+  color: #eef5f1;
+  background: #ffffff12;
+}
+.tree-action-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  overflow: visible;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tree-action-icon path {
+  fill: none;
 }
 .project-tree {
   flex: 1;
   min-height: 0;
-  margin: 0 -7px;
-  padding: 1px 0 10px;
+  margin: 0;
+  padding: 0 0 8px;
   overflow: auto;
   outline: none;
+  font-size: 12.5px;
 }
 .tree-item-shell {
+  position: relative;
   outline: none;
 }
+.tree-group {
+  position: relative;
+}
+.tree-group::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: calc(11px + var(--tree-guide-depth) * 16px);
+  border-left: 1px solid #ffffff0a;
+  pointer-events: none;
+}
 .tree-row {
-  --tree-indent: calc(var(--tree-depth) * 14px);
+  --tree-indent: calc(var(--tree-depth) * 16px);
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
+  width: 100%;
   min-width: max-content;
-  height: 28px;
-  padding: 0 7px 0 calc(3px + var(--tree-indent));
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: #98a69f;
+  height: 22px;
+  padding: 0 8px 0 calc(3px + var(--tree-indent));
+  border: 0;
+  border-radius: 0;
+  color: #b5c0bb;
   cursor: default;
   user-select: none;
 }
 .tree-row:hover {
-  color: #c7d4ce;
-  background: #ffffff08;
+  color: #d8e1dc;
+  background: #ffffff0b;
 }
 .tree-row.selected {
-  color: #e7f0eb;
-  background: #ffffff0c;
+  color: #f0f6f3;
+  background: #31443b;
 }
 .tree-row.active {
-  box-shadow: inset 2px 0 #5bd692;
+  color: #dff8e9;
+}
+.tree-row.root {
+  font-weight: 600;
 }
 .tree-row.drop-target {
-  border-color: #5bd69288;
-  background: #5bd69215;
+  outline: 1px solid #5bd692;
+  outline-offset: -1px;
+  background: #294238;
 }
 .tree-item-shell:focus-visible > .tree-row {
-  outline: 2px solid #72e6a6;
-  outline-offset: -2px;
+  outline: 1px solid #72e6a6;
+  outline-offset: -1px;
 }
 .tree-chevron,
 .tree-chevron-spacer {
-  flex: 0 0 17px;
-  width: 17px;
-  height: 22px;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 20px;
 }
 .tree-chevron {
   display: grid;
@@ -400,7 +458,18 @@ button.danger:hover:not(:disabled) {
   border: 0;
   color: #7f8e87;
   background: transparent;
-  font-size: 14px;
+}
+.tree-chevron::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateX(-1px) rotate(-45deg);
+  transform-origin: center;
+}
+.tree-chevron.expanded::before {
+  transform: translateY(-1px) rotate(45deg);
 }
 .tree-chevron:hover:not(:disabled) {
   border: 0;
@@ -412,8 +481,7 @@ button.danger:hover:not(:disabled) {
   font: 700 9px/1 monospace;
 }
 .tree-kind.directory {
-  color: #8aa79a;
-  font-size: 12px;
+  flex-basis: 2px;
 }
 .tree-name {
   min-width: 0;
@@ -424,10 +492,10 @@ button.danger:hover:not(:disabled) {
 }
 .tree-rename {
   width: 150px;
-  height: 22px;
-  padding: 1px 5px;
+  height: 20px;
+  padding: 0 4px;
   border: 1px solid #5bd692;
-  border-radius: 3px;
+  border-radius: 0;
   color: #eef7f2;
   background: #0d1315;
   outline: none;
