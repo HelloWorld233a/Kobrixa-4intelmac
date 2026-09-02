@@ -47,15 +47,23 @@ class Parser {
     while (!this.is("eof")) {
       this.skipNewlines();
       if (this.is("eof")) break;
-      if (this.keyword("include")) {
+      if (this.keyword("include") || this.keyword("import")) {
         const start = this.take();
         const path = this.takeKind(
           "string",
           "BP1010",
-          "Include expects a quoted project-relative path.",
+          `${start.text} expects a quoted project-relative path.`,
         );
         if (path)
-          includes.push({ path: String(path.value), span: mergeSpan(start.span, path.span) });
+          includes.push({
+            kind: start.text.toLocaleLowerCase("en-US") as "include" | "import",
+            path: String(path.value),
+            span: mergeSpan(start.span, path.span),
+          });
+        this.skipLine();
+        continue;
+      }
+      if (this.keyword("folder") || this.keyword("private")) {
         this.skipLine();
         continue;
       }
@@ -80,11 +88,23 @@ class Parser {
     const kind = start.text.toLocaleLowerCase("en-US") as "sub" | "function";
     const name = this.takeKind("identifier", "BP1011", `${kind} expects a name.`);
     if (!name) return undefined;
-    const parameters: string[] = [];
+    const parameters: FunctionDeclaration["parameters"] = [];
     if (this.match("(")) {
       while (!this.isText(")") && !this.is("eof") && !this.is("newline")) {
+        let direction: "in" | "out" = "in";
+        if (this.keyword("in") || this.keyword("out"))
+          direction = this.take().text.toLocaleLowerCase("en-US") as "in" | "out";
+        let type: FunctionDeclaration["parameters"][number]["type"] = { kind: "number" };
+        if (this.keyword("number") || this.keyword("string")) {
+          const element = this.take().text.toLocaleLowerCase("en-US") as "number" | "string";
+          type = { kind: element };
+          if (this.match("[")) {
+            this.expect("]", "BP1015", "Expected ']' in array parameter type.");
+            type = { kind: "array", element };
+          }
+        }
         const parameter = this.takeKind("identifier", "BP1012", "Expected a parameter name.");
-        if (parameter) parameters.push(parameter.text);
+        if (parameter) parameters.push({ name: parameter.text, direction, type });
         if (!this.match(",")) break;
       }
       this.expect(")", "BP1013", "Expected ')' after parameters.");
@@ -124,6 +144,18 @@ class Parser {
         ? { kind: "return", value, span: mergeSpan(start.span, value.span) }
         : { kind: "return", span: mergeSpan(start.span, end.span) };
     }
+    if (this.keyword("break") || this.keyword("continue")) {
+      const keyword = this.take();
+      this.skipLine();
+      return {
+        kind: keyword.text.toLocaleLowerCase("en-US") as "break" | "continue",
+        span: keyword.span,
+      };
+    }
+    if (this.keyword("private")) {
+      this.take();
+      return undefined;
+    }
     if (this.keyword("goto")) {
       this.take();
       const label = this.takeKind("identifier", "BP1020", "Goto expects a label.");
@@ -153,6 +185,34 @@ class Parser {
         return value
           ? { kind: "assign", name: name.text, value, span: mergeSpan(start.span, value.span) }
           : undefined;
+      }
+      const compound = ["+=", "-=", "*=", "/="].find((operator) => this.isText(operator));
+      if (compound) {
+        this.take();
+        const right = this.parseExpression();
+        this.skipLine();
+        if (!right) return undefined;
+        const left: Expression = { kind: "name", name: name.text, span: name.span };
+        const value: Expression = {
+          kind: "binary",
+          operator: compound[0] as "+" | "-" | "*" | "/",
+          left,
+          right,
+          span: mergeSpan(name.span, right.span),
+        };
+        return { kind: "assign", name: name.text, value, span: mergeSpan(start.span, right.span) };
+      }
+      if (this.isText("++") || this.isText("--")) {
+        const operator = this.take();
+        this.skipLine();
+        const value: Expression = {
+          kind: "binary",
+          operator: operator.text === "++" ? "+" : "-",
+          left: { kind: "name", name: name.text, span: name.span },
+          right: { kind: "literal", value: 1, span: operator.span },
+          span: mergeSpan(name.span, operator.span),
+        };
+        return { kind: "assign", name: name.text, value, span: value.span };
       }
       if (this.isText("(")) {
         const call = this.finishCall(name);

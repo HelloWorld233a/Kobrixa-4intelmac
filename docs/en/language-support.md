@@ -23,6 +23,8 @@ Compatibility means the original source runs without modification and has equiva
 
 Boolean contexts accept both bare `true` / `false` literals and the legacy quoted forms `"True"` / `"False"`, case-insensitively. Quoted values are converted only where a Boolean is required, such as an `If` or `While` condition, `And` / `Or` / `Not`, or a Boolean EV3 API parameter. In text contexts, `"True"` remains ordinary displayable text.
 
+The source frontend accepts the documented Clev3r keyword forms, including `import`, `folder`, `private`, typed `in` / `out` function parameters, and `break` / `continue`. It also accepts the documented `++`, `--`, `+=`, `-=`, `*=`, and `/=` assignment operators. Imports resolve project-relative `.bpm` files, while includes resolve `.bpi` files.
+
 Compatibility is established from public behavior specifications and independently written cases. Public Help may be consulted for externally visible syntax and behavior, but CLEV3R source, documentation text, assets, generated output, and protected implementation expression are not copied into Kobrixa.
 
 ## Python — planned after v1

@@ -1,4 +1,4 @@
-import type { SourceSpan } from "@kobrixa/ir";
+import type { IRType, SourceSpan } from "@kobrixa/ir";
 
 export type Expression =
   | { kind: "literal"; value: number | string | boolean; span: SourceSpan }
@@ -33,6 +33,8 @@ export type Statement =
       span: SourceSpan;
     }
   | { kind: "return"; value?: Expression; span: SourceSpan }
+  | { kind: "break"; span: SourceSpan }
+  | { kind: "continue"; span: SourceSpan }
   | { kind: "goto"; label: string; span: SourceSpan }
   | { kind: "label"; label: string; span: SourceSpan }
   | { kind: "property"; name: string; span: SourceSpan };
@@ -40,14 +42,18 @@ export type Statement =
 export interface FunctionDeclaration {
   kind: "sub" | "function";
   name: string;
-  parameters: string[];
+  parameters: Array<{
+    name: string;
+    direction: "in" | "out";
+    type: IRType;
+  }>;
   body: Statement[];
   span: SourceSpan;
 }
 
 export interface ParsedFile {
   file: string;
-  includes: Array<{ path: string; span: SourceSpan }>;
+  includes: Array<{ kind: "include" | "import"; path: string; span: SourceSpan }>;
   body: Statement[];
   functions: FunctionDeclaration[];
 }

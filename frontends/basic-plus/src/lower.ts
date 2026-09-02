@@ -30,6 +30,19 @@ function textualBoolean(value: string): boolean | undefined {
   return undefined;
 }
 
+function isNegativeConstant(expression: Expression): boolean {
+  return (
+    (expression.kind === "literal" &&
+      typeof expression.value === "number" &&
+      expression.value < 0) ||
+    (expression.kind === "unary" &&
+      expression.operator === "-" &&
+      expression.value.kind === "literal" &&
+      typeof expression.value.value === "number" &&
+      expression.value.value > 0)
+  );
+}
+
 function toDiagnostic(code: string, message: string, span: SourceSpan): Diagnostic {
   return {
     code,
@@ -53,17 +66,18 @@ class FunctionBuilder {
   #blockCounter = 0;
   #temporaryCounter = 0;
   #terminated = false;
+  readonly #loopTargets: Array<{ breakTarget: string; continueTarget: string }> = [];
   readonly #knownFunctions: ReadonlyMap<string, FunctionDeclaration>;
 
   constructor(
     readonly name: string,
-    parameters: string[],
+    parameters: FunctionDeclaration["parameters"],
     readonly returnType: IRType,
     knownFunctions: ReadonlyMap<string, FunctionDeclaration>,
   ) {
     this.#knownFunctions = knownFunctions;
     for (const parameter of parameters)
-      this.addVariable(parameter, { kind: "number" }, "parameter");
+      this.addVariable(parameter.name, parameter.type, "parameter");
     this.#current = this.createBlock("entry");
   }
 
@@ -131,6 +145,32 @@ class FunctionBuilder {
           );
           break;
         }
+        case "break": {
+          const loop = this.#loopTargets.at(-1);
+          if (!loop) {
+            this.diagnostics.push(
+              toDiagnostic("BP2006", "Break can only be used inside For or While.", statement.span),
+            );
+            break;
+          }
+          this.terminate({ op: "jump", target: loop.breakTarget, span: statement.span });
+          break;
+        }
+        case "continue": {
+          const loop = this.#loopTargets.at(-1);
+          if (!loop) {
+            this.diagnostics.push(
+              toDiagnostic(
+                "BP2007",
+                "Continue can only be used inside For or While.",
+                statement.span,
+              ),
+            );
+            break;
+          }
+          this.terminate({ op: "jump", target: loop.continueTarget, span: statement.span });
+          break;
+        }
         case "goto":
           this.terminate({
             op: "jump",
@@ -196,7 +236,9 @@ class FunctionBuilder {
       span: statement.condition.span,
     });
     this.switchTo(body);
+    this.#loopTargets.push({ breakTarget: end.id, continueTarget: conditionBlock.id });
     this.compileStatements(statement.body);
+    this.#loopTargets.pop();
     if (!this.#terminated)
       this.terminate({ op: "jump", target: conditionBlock.id, span: statement.span });
     this.switchTo(end);
@@ -208,6 +250,7 @@ class FunctionBuilder {
     this.emit({ op: "assign", target: variable.name, value: initial.value, span: statement.span });
     const conditionBlock = this.createBlock("for_condition");
     const body = this.createBlock("for_body");
+    const update = this.createBlock("for_update");
     const end = this.createBlock("for_end");
     this.terminate({ op: "jump", target: conditionBlock.id, span: statement.span });
     this.switchTo(conditionBlock);
@@ -216,7 +259,7 @@ class FunctionBuilder {
     this.emit({
       op: "binary",
       target: comparison.name,
-      operator: "<=",
+      operator: isNegativeConstant(statement.step) ? ">=" : "<=",
       left: { kind: "variable", name: variable.name },
       right: limit.value,
       span: statement.span,
@@ -229,30 +272,32 @@ class FunctionBuilder {
       span: statement.span,
     });
     this.switchTo(body);
+    this.#loopTargets.push({ breakTarget: end.id, continueTarget: update.id });
     this.compileStatements(statement.body);
-    if (!this.#terminated) {
-      const step = this.lowerExpression(statement.step);
-      const updatedType: IRType =
-        variable.type.kind === "integer" && step.type.kind === "integer"
-          ? { kind: "integer" }
-          : { kind: "number" };
-      const updated = this.newTemporary(updatedType, statement.span);
-      this.emit({
-        op: "binary",
-        target: updated.name,
-        operator: "+",
-        left: { kind: "variable", name: variable.name },
-        right: step.value,
-        span: statement.span,
-      });
-      this.emit({
-        op: "assign",
-        target: variable.name,
-        value: { kind: "variable", name: updated.name },
-        span: statement.span,
-      });
-      this.terminate({ op: "jump", target: conditionBlock.id, span: statement.span });
-    }
+    this.#loopTargets.pop();
+    if (!this.#terminated) this.terminate({ op: "jump", target: update.id, span: statement.span });
+    this.switchTo(update);
+    const step = this.lowerExpression(statement.step);
+    const updatedType: IRType =
+      variable.type.kind === "integer" && step.type.kind === "integer"
+        ? { kind: "integer" }
+        : { kind: "number" };
+    const updated = this.newTemporary(updatedType, statement.span);
+    this.emit({
+      op: "binary",
+      target: updated.name,
+      operator: "+",
+      left: { kind: "variable", name: variable.name },
+      right: step.value,
+      span: statement.span,
+    });
+    this.emit({
+      op: "assign",
+      target: variable.name,
+      value: { kind: "variable", name: updated.name },
+      span: statement.span,
+    });
+    this.terminate({ op: "jump", target: conditionBlock.id, span: statement.span });
     this.switchTo(end);
   }
 
@@ -276,7 +321,11 @@ class FunctionBuilder {
           : { value: { kind: "number", value: expression.value }, type: { kind: "number" } };
       }
       case "name": {
-        const variable = this.ensureVariable(expression.name, { kind: "number" }, expression.span);
+        const variable = this.ensureVariable(
+          expression.name,
+          expected ?? { kind: "number" },
+          expression.span,
+        );
         return { value: { kind: "variable", name: variable.name }, type: variable.type };
       }
       case "unary": {
@@ -345,9 +394,13 @@ class FunctionBuilder {
     needsValue: boolean,
   ): LoweredValue | undefined {
     const operation = getEV3Operation(expression.name);
+    const declaration = this.#knownFunctions.get(canonical(expression.name));
     const args = expression.args.map((argument, index) => {
-      const expected = operation?.parameters[index];
-      return this.lowerExpression(argument, expected ? { kind: expected } : undefined);
+      const operationType = operation?.parameters[index];
+      const expected: IRType | undefined = operationType
+        ? { kind: operationType }
+        : declaration?.parameters[index]?.type;
+      return this.lowerExpression(argument, expected);
     });
     if (operation) {
       if (operation.parameters.length !== args.length) {
@@ -396,7 +449,6 @@ class FunctionBuilder {
         );
       return undefined;
     }
-    const declaration = this.#knownFunctions.get(canonical(expression.name));
     if (!declaration) {
       this.diagnostics.push(
         toDiagnostic(

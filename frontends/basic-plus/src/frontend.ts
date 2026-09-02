@@ -78,7 +78,7 @@ export class BasicPlusFrontend implements LanguageFrontend {
         }
         const candidates = path.posix.extname(requestedPath)
           ? [requestedPath]
-          : [`${requestedPath}.bpi`, requestedPath];
+          : [`${requestedPath}.${include.kind === "import" ? "bpm" : "bpi"}`, requestedPath];
         const includePath = candidates.find((candidate) => parsed.has(candidate)) ?? candidates[0]!;
         if (active.has(includePath)) {
           diagnostics.push(
