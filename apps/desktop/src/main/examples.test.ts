@@ -29,6 +29,8 @@ const documentedExamples = [
   "program/program-end",
   "projects/include-multiple",
   "projects/include-settings",
+  "sensors/color-sensor",
+  "sensors/gyro-sensor",
   "sensors/sensor-sampling",
   "sensors/sensor-threshold",
   "sound/speaker-interrupt",

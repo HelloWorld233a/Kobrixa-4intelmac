@@ -29,6 +29,12 @@ const operations: EV3OperationSignature[] = [
     parameters: ["integer", "integer"],
     returns: "integer",
   },
+  {
+    name: "Sensor.ReadValue",
+    category: "sensor",
+    parameters: ["integer", "integer"],
+    returns: "number",
+  },
   { name: "Sensor.Wait", category: "sensor", parameters: ["integer"], returns: "void" },
   { name: "LCD.Clear", category: "display", parameters: [], returns: "void" },
   {
@@ -41,6 +47,12 @@ const operations: EV3OperationSignature[] = [
     name: "LCD.Text",
     category: "display",
     parameters: ["integer", "integer", "integer", "integer", "string"],
+    returns: "void",
+  },
+  {
+    name: "LCD.Value",
+    category: "display",
+    parameters: ["integer", "integer", "integer", "number", "integer", "integer"],
     returns: "void",
   },
   {

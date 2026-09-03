@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Keep the EV3 Gyro Sensor still on input port 1 while it initializes.
+Sensor.Wait(1)
+Program.Delay(1000)
+
+While True
+  angle = Sensor.ReadValue(1, 0)
+  LCD.Clear()
+  LCD.Text(1, 8, 18, 1, "Gyro angle:")
+  LCD.Value(1, 8, 48, angle, 6, 0)
+  LCD.Update()
+  Program.Delay(100)
+EndWhile

@@ -4,10 +4,13 @@ import { normalizeRemotePath } from "./path.js";
 
 const SYSTEM_COMMAND_REPLY = 0x01;
 const DIRECT_COMMAND_REPLY = 0x00;
+const DIRECT_REPLY = 0x02;
+const DIRECT_REPLY_ERROR = 0x04;
 const BEGIN_DOWNLOAD = 0x92;
 const CONTINUE_DOWNLOAD = 0x93;
 const DELETE_FILE = 0x9c;
 const SYSTEM_REPLY_OK = 0x00;
+const SYSTEM_REPLY_END_OF_FILE = 0x08;
 
 function uint32(value: number): number[] {
   const bytes = new Uint8Array(4);
@@ -72,7 +75,14 @@ export class EV3DeviceSession implements DeviceSession {
       for (let offset = 0; offset < data.length; offset += 900) {
         signal.throwIfAborted();
         const chunk = data.slice(offset, Math.min(offset + 900, data.length));
-        await this.system(CONTINUE_DOWNLOAD, Uint8Array.from([handle, ...chunk]), signal, 10_000);
+        const finalChunk = offset + chunk.length === data.length;
+        await this.system(
+          CONTINUE_DOWNLOAD,
+          Uint8Array.from([handle, ...chunk]),
+          signal,
+          10_000,
+          finalChunk ? [SYSTEM_REPLY_OK, SYSTEM_REPLY_END_OF_FILE] : [SYSTEM_REPLY_OK],
+        );
       }
     });
   }
@@ -108,6 +118,7 @@ export class EV3DeviceSession implements DeviceSession {
     data: Uint8Array,
     signal: AbortSignal,
     timeout: number,
+    acceptedStatuses: readonly number[] = [SYSTEM_REPLY_OK],
   ): Promise<Uint8Array> {
     const reply = await withTimeout(
       (bounded) =>
@@ -123,7 +134,7 @@ export class EV3DeviceSession implements DeviceSession {
       throw new DeviceOperationError("protocol", "Malformed EV3 system reply.");
     }
     const status = reply[2]!;
-    if (status !== SYSTEM_REPLY_OK) {
+    if (!acceptedStatuses.includes(status)) {
       const category = status === 5 ? "permission" : status === 9 ? "transfer" : "device";
       throw new DeviceOperationError(category, systemStatusMessage(status));
     }
@@ -136,7 +147,9 @@ export class EV3DeviceSession implements DeviceSession {
       signal,
       5000,
     );
-    if (reply[0] !== 0x02 && reply[0] !== 0x04)
+    if (reply[0] === DIRECT_REPLY_ERROR)
+      throw new DeviceOperationError("device", "EV3 rejected the direct command.");
+    if (reply[0] !== DIRECT_REPLY)
       throw new DeviceOperationError("protocol", "Malformed EV3 direct-command reply.");
   }
 

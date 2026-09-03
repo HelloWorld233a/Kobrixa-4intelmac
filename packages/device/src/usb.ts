@@ -10,6 +10,18 @@ const EV3_PRODUCT_ID = 0x0005;
 type NodeHid = typeof NodeHidModule;
 type HidDevice = InstanceType<NodeHid["HID"]>;
 
+export function trimHidReply(data: Uint8Array): Uint8Array {
+  const report = data[0] === 0 && data.length > 5 ? data.slice(1) : data;
+  if (report.length < 2) return report;
+  const frameLength = new DataView(
+    report.buffer,
+    report.byteOffset,
+    report.byteLength,
+  ).getUint16(0, true);
+  const totalLength = frameLength + 2;
+  return totalLength <= report.length ? report.slice(0, totalLength) : report;
+}
+
 async function loadHid(): Promise<NodeHid> {
   try {
     return await import("node-hid");
@@ -49,7 +61,7 @@ class HidConnection extends FramedConnection {
         timeoutMs,
       );
       const bytes = Uint8Array.from(data);
-      return bytes[0] === 0 && bytes.length > 5 ? bytes.slice(1) : bytes;
+      return trimHidReply(bytes);
     } catch (error) {
       throw normalizeDeviceError(error, "transfer");
     }

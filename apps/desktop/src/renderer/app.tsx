@@ -234,6 +234,7 @@ export function App(): React.JSX.Element {
   const [buildId, setBuildId] = useState<string>();
   const [building, setBuilding] = useState(false);
   const [devices, setDevices] = useState<DeviceDescriptor[]>([]);
+  const [discovering, setDiscovering] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<string>();
   const [sessionId, setSessionId] = useState<string>();
   const [deviceState, setDeviceState] = useState("disconnected");
@@ -971,6 +972,7 @@ export function App(): React.JSX.Element {
 
   async function discover(): Promise<void> {
     try {
+      setDiscovering(true);
       setStatus(t.searching);
       const found = await window.kobrixa.device.discover();
       setDevices(found);
@@ -978,6 +980,8 @@ export function App(): React.JSX.Element {
       setStatus(found.length ? t.devicesFound(found.length) : t.noDevice);
     } catch (error) {
       report(error);
+    } finally {
+      setDiscovering(false);
     }
   }
 
@@ -1453,8 +1457,8 @@ export function App(): React.JSX.Element {
                   </div>
                   <div className="brick-buttons">◆</div>
                 </div>
-                <button className="wide" onClick={() => void discover()}>
-                  {t.discover}
+                <button className="wide" disabled={discovering} onClick={() => void discover()}>
+                  {discovering ? t.searching : t.discover}
                 </button>
                 {devices.length > 0 && (
                   <select

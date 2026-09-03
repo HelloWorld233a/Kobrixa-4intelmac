@@ -13,3 +13,4 @@ Else
   Speaker.Tone(20, 770, 100)
 EndIf
 LCD.Update()
+Program.Delay(10000)

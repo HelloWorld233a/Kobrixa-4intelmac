@@ -9,8 +9,11 @@ import type {
   SourceSpan,
 } from "@kobrixa/ir";
 import { lc, lcf, lcs, lv, relativeOffset } from "./encoding.js";
-import { OP, SOUND, UI_DRAW } from "./opcodes.js";
+import { INPUT_DEVICE, OP, SOUND, UI_DRAW } from "./opcodes.js";
 import { createRbf, inspectRbf, type RbfObject } from "./rbf.js";
+
+const OBJECT_EPILOGUE = Symbol("object-epilogue");
+type Label = string | typeof OBJECT_EPILOGUE;
 
 interface Allocation {
   offset: number;
@@ -20,7 +23,7 @@ interface Allocation {
 interface Patch {
   at: number;
   after: number;
-  target: string;
+  target: Label;
 }
 
 function diagnostic(code: string, message: string, span?: SourceSpan): Diagnostic {
@@ -60,7 +63,7 @@ function motorMask(value: IRValue): number | undefined {
 
 class ObjectAssembler {
   readonly bytes: number[] = [];
-  readonly labels = new Map<string, number>();
+  readonly labels = new Map<Label, number>();
   readonly patches: Patch[] = [];
   readonly allocations = new Map<string, Allocation>();
   readonly diagnostics: Diagnostic[] = [];
@@ -85,11 +88,14 @@ class ObjectAssembler {
       for (const instruction of block.instructions) this.instruction(instruction);
       this.terminator(block);
     }
+    this.labels.set(OBJECT_EPILOGUE, this.bytes.length);
     this.bytes.push(this.fn.name === "main" ? OP.OBJECT_END : OP.RETURN);
     for (const patch of this.patches) {
       const target = this.labels.get(patch.target);
       if (target === undefined) {
-        this.diagnostics.push(diagnostic("EV31003", `Unknown bytecode label '${patch.target}'.`));
+        this.diagnostics.push(
+          diagnostic("EV31003", `Unknown bytecode label '${String(patch.target)}'.`),
+        );
         continue;
       }
       const encoded = relativeOffset(target - patch.after);
@@ -257,6 +263,18 @@ class ObjectAssembler {
           ...arg(4),
         );
         return;
+      case "LCD.Value":
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.VALUE),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+          ...arg(4),
+          ...arg(5),
+        );
+        return;
       case "LCD.Write":
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.TEXT), ...lc(1), ...arg(0), ...arg(1), ...arg(2));
         return;
@@ -294,7 +312,8 @@ class ObjectAssembler {
         this.bytes.push(OP.PROGRAM_STOP, ...lc(1));
         return;
       case "Program.Delay": {
-        const scratch = this.localBytes;
+        const scratch = Math.ceil(this.localBytes / 4) * 4;
+        this.localBytes = scratch;
         this.localBytes += 4;
         this.bytes.push(OP.TIMER_WAIT, ...arg(0), ...lv(scratch), OP.TIMER_READY, ...lv(scratch));
         return;
@@ -366,6 +385,78 @@ class ObjectAssembler {
         );
         return;
       }
+      case "Sensor.ReadRawValue": {
+        if (!target) break;
+        const port = this.sensorPort(instruction.args[0]!);
+        const mode = instruction.args[1];
+        if (!port || !mode || (mode.kind !== "integer" && mode.kind !== "number")) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32012",
+              "Sensor port must be a constant from 1 through 4 and mode must be an integer in v1.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        if (!Number.isInteger(mode.value) || mode.value < 0 || mode.value > 7) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32013",
+              "Sensor mode must be a constant from 0 through 7 in v1.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.READY_RAW),
+          ...lc(0),
+          ...port,
+          ...lc(0),
+          ...lc(mode.value),
+          ...lc(1),
+          ...lv(target.offset),
+        );
+        return;
+      }
+      case "Sensor.ReadValue": {
+        if (!target) break;
+        const port = this.sensorPort(instruction.args[0]!);
+        const mode = instruction.args[1];
+        if (!port || !mode || (mode.kind !== "integer" && mode.kind !== "number")) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32012",
+              "Sensor port must be a constant from 1 through 4 and mode must be an integer in v1.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        if (!Number.isInteger(mode.value) || mode.value < 0 || mode.value > 7) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32013",
+              "Sensor mode must be a constant from 0 through 7 in v1.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.READY_SI),
+          ...lc(0),
+          ...port,
+          ...lc(0),
+          ...lc(mode.value),
+          ...lc(1),
+          ...lv(target.offset),
+        );
+        return;
+      }
       case "Sensor.Wait": {
         const port = this.sensorPort(instruction.args[0]!);
         if (!port) break;
@@ -384,7 +475,11 @@ class ObjectAssembler {
 
   private terminator(block: IRBasicBlock): void {
     const terminator = block.terminator;
-    if (terminator.op === "stop") return;
+    if (terminator.op === "stop") {
+      this.bytes.push(OP.JR);
+      this.addPatch(OBJECT_EPILOGUE);
+      return;
+    }
     if (terminator.op === "return") {
       if (terminator.value)
         this.diagnostics.push(
@@ -394,7 +489,8 @@ class ObjectAssembler {
             terminator.span,
           ),
         );
-      this.bytes.push(this.fn.name === "main" ? OP.OBJECT_END : OP.RETURN);
+      this.bytes.push(OP.JR);
+      this.addPatch(OBJECT_EPILOGUE);
       return;
     }
     if (terminator.op === "jump") {
@@ -410,7 +506,7 @@ class ObjectAssembler {
     this.addPatch(terminator.whenTrue);
   }
 
-  private addPatch(target: string): void {
+  private addPatch(target: Label): void {
     const at = this.bytes.length;
     this.bytes.push(...relativeOffset(0));
     this.patches.push({ at, after: this.bytes.length, target });

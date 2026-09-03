@@ -1,6 +1,6 @@
 # Kobrixa 範例
 
-這 24 個程式均為 Kobrixa 原創範例，從只使用顯示器的安全入門程式，逐步進展到需要連接 EV3 硬體的程式。
+這 26 個程式均為 Kobrixa 原創範例，從只使用顯示器的安全入門程式，逐步進展到需要連接 EV3 硬體的程式。
 
 <a href="./getting-started/">入門</a> · <a href="./display/">顯示</a> · <a href="./sound/">聲音</a> · <a href="./control-flow/">控制流程</a> · <a href="./language/">語言</a> · <a href="./program/">程式</a> · <a href="./projects/">專案</a> · <a href="./motors/">馬達</a> · <a href="./sensors/">感測器</a>
 
@@ -30,6 +30,8 @@
 | 馬達     | [motor-counter](motors/motor-counter/)                     | 讀取馬達編碼器並以 `If` 分支          | A 馬達                |
 | 感測器   | [sensor-threshold](sensors/sensor-threshold/)              | 等待、讀取百分比並選擇回饋            | 輸入埠 1 的觸碰感測器 |
 | 感測器   | [sensor-sampling](sensors/sensor-sampling/)                | 在有限迴圈內重複取樣感測器            | 輸入埠 1 的觸碰感測器 |
+| 感測器   | [color-sensor](sensors/color-sensor/)                      | 在 Color 模式讀取辨識到的顏色代號     | 輸入埠 1 的顏色感測器 |
+| 感測器   | [gyro-sensor](sensors/gyro-sensor/)                        | 在 Angle 模式讀取旋轉角度             | 輸入埠 1 的陀螺儀     |
 
 每個分類現在都是 `examples/` 下的實體資料夾；上表每個連結都會開啟對應的專案資料夾。可在 Kobrixa 開啟專案目錄、`kobrixa.json` 或 `src/main.bp`。連接 EV3 前請先建置；第一次執行馬達範例時，請先架高機器人，確保輪子可安全轉動。
 

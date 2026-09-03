@@ -11,6 +11,20 @@ import {
 import type { DeviceEvent } from "../shared/api.js";
 import type { BuildService } from "./build.js";
 
+export function mergeDiscoveryResults(
+  settled: PromiseSettledResult<DeviceDescriptor[]>[],
+): DeviceDescriptor[] {
+  const devices = settled.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
+  if (devices.length) return devices;
+  const rejection = settled.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (rejection) throw rejection.reason;
+  return [];
+}
+
 export class DeviceService {
   readonly #sessions = new Map<string, DeviceSession>();
   readonly #usb = new UsbTransport();
@@ -26,15 +40,7 @@ export class DeviceService {
       this.#usb.discover(signal),
       this.#wifi.discover(signal),
     ]);
-    const devices = settled.flatMap((result) =>
-      result.status === "fulfilled" ? result.value : [],
-    );
-    const rejection = settled.find(
-      (result): result is PromiseRejectedResult => result.status === "rejected",
-    );
-    if (!devices.length && settled.every((result) => result.status === "rejected") && rejection)
-      throw rejection.reason;
-    return devices;
+    return mergeDiscoveryResults(settled);
   }
 
   connect(descriptor: DeviceDescriptor, signal = new AbortController().signal): Promise<string> {

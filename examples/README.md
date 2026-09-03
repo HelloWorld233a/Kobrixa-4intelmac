@@ -1,6 +1,6 @@
 # Kobrixa examples
 
-These 24 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
+These 26 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
 
 <a href="./getting-started/">Getting started</a> · <a href="./display/">Display</a> · <a href="./sound/">Sound</a> · <a href="./control-flow/">Control flow</a> · <a href="./language/">Language</a> · <a href="./program/">Program</a> · <a href="./projects/">Projects</a> · <a href="./motors/">Motors</a> · <a href="./sensors/">Sensors</a>
 
@@ -30,6 +30,8 @@ These 24 examples are independently authored for Kobrixa and progress from displ
 | Motor           | [motor-counter](motors/motor-counter/)                     | Read a motor encoder and branch with `If`        | Motor A                              |
 | Sensor          | [sensor-threshold](sensors/sensor-threshold/)              | Wait, read a percentage, and select feedback     | Touch sensor on input port 1         |
 | Sensor          | [sensor-sampling](sensors/sensor-sampling/)                | Repeated sensor sampling in a finite loop        | Touch sensor on input port 1         |
+| Sensor          | [color-sensor](sensors/color-sensor/)                      | Read a detected color value in Color mode        | Color sensor on input port 1         |
+| Sensor          | [gyro-sensor](sensors/gyro-sensor/)                        | Read a rotation angle in Angle mode              | Gyro sensor on input port 1          |
 
 Each category is a physical folder under `examples/`; every link above opens the corresponding project folder. Open a project directory, its `kobrixa.json`, or its `src/main.bp` in Kobrixa. Build before connecting to an EV3. For motor examples, lift the robot so its wheels can turn safely during the first run.
 
