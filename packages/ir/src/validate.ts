@@ -27,10 +27,15 @@ function issue(code: string, message: string, span?: SourceSpan): IRValidationIs
 function validateFunction(fn: IRFunction, globals: Map<string, IRType>): IRValidationIssue[] {
   const issues: IRValidationIssue[] = [];
   const symbols = new Map(globals);
+  const functionSymbols = new Set<string>();
   for (const variable of [...fn.parameters, ...fn.locals]) {
     const key = variable.name.toLocaleLowerCase("en-US");
-    if (symbols.has(key))
+    // Clev3r lets a function parameter or local deliberately shadow a
+    // project-global name. Keep globals available for all other lookups, but
+    // only reject duplicates declared in the same function scope.
+    if (functionSymbols.has(key))
       issues.push(issue("IR1002", `Duplicate symbol '${variable.name}'.`, variable.span));
+    functionSymbols.add(key);
     symbols.set(key, variable.type);
   }
 
@@ -54,7 +59,9 @@ function validateFunction(fn: IRFunction, globals: Map<string, IRType>): IRValid
             ? [instruction.left, instruction.right]
             : instruction.op === "unary"
               ? [instruction.value]
-              : instruction.args;
+              : instruction.op === "thread-start"
+                ? []
+                : instruction.args;
       for (const operand of operands) {
         if (!valueType(operand, symbols))
           issues.push(
@@ -70,7 +77,8 @@ function validateFunction(fn: IRFunction, globals: Map<string, IRType>): IRValid
         if (
           actual &&
           !sameType(target, actual) &&
-          !(target.kind === "number" && actual.kind === "integer")
+          !(target.kind === "number" && ["integer", "boolean"].includes(actual.kind)) &&
+          !(target.kind === "integer" && actual.kind === "boolean")
         ) {
           issues.push(
             issue("IR1006", `Cannot assign ${actual.kind} to ${target.kind}.`, instruction.span),
@@ -101,7 +109,11 @@ function validateFunction(fn: IRFunction, globals: Map<string, IRType>): IRValid
             const accepted = Array.isArray(expected) ? expected : [expected];
             if (
               actual &&
-              !accepted.some((candidate) => sameType({ kind: candidate }, actual)) &&
+              !accepted.some((candidate) =>
+                candidate === "array"
+                  ? actual.kind === "array"
+                  : sameType({ kind: candidate }, actual),
+              ) &&
               !(accepted.includes("number") && actual.kind === "integer") &&
               !(accepted.includes("integer") && actual.kind === "number")
             ) {

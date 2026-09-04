@@ -9,7 +9,7 @@ import type {
   KobrixaIR,
   SourceSpan,
 } from "@kobrixa/ir";
-import { gv, lc, lcf, lcs, lh, lv, relativeOffset } from "./encoding.js";
+import { gh, gv, lc, lcf, lcs, lh, lv, relativeOffset } from "./encoding.js";
 import {
   ARRAY,
   COM_GET,
@@ -33,6 +33,7 @@ type Label = string | symbol;
 interface Allocation {
   offset: number;
   type: IRType;
+  scope: "global" | "local";
 }
 
 interface CallableFunction {
@@ -109,36 +110,6 @@ function motorMask(value: IRValue): number | undefined {
   return mask || undefined;
 }
 
-function noteFrequency(value: IRValue): number | undefined {
-  if (value.kind !== "string") return undefined;
-  const match = /^([A-Ga-g])([#b]?)([4-7])$/.exec(value.value);
-  if (!match) return undefined;
-  const semitones: Record<string, number> = {
-    C: 0,
-    "C#": 1,
-    Db: 1,
-    D: 2,
-    "D#": 3,
-    Eb: 3,
-    E: 4,
-    F: 5,
-    "F#": 6,
-    Gb: 6,
-    G: 7,
-    "G#": 8,
-    Ab: 8,
-    A: 9,
-    "A#": 10,
-    Bb: 10,
-    B: 11,
-  };
-  const name = `${match[1]!.toUpperCase()}${match[2] ?? ""}`;
-  const semitone = semitones[name];
-  return semitone === undefined
-    ? undefined
-    : Math.round(440 * 2 ** ((Number(match[3]) * 12 + semitone - 57) / 12));
-}
-
 function ledPattern(color: IRValue, effect: IRValue): number | undefined {
   if (color.kind !== "string" || effect.kind !== "string") return undefined;
   const base: Record<string, number> = { OFF: 0, GREEN: 1, RED: 2, ORANGE: 3 };
@@ -183,6 +154,10 @@ class ObjectAssembler {
   #timerBaselines: number | undefined;
   localBytes = 0;
 
+  get isBackgroundThread(): boolean {
+    return this.threadObjects.has(this.fn.name.toLocaleLowerCase("en-US"));
+  }
+
   constructor(
     readonly fn: IRFunction,
     readonly objectId: number,
@@ -190,6 +165,8 @@ class ObjectAssembler {
     readonly hasMutexes: boolean,
     readonly hasLcdUpdateControl: boolean,
     readonly mailboxAllocator: { next: number },
+    readonly globalAllocations: ReadonlyMap<string, Allocation>,
+    readonly threadObjects: ReadonlyMap<string, number>,
   ) {
     const parameters = orderedParameters(fn);
     const variables =
@@ -211,6 +188,7 @@ class ObjectAssembler {
       this.allocations.set(variable.name.toLocaleLowerCase("en-US"), {
         offset: this.localBytes,
         type: variable.type,
+        scope: "local",
       });
       this.localBytes += sizeOf(variable.type);
     }
@@ -233,6 +211,7 @@ class ObjectAssembler {
       if (this.hasMutexes) this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(0), ...gv(0));
       if (this.hasLcdUpdateControl) this.bytes.push(OP.MOVE_32_32, ...lc(0), ...gv(4));
     }
+    this.initializeArrays();
     for (const block of this.fn.blocks) {
       signal.throwIfAborted();
       this.labels.set(block.id, this.bytes.length);
@@ -240,7 +219,8 @@ class ObjectAssembler {
       this.terminator(block);
     }
     this.labels.set(OBJECT_EPILOGUE, this.bytes.length);
-    this.bytes.push(this.fn.name === "main" ? OP.OBJECT_END : OP.RETURN);
+    if (this.fn.name === "main") this.bytes.push(OP.OBJECT_END);
+    else this.bytes.push(OP.RETURN, OP.OBJECT_END);
     for (const patch of this.patches) {
       const target = this.labels.get(patch.target);
       if (target === undefined) {
@@ -260,15 +240,136 @@ class ObjectAssembler {
     if (value.kind === "integer") return lc(value.value);
     if (value.kind === "boolean") return lc(value.value ? 1 : 0);
     if (value.kind === "string") return lcs(value.value);
-    const allocation = this.allocations.get(value.name.toLocaleLowerCase("en-US"));
+    const allocation = this.allocationFor(value.name);
     if (!allocation) return undefined;
-    return lv(allocation.offset);
+    return this.location(allocation);
+  }
+
+  private allocationFor(name: string): Allocation | undefined {
+    const key = name.toLocaleLowerCase("en-US");
+    return this.allocations.get(key) ?? this.globalAllocations.get(key);
+  }
+
+  private location(allocation: Allocation, byteOffset = 0): number[] {
+    return allocation.scope === "global"
+      ? gv(allocation.offset + byteOffset)
+      : lv(allocation.offset + byteOffset);
   }
 
   private arrayContents(value: IRValue): number[] | undefined {
     if (value.kind !== "variable") return undefined;
-    const allocation = this.allocations.get(value.name.toLocaleLowerCase("en-US"));
-    return allocation ? lh(allocation.offset) : undefined;
+    const allocation = this.allocationFor(value.name);
+    return allocation
+      ? allocation.scope === "global"
+        ? gh(allocation.offset)
+        : lh(allocation.offset)
+      : undefined;
+  }
+
+  private initializeArrays(): void {
+    const arrays = [
+      ...this.allocations.values(),
+      ...(this.fn.name === "main" ? this.globalAllocations.values() : []),
+    ].filter((allocation) => allocation.type.kind === "array");
+    for (const allocation of arrays) {
+      const type = allocation.type;
+      if (type.kind !== "array") continue;
+      if (type.element === "string") {
+        this.bytes.push(
+          OP.ARRAY,
+          ...lc(ARRAY.CREATE_8),
+          ...lc(STRING_BYTES * 2),
+          ...this.location(allocation),
+        );
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...this.location(allocation), ...lc(0));
+      } else {
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lc(8), ...this.location(allocation));
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...this.location(allocation), ...lcf(0));
+      }
+    }
+  }
+
+  private stringArrayIndex(index: IRValue): number[] | undefined {
+    const integer = this.integerParameter(index);
+    if (!integer) return undefined;
+    const byteIndex = this.scratch(4);
+    this.bytes.push(OP.MUL_32, ...integer, ...lc(STRING_BYTES), ...lv(byteIndex));
+    return lv(byteIndex);
+  }
+
+  private fixedStringSource(value: IRValue): number[] | undefined {
+    const source = this.parameter(value);
+    if (!source) return undefined;
+    if (value.kind === "variable") return source;
+    const scratch = this.scratch(STRING_BYTES);
+    this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(scratch));
+    return lv(scratch);
+  }
+
+  /** CLEV3R automatically converts a number to text when an API expects text. */
+  private textParameter(value: IRValue): number[] | undefined {
+    const type = this.typeOf(value)?.kind;
+    if (type === "string") return this.parameter(value);
+    if (value.kind === "boolean") return lcs(value.value ? "True" : "False");
+    if (type === "boolean") {
+      const source = this.parameter(value);
+      if (!source) return undefined;
+      const target = this.scratch(STRING_BYTES);
+      const whenFalse = this.newLabel("boolean-text-false");
+      const done = this.newLabel("boolean-text-done");
+      this.bytes.push(OP.JR_FALSE, ...source);
+      this.addPatch(whenFalse);
+      this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs("True"), ...lv(target));
+      this.bytes.push(OP.JR);
+      this.addPatch(done);
+      this.markLabel(whenFalse);
+      this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs("False"), ...lv(target));
+      this.markLabel(done);
+      return lv(target);
+    }
+    if (type !== "number" && type !== "integer") return undefined;
+    const number = this.floatParameter(value);
+    if (!number) return undefined;
+    const target = this.scratch(STRING_BYTES);
+    this.bytes.push(
+      OP.STRING,
+      ...lc(STRING.VALUE_FORMATTED),
+      ...number,
+      ...lcs("%g"),
+      ...lc(99),
+      ...lv(target),
+    );
+    return lv(target);
+  }
+
+  private readStringArray(handle: number[], index: IRValue, target: Allocation): void {
+    const byteIndex = this.stringArrayIndex(index);
+    if (!byteIndex) return;
+    this.bytes.push(OP.MOVE_8_8, ...lc(0), ...this.location(target));
+    this.bytes.push(
+      OP.ARRAY,
+      ...lc(ARRAY.READ_CONTENT),
+      ...lc(1),
+      ...handle,
+      ...byteIndex,
+      ...lc(STRING_BYTES),
+      ...this.location(target),
+    );
+  }
+
+  private writeStringArray(handle: number[], index: IRValue, value: IRValue): void {
+    const byteIndex = this.stringArrayIndex(index);
+    const source = this.fixedStringSource(value);
+    if (!byteIndex || !source) return;
+    this.bytes.push(
+      OP.ARRAY,
+      ...lc(ARRAY.WRITE_CONTENT),
+      ...lc(1),
+      ...handle,
+      ...byteIndex,
+      ...lc(STRING_BYTES),
+      ...source,
+    );
   }
 
   private floatParameter(value: IRValue): number[] | undefined {
@@ -303,6 +404,18 @@ class ObjectAssembler {
     const scratch = this.scratch(1);
     this.bytes.push(OP.MOVE_F_8, ...parameter, ...lv(scratch));
     return lv(scratch);
+  }
+
+  private wordParameter(value: IRValue): number[] | undefined {
+    const source = this.parameter(value);
+    if (!source) return undefined;
+    const target = this.scratch(2);
+    this.bytes.push(
+      this.typeOf(value)?.kind === "number" ? OP.MOVE_F_16 : OP.MOVE_32_16,
+      ...source,
+      ...lv(target),
+    );
+    return lv(target);
   }
 
   private byteResult(target: Allocation, emit: (destination: number[]) => void): void {
@@ -349,6 +462,44 @@ class ObjectAssembler {
     this.bytes.push(OP.MOVE_F_8, ...lv(speed), ...lv(speedByte));
     this.bytes.push(OP.MOVE_F_16, ...lv(turnFloat), ...lv(turnWord));
     return { speed: lv(speedByte), turn: lv(turnWord) };
+  }
+
+  private motorAddress(
+    value: IRValue,
+  ): { layer: number[]; mask: number[]; port: number[] } | undefined {
+    const fixedMask = motorMask(value);
+    if (fixedMask !== undefined) {
+      // Commands accept a port mask (for example "AB").  Operations that
+      // need one physical port use the first selected port, as Clev3r does.
+      const port = Math.max(0, Math.floor(Math.log2(fixedMask)));
+      return { layer: lc(0), mask: lc(fixedMask), port: lc(port) };
+    }
+    if (value.kind !== "variable" || this.typeOf(value)?.kind !== "string") return undefined;
+    const allocation = this.allocationFor(value.name);
+    if (!allocation) return undefined;
+    const letter = this.scratch(4);
+    const port = this.scratch(4);
+    const shift = this.scratch(1);
+    const mask = this.scratch(1);
+    const layerCharacter = this.scratch(4);
+    const layer = this.scratch(4);
+    const noLayer = this.newLabel("motor-no-layer");
+    const done = this.newLabel("motor-layer-done");
+    this.bytes.push(OP.MOVE_8_32, ...this.location(allocation), ...lv(letter));
+    this.bytes.push(OP.SUB_32, ...lv(letter), ...lc(65), ...lv(port));
+    this.bytes.push(OP.MOVE_32_8, ...lv(port), ...lv(shift));
+    this.bytes.push(OP.RL_8, ...lc(1), ...lv(shift), ...lv(mask));
+    this.bytes.push(OP.MOVE_8_32, ...this.location(allocation, 1), ...lv(layerCharacter));
+    this.bytes.push(OP.CP_NEQ_32, ...lv(layerCharacter), ...lc(0), ...lv(shift));
+    this.bytes.push(OP.JR_FALSE, ...lv(shift));
+    this.addPatch(noLayer);
+    this.bytes.push(OP.SUB_32, ...lv(layerCharacter), ...lc(49), ...lv(layer));
+    this.bytes.push(OP.JR);
+    this.addPatch(done);
+    this.markLabel(noLayer);
+    this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(layer));
+    this.markLabel(done);
+    return { layer: lv(layer), mask: lv(mask), port: lv(port) };
   }
 
   private buttonText(target: Allocation, command: number): void {
@@ -439,7 +590,7 @@ class ObjectAssembler {
 
   private typeOf(value: IRValue): IRType | undefined {
     if (value.kind !== "variable") return { kind: value.kind };
-    return this.allocations.get(value.name.toLocaleLowerCase("en-US"))?.type;
+    return this.allocationFor(value.name)?.type;
   }
 
   /** Maps CLEV3R's one-based, daisy-chain-aware sensor number to EV3 layer/port bytes. */
@@ -579,7 +730,7 @@ class ObjectAssembler {
   private instruction(instruction: IRInstruction): void {
     const target =
       "target" in instruction && instruction.target
-        ? this.allocations.get(instruction.target.toLocaleLowerCase("en-US"))
+        ? this.allocationFor(instruction.target)
         : undefined;
     if ("target" in instruction && instruction.target && !target) {
       this.diagnostics.push(
@@ -589,27 +740,32 @@ class ObjectAssembler {
     }
     if (instruction.op === "assign" && target) {
       const source = this.parameter(instruction.value);
-      if (!source || target.type.kind === "array") {
+      if (!source) {
         this.diagnostics.push(
-          diagnostic(
-            "EV32001",
-            "Array assignment awaits compatibility corpus coverage.",
-            instruction.span,
-          ),
+          diagnostic("EV32001", "Unable to encode an assignment source.", instruction.span),
         );
         return;
       }
-      if (target.type.kind === "string") {
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(target.offset));
+      if (target.type.kind === "array") {
+        this.bytes.push(OP.MOVE_16_32, ...source, ...this.location(target));
         return;
       }
+      if (target.type.kind === "string") {
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...this.location(target));
+        return;
+      }
+      const sourceType = this.typeOf(instruction.value)?.kind;
       const opcode =
         target.type.kind === "boolean"
           ? OP.MOVE_8_8
           : target.type.kind === "integer"
-            ? OP.MOVE_32_32
-            : OP.MOVE_F_F;
-      this.bytes.push(opcode, ...source, ...lv(target.offset));
+            ? sourceType === "boolean"
+              ? OP.MOVE_8_32
+              : OP.MOVE_32_32
+            : sourceType === "boolean"
+              ? OP.MOVE_8_F
+              : OP.MOVE_F_F;
+      this.bytes.push(opcode, ...source, ...this.location(target));
       return;
     }
     if (instruction.op === "unary" && target) {
@@ -768,6 +924,21 @@ class ObjectAssembler {
       }
       this.bytes.push(OP.CALL, ...lc(callable.objectId), ...lc(callArguments.length));
       for (const argument of callArguments) this.bytes.push(...argument);
+      return;
+    }
+    if (instruction.op === "thread-start") {
+      const objectId = this.threadObjects.get(instruction.functionName.toLocaleLowerCase("en-US"));
+      if (objectId === undefined) {
+        this.diagnostics.push(
+          diagnostic(
+            "EV32030",
+            `No EV3 thread object for '${instruction.functionName}'.`,
+            instruction.span,
+          ),
+        );
+        return;
+      }
+      this.bytes.push(OP.OBJECT_START, ...lc(objectId));
       return;
     }
     if (instruction.op === "ev3-call") this.ev3Call(instruction, target);
@@ -1228,10 +1399,15 @@ class ObjectAssembler {
       }
       case "Row.Init": {
         if (!target) break;
+        const length = this.integerParameter(instruction.args[0]!);
         const value = this.floatParameter(instruction.args[1]!);
-        if (!value) break;
+        if (!length || !value) break;
         const handle = this.scratch(2);
-        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(0), ...lv(handle));
+        // EV3 ARRAY.CREATE_F takes a DATA32 element count.  Clev3r's
+        // `number` values are floats, so passing one directly interprets its
+        // IEEE-754 bits as the length (for example 42.0 becomes 0x42280000),
+        // which can exhaust the brick and freeze its VM.
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...length, ...lv(handle));
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...value);
         this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
         return;
@@ -1241,29 +1417,67 @@ class ObjectAssembler {
         return;
       case "Row.Read":
         if (!target) break;
-        this.bytes.push(OP.ARRAY_READ, ...arg(0), ...arg(1), ...lv(target.offset));
+        const readArray = this.typeOf(instruction.args[0]!);
+        if (readArray?.kind === "array" && readArray.element === "string") {
+          this.readStringArray(arg(0), instruction.args[1]!, target);
+          return;
+        }
+        {
+          const index = this.integerParameter(instruction.args[1]!);
+          if (!index) break;
+          this.bytes.push(OP.ARRAY_READ, ...arg(0), ...index, ...lv(target.offset));
+        }
         return;
       case "Row.Write": {
+        const writeArray = this.typeOf(instruction.args[0]!);
+        if (writeArray?.kind === "array" && writeArray.element === "string") {
+          this.writeStringArray(arg(0), instruction.args[1]!, instruction.args[2]!);
+          return;
+        }
+        const index = this.integerParameter(instruction.args[1]!);
         const value = this.floatParameter(instruction.args[2]!);
-        if (!value) break;
-        this.bytes.push(OP.ARRAY_WRITE, ...arg(0), ...arg(1), ...value);
+        if (!index || !value) break;
+        this.bytes.push(OP.ARRAY_WRITE, ...arg(0), ...index, ...value);
         return;
       }
-      case "Row.Size":
+      case "Row.Size": {
         if (!target) break;
-        this.bytes.push(OP.ARRAY, ...lc(ARRAY.SIZE), ...arg(0), ...lv(target.offset));
+        const size = this.scratch(4);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.SIZE), ...arg(0), ...lv(size));
+        this.bytes.push(
+          target.type.kind === "number" ? OP.MOVE_32_F : OP.MOVE_32_32,
+          ...lv(size),
+          ...lv(target.offset),
+        );
         return;
-      case "Row.Resize":
-        this.bytes.push(OP.ARRAY, ...lc(ARRAY.RESIZE), ...arg(0), ...arg(1));
+      }
+      case "Row.Resize": {
+        const length = this.integerParameter(instruction.args[1]!);
+        if (!length) break;
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.RESIZE), ...arg(0), ...length);
         return;
+      }
       case "Text.Append":
         if (!target) break;
-        this.bytes.push(OP.STRING, ...lc(STRING.ADD), ...arg(0), ...arg(1), ...lv(target.offset));
+        {
+          const left = this.textParameter(instruction.args[0]!);
+          const right = this.textParameter(instruction.args[1]!);
+          if (!left || !right) break;
+          this.bytes.push(
+            OP.STRING,
+            ...lc(STRING.ADD),
+            ...left,
+            ...right,
+            ...this.location(target),
+          );
+        }
         return;
       case "Text.GetLength": {
         if (!target) break;
+        const text = this.textParameter(instruction.args[0]!);
+        if (!text) break;
         const length = this.scratch(2);
-        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(0), ...lv(length));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...text, ...lv(length));
         this.bytes.push(OP.MOVE_16_32, ...lv(length), ...lv(target.offset));
         return;
       }
@@ -1274,13 +1488,20 @@ class ObjectAssembler {
         return;
       case "Text.GetCharacterCode":
         if (!target) break;
-        this.bytes.push(OP.MOVE_8_32, ...arg(0), ...lv(target.offset));
+        {
+          const text = this.textParameter(instruction.args[0]!);
+          if (!text) break;
+          this.bytes.push(OP.MOVE_8_32, ...text, ...lv(target.offset));
+        }
         return;
       case "Text.IsSubText":
       case "Text.EndsWith":
       case "Text.StartsWith":
       case "Text.GetIndexOf": {
         if (!target) break;
+        const sourceText = this.textParameter(instruction.args[0]!);
+        const matchText = this.textParameter(instruction.args[1]!);
+        if (!sourceText || !matchText) break;
         const textBuffer = this.scratch(STRING_BYTES);
         const candidate = this.scratch(STRING_BYTES);
         const textLength16 = this.scratch(2);
@@ -1296,10 +1517,10 @@ class ObjectAssembler {
         const found = this.newLabel("text-search-found");
         const missing = this.newLabel("text-search-missing");
         const done = this.newLabel("text-search-done");
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...arg(0), ...lv(textBuffer));
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...arg(1), ...lv(candidate));
-        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(0), ...lv(textLength16));
-        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(1), ...lv(subtextLength16));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...sourceText, ...lv(textBuffer));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...matchText, ...lv(candidate));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...sourceText, ...lv(textLength16));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...matchText, ...lv(subtextLength16));
         this.bytes.push(OP.MOVE_16_32, ...lv(textLength16), ...lv(textLength));
         this.bytes.push(OP.MOVE_16_32, ...lv(subtextLength16), ...lv(subtextLength));
         this.bytes.push(OP.CP_GT_32, ...lv(subtextLength), ...lc(0), ...lv(valid));
@@ -1328,7 +1549,7 @@ class ObjectAssembler {
         this.bytes.push(
           OP.STRING,
           ...lc(STRING.COMPARE),
-          ...arg(1),
+          ...matchText,
           ...lv(candidate),
           ...lv(match),
         );
@@ -1358,6 +1579,8 @@ class ObjectAssembler {
       case "Text.GetSubText":
       case "Text.GetSubTextToEnd": {
         if (!target) break;
+        const sourceText = this.textParameter(instruction.args[0]!);
+        if (!sourceText) break;
         const buffer = this.scratch(STRING_BYTES);
         const length16 = this.scratch(2);
         const length = this.scratch(4);
@@ -1371,8 +1594,8 @@ class ObjectAssembler {
         const clamp = this.newLabel("text-sub-clamp");
         const copy = this.newLabel("text-sub-copy");
         const done = this.newLabel("text-sub-done");
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...arg(0), ...lv(buffer));
-        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(0), ...lv(length16));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...sourceText, ...lv(buffer));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...sourceText, ...lv(length16));
         this.bytes.push(OP.MOVE_16_32, ...lv(length16), ...lv(length));
         this.bytes.push(OP.MOVE_32_32, ...arg(1), ...lv(start));
         this.bytes.push(OP.SUB_32, ...lv(start), ...lc(1), ...lv(start));
@@ -1419,7 +1642,8 @@ class ObjectAssembler {
       case "Text.ConvertToLowerCase":
       case "Text.ConvertToUpperCase": {
         if (!target) break;
-        const source = arg(0);
+        const source = this.textParameter(instruction.args[0]!);
+        if (!source) break;
         const index = this.scratch(4);
         const character = this.scratch(1);
         const numeric = this.scratch(4);
@@ -2175,7 +2399,11 @@ class ObjectAssembler {
         this.lcdAutoUpdate();
         return;
       case "LCD.Write":
-        this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.TEXT), ...lc(1), ...arg(0), ...arg(1), ...arg(2));
+        {
+          const text = this.textParameter(instruction.args[2]!);
+          if (!text) break;
+          this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.TEXT), ...lc(1), ...arg(0), ...arg(1), ...text);
+        }
         this.lcdAutoUpdate();
         return;
       case "LCD.Line":
@@ -2217,18 +2445,13 @@ class ObjectAssembler {
         this.bytes.push(OP.SOUND, ...lc(SOUND.BREAK));
         return;
       case "Speaker.Note": {
-        const frequency = noteFrequency(instruction.args[1]!);
-        if (!frequency) {
-          this.diagnostics.push(
-            diagnostic(
-              "EV32014",
-              "Speaker.Note requires a constant note from C4 through B7.",
-              instruction.span,
-            ),
-          );
-          return;
-        }
-        this.bytes.push(OP.SOUND, ...lc(SOUND.TONE), ...arg(0), ...lc(frequency), ...arg(2));
+        const volume = this.byteParameter(instruction.args[0]!);
+        const note = this.parameter(instruction.args[1]!);
+        const duration = this.wordParameter(instruction.args[2]!);
+        if (!volume || !note || !duration) break;
+        const frequency = this.scratch(2);
+        this.bytes.push(OP.NOTE_TO_FREQ, ...note, ...lv(frequency));
+        this.bytes.push(OP.SOUND, ...lc(SOUND.TONE), ...volume, ...lv(frequency), ...duration);
         return;
       }
       case "Speaker.IsBusy":
@@ -2338,16 +2561,16 @@ class ObjectAssembler {
         return;
       }
       case "Motor.Start": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
         this.bytes.push(
           OP.OUTPUT_SPEED,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
           ...arg(1),
           OP.OUTPUT_START,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
         );
         return;
       }
@@ -2396,53 +2619,53 @@ class ObjectAssembler {
         return;
       }
       case "Motor.Stop": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
-        this.bytes.push(OP.OUTPUT_STOP, ...lc(0), ...lc(mask), ...arg(1));
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
+        this.bytes.push(OP.OUTPUT_STOP, ...motor.layer, ...motor.mask, ...arg(1));
         return;
       }
       case "Motor.Move": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
         this.bytes.push(
           OP.OUTPUT_STEP_SPEED,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
           ...arg(1),
           ...lc(0),
           ...arg(2),
           ...lc(0),
           ...arg(3),
         );
-        this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+        this.bytes.push(OP.OUTPUT_READY, ...motor.layer, ...motor.mask);
         return;
       }
       case "Motor.MovePower": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
         this.bytes.push(
           OP.OUTPUT_STEP_POWER,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
           ...arg(1),
           ...lc(0),
           ...arg(2),
           ...lc(0),
           ...arg(3),
           OP.OUTPUT_READY,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
         );
         return;
       }
       case "Motor.Schedule":
       case "Motor.SchedulePower": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
         this.bytes.push(
           instruction.operation === "Motor.Schedule" ? OP.OUTPUT_STEP_SPEED : OP.OUTPUT_STEP_POWER,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
           ...arg(1),
           ...arg(2),
           ...arg(3),
@@ -2452,81 +2675,77 @@ class ObjectAssembler {
         return;
       }
       case "Motor.ResetCount": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
-        this.bytes.push(OP.OUTPUT_CLR_COUNT, ...lc(0), ...lc(mask));
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
+        this.bytes.push(OP.OUTPUT_CLR_COUNT, ...motor.layer, ...motor.mask);
         return;
       }
       case "Motor.ScheduleSteer":
       case "Motor.MoveSteer": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
         this.bytes.push(
           OP.OUTPUT_STEP_SYNC,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
           ...arg(1),
           ...arg(2),
           ...arg(3),
           ...arg(4),
         );
         if (instruction.operation === "Motor.MoveSteer")
-          this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+          this.bytes.push(OP.OUTPUT_READY, ...motor.layer, ...motor.mask);
         return;
       }
       case "Motor.ScheduleSync":
       case "Motor.MoveSync": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
         const values = this.motorSyncParameters(instruction.args[1]!, instruction.args[2]!);
         if (!values) break;
         this.bytes.push(
           OP.OUTPUT_STEP_SYNC,
-          ...lc(0),
-          ...lc(mask),
+          ...motor.layer,
+          ...motor.mask,
           ...values.speed,
           ...values.turn,
           ...arg(3),
           ...arg(4),
         );
         if (instruction.operation === "Motor.MoveSync")
-          this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+          this.bytes.push(OP.OUTPUT_READY, ...motor.layer, ...motor.mask);
         return;
       }
       case "Motor.IsBusy": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask || !target) break;
-        this.bytes.push(OP.OUTPUT_TEST, ...lc(0), ...lc(mask), ...lv(target.offset));
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor || !target) break;
+        this.bytes.push(OP.OUTPUT_TEST, ...motor.layer, ...motor.mask, ...lv(target.offset));
         return;
       }
       case "Motor.Wait": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
-        this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
+        this.bytes.push(OP.OUTPUT_READY, ...motor.layer, ...motor.mask);
         return;
       }
       case "Motor.Invert": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask) break;
-        this.bytes.push(OP.OUTPUT_POLARITY, ...lc(0), ...lc(mask), ...lc(0));
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor) break;
+        this.bytes.push(OP.OUTPUT_POLARITY, ...motor.layer, ...motor.mask, ...lc(0));
         return;
       }
       case "Motor.GetCount": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask || !target) break;
-        const port = Math.log2(mask);
-        if (!Number.isInteger(port)) break;
-        this.bytes.push(OP.OUTPUT_GET_COUNT, ...lc(0), ...lc(port), ...lv(target.offset));
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor || !target) break;
+        this.bytes.push(OP.OUTPUT_GET_COUNT, ...motor.layer, ...motor.port, ...lv(target.offset));
         return;
       }
       case "Motor.GetSpeed": {
-        const mask = motorMask(instruction.args[0]!);
-        if (!mask || !target) break;
-        const port = Math.log2(mask);
-        if (!Number.isInteger(port)) break;
+        const motor = this.motorAddress(instruction.args[0]!);
+        if (!motor || !target) break;
         const speed = this.scratch(1);
         const tacho = this.scratch(4);
-        this.bytes.push(OP.OUTPUT_READ, ...lc(0), ...lc(port), ...lv(speed), ...lv(tacho));
+        this.bytes.push(OP.OUTPUT_READ, ...motor.layer, ...motor.port, ...lv(speed), ...lv(tacho));
         this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...lv(target.offset));
         return;
       }
@@ -2683,13 +2902,9 @@ class ObjectAssembler {
         if (!target) break;
         const sensor = this.sensorAddress(instruction.args[0]!);
         const index = instruction.args[1];
-        if (!sensor || !index || this.typeOf(index)?.kind !== "integer") {
+        if (!sensor || !index || !["integer", "number"].includes(this.typeOf(index)?.kind ?? "")) {
           this.diagnostics.push(
-            diagnostic(
-              "EV32012",
-              "Sensor port and value index must be integers.",
-              instruction.span,
-            ),
+            diagnostic("EV32012", "Sensor port and value index must be numeric.", instruction.span),
           );
           return;
         }
@@ -2761,21 +2976,23 @@ class ObjectAssembler {
       case "Sensor3.Raw3":
       case "Sensor4.Raw3": {
         const outputs = instruction.args.map((value) =>
-          value.kind === "variable"
-            ? this.allocations.get(value.name.toLocaleLowerCase("en-US"))
-            : undefined,
+          value.kind === "variable" ? this.allocationFor(value.name) : undefined,
         );
-        if (outputs.length !== 3 || outputs.some((output) => output?.type.kind !== "integer")) {
+        if (
+          outputs.length !== 3 ||
+          outputs.some((output) => !output || !["integer", "number"].includes(output.type.kind))
+        ) {
           this.diagnostics.push(
             diagnostic(
               "EV32026",
-              "Sensor.Raw3 requires three integer variables to receive its values.",
+              "Sensor.Raw3 requires three numeric variables to receive its values.",
               instruction.span,
             ),
           );
           return;
         }
         const port = Number(instruction.operation[6]) - 1;
+        const raw = [this.scratch(4), this.scratch(4), this.scratch(4)];
         this.bytes.push(
           OP.INPUT_DEVICE,
           ...lc(INPUT_DEVICE.READY_RAW),
@@ -2784,18 +3001,25 @@ class ObjectAssembler {
           ...lc(0),
           ...lc(-1),
           ...lc(3),
-          ...lv(outputs[0]!.offset),
-          ...lv(outputs[1]!.offset),
-          ...lv(outputs[2]!.offset),
+          ...lv(raw[0]!),
+          ...lv(raw[1]!),
+          ...lv(raw[2]!),
         );
+        for (const [index, output] of outputs.entries()) {
+          this.bytes.push(
+            output!.type.kind === "number" ? OP.MOVE_32_F : OP.MOVE_32_32,
+            ...lv(raw[index]!),
+            ...this.location(output!),
+          );
+        }
         return;
       }
       case "Sensor.SetMode": {
         const sensor = this.sensorAddress(instruction.args[0]!);
         const mode = instruction.args[1];
-        if (!sensor || !mode || this.typeOf(mode)?.kind !== "integer") {
+        if (!sensor || !mode || !["integer", "number"].includes(this.typeOf(mode)?.kind ?? "")) {
           this.diagnostics.push(
-            diagnostic("EV32012", "Sensor port and mode must be integers.", instruction.span),
+            diagnostic("EV32012", "Sensor port and mode must be numeric.", instruction.span),
           );
           return;
         }
@@ -2993,6 +3217,12 @@ class ObjectAssembler {
       return;
     }
     if (terminator.op === "jump") {
+      // Clev3r permits a Thread.Run Sub to contain a tight loop.  On EV3 this
+      // needs an explicit scheduler break; otherwise the worker can consume
+      // every VM time slice before the main object, UI, or USB service runs.
+      // A known target is a backwards edge because blocks are emitted in
+      // source order, so yielding here preserves normal straight-line calls.
+      if (this.isBackgroundThread && this.labels.has(terminator.target)) this.bytes.push(OP.SLEEP);
       this.bytes.push(OP.JR);
       this.addPatch(terminator.target);
       return;
@@ -3042,7 +3272,31 @@ export class EV3Backend implements CompilerBackend {
         ),
       ),
     );
+    let globalBytes = hasMutexes || hasLcdUpdateControl ? 8 : 0;
+    const globalAllocations = new Map<string, Allocation>();
+    for (const variable of ir.globals) {
+      const alignment = sizeOf(variable.type) >= 4 ? 4 : 1;
+      globalBytes = Math.ceil(globalBytes / alignment) * alignment;
+      globalAllocations.set(variable.name.toLocaleLowerCase("en-US"), {
+        offset: globalBytes,
+        type: variable.type,
+        scope: "global",
+      });
+      globalBytes += sizeOf(variable.type);
+    }
     const mailboxAllocator = { next: 0 };
+    const threadTargets = new Set(
+      ir.functions.flatMap((fn) =>
+        fn.blocks.flatMap((block) =>
+          block.instructions
+            .filter((instruction) => instruction.op === "thread-start")
+            .map((instruction) => instruction.functionName.toLocaleLowerCase("en-US")),
+        ),
+      ),
+    );
+    const threadObjects = new Map(
+      [...threadTargets].map((name, index) => [name, ir.functions.length + index + 1]),
+    );
     for (const [index, fn] of ir.functions.entries()) {
       const assembler = new ObjectAssembler(
         fn,
@@ -3051,12 +3305,17 @@ export class EV3Backend implements CompilerBackend {
         hasMutexes,
         hasLcdUpdateControl,
         mailboxAllocator,
+        globalAllocations,
+        threadObjects,
       );
       const code = assembler.assemble(signal);
       diagnostics.push(...assembler.diagnostics);
       objects.push({
-        ownerObjectId: index === 0 ? 0 : 1,
-        triggerCount: 0,
+        // The main program is a VM thread. Every generated function is an
+        // EV3 SUBCALL object and therefore needs its parameter descriptor
+        // (owner 0, trigger count 1), not a block-object header.
+        ownerObjectId: 0,
+        triggerCount: index === 0 ? 0 : 1,
         localBytes: assembler.localBytes,
         code,
       });
@@ -3064,8 +3323,20 @@ export class EV3Backend implements CompilerBackend {
         `${index + 1}\t${fn.name}\tlocals=${assembler.localBytes}\t${[...code].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}`,
       );
     }
+    for (const [functionName, objectId] of threadObjects) {
+      const callable = callables.get(functionName);
+      if (!callable) {
+        diagnostics.push(diagnostic("EV32030", `No thread Sub '${functionName}' was emitted.`));
+        continue;
+      }
+      const code = Uint8Array.from([OP.CALL, ...lc(callable.objectId), ...lc(0), OP.OBJECT_END]);
+      objects.push({ ownerObjectId: 0, triggerCount: 0, localBytes: 0, code });
+      listing.push(
+        `${objectId}\tthread:${functionName}\tlocals=0\t${[...code].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}`,
+      );
+    }
     if (diagnostics.some((item) => item.severity === "error")) return { diagnostics };
-    const rbf = createRbf(objects, hasMutexes || hasLcdUpdateControl ? 8 : 0);
+    const rbf = createRbf(objects, globalBytes);
     try {
       inspectRbf(rbf);
       return { rbf, listing: `${listing.join("\n")}\n`, diagnostics };

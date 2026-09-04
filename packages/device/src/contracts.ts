@@ -35,5 +35,6 @@ export interface DeviceSession {
 
 export interface Ev3Connection {
   exchange(payload: Uint8Array, signal: AbortSignal, timeoutMs?: number): Promise<Uint8Array>;
+  transmit(payload: Uint8Array, signal: AbortSignal): Promise<void>;
   close(): Promise<void>;
 }

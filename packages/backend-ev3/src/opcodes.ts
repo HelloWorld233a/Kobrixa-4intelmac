@@ -1,5 +1,6 @@
 export const OP = {
   PROGRAM_STOP: 0x02,
+  OBJECT_START: 0x05,
   CALL: 0x09,
   SLEEP: 0x0b,
   ADD_8: 0x10,
@@ -62,6 +63,7 @@ export const OP = {
   CP_EQ_32: 0x4e,
   CP_NEQ_F: 0x53,
   CP_NEQ_32: 0x52,
+  NOTE_TO_FREQ: 0x63,
   UI_BUTTON: 0x83,
   UI_READ: 0x81,
   UI_WRITE: 0x82,
@@ -152,6 +154,8 @@ export const ARRAY = {
   CREATE_F: 0x04,
   RESIZE: 0x05,
   FILL: 0x06,
+  READ_CONTENT: 0x0d,
+  WRITE_CONTENT: 0x0e,
   SIZE: 0x0c,
 } as const;
 

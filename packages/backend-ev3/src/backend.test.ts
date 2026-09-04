@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { KobrixaIR } from "@kobrixa/ir";
-import { EV3Backend, INPUT_DEVICE, inspectRbf, OP } from "./index.js";
+import { EV3Backend, INPUT_DEVICE, inspectRbf, OP, STRING } from "./index.js";
 
 const ir: KobrixaIR = {
   version: 1,
@@ -38,6 +38,227 @@ describe("EV3Backend", () => {
     const code = first.rbf!.slice(info.offsets[0]);
     expect(code.at(-1)).toBe(OP.OBJECT_END);
     expect([...code].filter((byte) => byte === OP.OBJECT_END)).toHaveLength(1);
+  });
+
+  it("allocates IR globals in EV3 global memory", async () => {
+    const withGlobal: KobrixaIR = {
+      ...ir,
+      globals: [{ name: "speed", type: { kind: "number" }, scope: "global" }],
+      functions: [
+        {
+          ...ir.functions[0]!,
+          blocks: [
+            {
+              id: "entry",
+              instructions: [
+                {
+                  op: "assign",
+                  target: "speed",
+                  value: { kind: "number", value: 30 },
+                },
+              ],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(withGlobal, new AbortController().signal);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(inspectRbf(result.rbf!).globalBytes).toBe(4);
+    expect([...result.rbf!]).toContain(0x60);
+  });
+
+  it("encodes Clev3r string arrays using byte-array content operations", async () => {
+    const stringArray: KobrixaIR = {
+      ...ir,
+      globals: [{ name: "names", type: { kind: "array", element: "string" }, scope: "global" }],
+      functions: [
+        {
+          ...ir.functions[0]!,
+          locals: [{ name: "label", type: { kind: "string" }, scope: "local" }],
+          blocks: [
+            {
+              id: "entry",
+              instructions: [
+                {
+                  op: "ev3-call",
+                  operation: "Row.Write",
+                  args: [
+                    { kind: "variable", name: "names" },
+                    { kind: "integer", value: 0 },
+                    { kind: "string", value: "Alpha" },
+                  ],
+                },
+                {
+                  op: "ev3-call",
+                  target: "label",
+                  operation: "Row.Read",
+                  args: [
+                    { kind: "variable", name: "names" },
+                    { kind: "integer", value: 0 },
+                  ],
+                },
+              ],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(stringArray, new AbortController().signal);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(inspectRbf(result.rbf!).globalBytes).toBe(4);
+    expect([...result.rbf!]).toEqual(expect.arrayContaining([OP.ARRAY, 0x0d, 0x0e]));
+  });
+
+  it("converts floating Clev3r row lengths and indexes before EV3 array access", async () => {
+    const matrix: KobrixaIR = {
+      ...ir,
+      functions: [
+        {
+          ...ir.functions[0]!,
+          locals: [
+            { name: "length", type: { kind: "number" }, scope: "local" },
+            { name: "matrix", type: { kind: "number" }, scope: "local" },
+            { name: "value", type: { kind: "number" }, scope: "local" },
+          ],
+          blocks: [
+            {
+              id: "entry",
+              instructions: [
+                { op: "assign", target: "length", value: { kind: "number", value: 42 } },
+                {
+                  op: "ev3-call",
+                  target: "matrix",
+                  operation: "Row.Init",
+                  args: [
+                    { kind: "variable", name: "length" },
+                    { kind: "number", value: 0 },
+                  ],
+                },
+                {
+                  op: "ev3-call",
+                  operation: "Row.Write",
+                  args: [
+                    { kind: "variable", name: "matrix" },
+                    { kind: "variable", name: "length" },
+                    { kind: "number", value: 1 },
+                  ],
+                },
+                {
+                  op: "ev3-call",
+                  target: "value",
+                  operation: "Row.Read",
+                  args: [
+                    { kind: "variable", name: "matrix" },
+                    { kind: "variable", name: "length" },
+                  ],
+                },
+                {
+                  op: "ev3-call",
+                  target: "length",
+                  operation: "Row.Size",
+                  args: [{ kind: "variable", name: "matrix" }],
+                },
+              ],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(matrix, new AbortController().signal);
+
+    expect(result.diagnostics).toEqual([]);
+    expect([...result.rbf!]).toContain(OP.MOVE_F_32);
+    expect([...result.rbf!]).toContain(OP.MOVE_32_F);
+  });
+
+  it("creates a runnable EV3 object for Thread.Run", async () => {
+    const threaded: KobrixaIR = {
+      ...ir,
+      functions: [
+        {
+          ...ir.functions[0]!,
+          blocks: [
+            {
+              id: "entry",
+              instructions: [{ op: "thread-start", functionName: "worker" }],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+        {
+          name: "worker",
+          parameters: [],
+          returnType: { kind: "void" },
+          locals: [],
+          entryBlock: "entry",
+          blocks: [
+            { id: "entry", instructions: [], terminator: { op: "jump", target: "loop" } },
+            { id: "loop", instructions: [], terminator: { op: "jump", target: "entry" } },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(threaded, new AbortController().signal);
+
+    expect(result.diagnostics).toEqual([]);
+    const info = inspectRbf(result.rbf!);
+    const headers = new DataView(result.rbf!.buffer, result.rbf!.byteOffset, result.rbf!.byteLength);
+    expect(info.objectCount).toBe(3);
+    expect(headers.getUint16(28 + 4, true)).toBe(0);
+    expect(headers.getUint16(28 + 6, true)).toBe(1);
+    expect(result.rbf!.slice(info.offsets[1], info.offsets[2]).slice(-2)).toEqual(
+      Uint8Array.from([OP.RETURN, OP.OBJECT_END]),
+    );
+    expect([...result.rbf!]).toContain(OP.OBJECT_START);
+    expect([...result.rbf!]).toContain(OP.SLEEP);
+  });
+
+  it("converts Clev3r numeric text arguments before appending or writing them", async () => {
+    const text: KobrixaIR = {
+      ...ir,
+      functions: [
+        {
+          ...ir.functions[0]!,
+          locals: [{ name: "result", type: { kind: "string" }, scope: "local" }],
+          blocks: [
+            {
+              id: "entry",
+              instructions: [
+                {
+                  op: "ev3-call",
+                  target: "result",
+                  operation: "Text.Append",
+                  args: [
+                    { kind: "string", value: "angle=" },
+                    { kind: "integer", value: 90 },
+                  ],
+                },
+                {
+                  op: "ev3-call",
+                  operation: "LCD.Write",
+                  args: [
+                    { kind: "integer", value: 0 },
+                    { kind: "integer", value: 0 },
+                    { kind: "integer", value: 90 },
+                  ],
+                },
+              ],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(text, new AbortController().signal);
+
+    expect(result.diagnostics).toEqual([]);
+    expect([...result.rbf!]).toEqual(expect.arrayContaining([STRING.VALUE_FORMATTED]));
   });
 
   it("emits one object terminator for conditional control flow", async () => {

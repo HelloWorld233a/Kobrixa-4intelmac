@@ -64,6 +64,13 @@ export function lh(offset: number): number[] {
   return [0xd3, ...uint32(offset)];
 }
 
+/** Encodes a global dynamic-array handle as a pointer to its array contents. */
+export function gh(offset: number): number[] {
+  if (offset <= 0xff) return [0xf1, offset];
+  if (offset <= 0xffff) return [0xf2, ...uint16(offset)];
+  return [0xf3, ...uint32(offset)];
+}
+
 export function relativeOffset(value: number): number[] {
   return [0x83, ...int32(value)];
 }

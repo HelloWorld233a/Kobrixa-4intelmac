@@ -69,6 +69,13 @@ class TcpConnection extends FramedConnection {
     );
   }
 
+  protected async sendFrame(frame: Uint8Array, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    await new Promise<void>((resolve, reject) =>
+      this.socket.write(frame, (error) => (error ? reject(error) : resolve())),
+    );
+  }
+
   private async readBytes(length: number, signal: AbortSignal): Promise<Buffer> {
     while (this.#buffer.length < length) {
       if (this.socket.destroyed)

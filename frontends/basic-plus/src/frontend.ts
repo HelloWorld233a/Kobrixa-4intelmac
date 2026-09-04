@@ -35,11 +35,13 @@ export class BasicPlusFrontend implements LanguageFrontend {
     signal.throwIfAborted();
     const diagnostics: Diagnostic[] = [];
     const parsed = new Map<string, ParsedFile>();
+    const parsedByCaseInsensitivePath = new Map<string, string>();
     for (const source of input.sources) {
       signal.throwIfAborted();
       const key = source.path.replaceAll("\\", "/");
       const result = parse(key, source.content);
       parsed.set(key, result.parsed);
+      parsedByCaseInsensitivePath.set(key.toLocaleLowerCase("en-US"), key);
       diagnostics.push(...result.diagnostics);
     }
     const entry = input.manifest.entry.replaceAll("\\", "/");
@@ -63,8 +65,9 @@ export class BasicPlusFrontend implements LanguageFrontend {
       if (visited.has(file.file)) return;
       active.add(file.file);
       for (const include of file.includes) {
+        const includePathText = include.path.replaceAll("\\", "/");
         const requestedPath = path.posix.normalize(
-          path.posix.join(path.posix.dirname(file.file), include.path),
+          path.posix.join(path.posix.dirname(file.file), includePathText),
         );
         if (
           requestedPath === ".." ||
@@ -79,11 +82,18 @@ export class BasicPlusFrontend implements LanguageFrontend {
         const candidates = path.posix.extname(requestedPath)
           ? [requestedPath]
           : [`${requestedPath}.${include.kind === "import" ? "bpm" : "bpi"}`, requestedPath];
-        const includePath = candidates.find((candidate) => parsed.has(candidate)) ?? candidates[0]!;
+        const includePath =
+          candidates.find((candidate) => parsed.has(candidate)) ??
+          candidates
+            .map((candidate) =>
+              parsedByCaseInsensitivePath.get(candidate.toLocaleLowerCase("en-US")),
+            )
+            .find((candidate): candidate is string => candidate !== undefined) ??
+          candidates[0]!;
         if (active.has(includePath)) {
-          diagnostics.push(
-            includeDiagnostic("BP1102", `Include cycle detected at '${includePath}'.`, include),
-          );
+          // Clev3r treats an import already being processed as a no-op.  This
+          // is used by its module templates, including a module importing its
+          // own public declarations.
           continue;
         }
         const included = parsed.get(includePath);

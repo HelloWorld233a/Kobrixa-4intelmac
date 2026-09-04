@@ -43,6 +43,7 @@ export type IRInstruction =
     }
   | { op: "unary"; target: string; operator: "-" | "not"; value: IRValue; span?: SourceSpan }
   | { op: "call"; target?: string; functionName: string; args: IRValue[]; span?: SourceSpan }
+  | { op: "thread-start"; functionName: string; span?: SourceSpan }
   | { op: "ev3-call"; target?: string; operation: string; args: IRValue[]; span?: SourceSpan };
 
 export type IRTerminator =

@@ -123,7 +123,7 @@ export function lex(file: string, source: string): { tokens: Token[]; diagnostic
       continue;
     }
     const pair = source.slice(offset, offset + 2);
-    if (["<=", ">=", "<>", "+=", "-=", "*=", "/=", "++", "--"].includes(pair)) {
+    if (["<=", ">=", "<>", "!=", "+=", "-=", "*=", "/=", "++", "--"].includes(pair)) {
       tokens.push({
         kind: "operator",
         text: pair,
@@ -141,7 +141,7 @@ export function lex(file: string, source: string): { tokens: Token[]; diagnostic
       advance();
       continue;
     }
-    if ("(),:[]".includes(char)) {
+    if ("(),:[]@".includes(char)) {
       tokens.push({
         kind: "punctuation",
         text: char,

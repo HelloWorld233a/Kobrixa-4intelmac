@@ -20,6 +20,11 @@ export class MockConnection extends FramedConnection implements Ev3Connection {
     const reply = await this.responder(request.payload);
     return frameMessage(request.counter, reply);
   }
+
+  protected async sendFrame(frame: Uint8Array): Promise<void> {
+    const request = parseFrame(frame);
+    await this.responder(request.payload);
+  }
 }
 
 export class MockTransport implements DeviceTransport {

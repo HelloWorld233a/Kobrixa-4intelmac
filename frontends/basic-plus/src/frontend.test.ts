@@ -184,6 +184,68 @@ describe("BasicPlusFrontend", () => {
     expect(jumpTargets.some((target) => target.startsWith("for_update_"))).toBe(true);
   });
 
+  it("shares explicit Clev3r globals with imported subroutines", async () => {
+    const input = project('angle = 0\nimport "gyro"\nUpdateAngle()\n');
+    input.sources.push({
+      path: "gyro.bpm",
+      content: "Sub UpdateAngle()\n  @angle += Sensor1.Raw1()\nEndSub\n",
+    });
+    const result = await new BasicPlusFrontend().compile(input, new AbortController().signal);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(validateIR(result.ir!)).toEqual([]);
+    expect(result.ir!.globals).toMatchObject([
+      { name: "angle", type: { kind: "number" }, scope: "global" },
+    ]);
+    expect(result.ir!.functions.find((fn) => fn.name === "updateangle")?.locals).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "angle" })]),
+    );
+  });
+
+  it("lowers Clev3r string arrays with string element reads and writes", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project('string[] names\nnames[0] = "Alpha"\nname = names[0]\n'),
+      new AbortController().signal,
+    );
+
+    expect(result.diagnostics).toEqual([]);
+    expect(validateIR(result.ir!)).toEqual([]);
+    expect(result.ir!.globals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "names", type: { kind: "array", element: "string" } }),
+        expect.objectContaining({ name: "name", type: { kind: "string" } }),
+      ]),
+    );
+  });
+
+  it("accepts Clev3r byte-array UART data and Boolean values in numeric storage", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(
+        "number[] resetData\nresetData[0] = 17\nSensor.SendUARTData(1, 1, resetData)\nnumber valid\nvalid = 1 < 2\n",
+      ),
+      new AbortController().signal,
+    );
+
+    expect(result.diagnostics).toEqual([]);
+    expect(validateIR(result.ir!)).toEqual([]);
+  });
+
+  it("lowers Thread.Run and region directives used by Clev3r modules", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(
+        "Region Gyro\nThread.Run = Update\nEndRegion\nSub Update()\nThread.Yield()\nEndSub\n",
+      ),
+      new AbortController().signal,
+    );
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir?.functions[0]?.blocks[0]?.instructions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: "thread-start", functionName: "update" }),
+      ]),
+    );
+  });
+
   it("rejects break and continue outside loops", async () => {
     const result = await new BasicPlusFrontend().compile(
       project("Break\nContinue\n"),

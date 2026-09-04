@@ -2,7 +2,8 @@ import type { IRType, SourceSpan } from "@kobrixa/ir";
 
 export type Expression =
   | { kind: "literal"; value: number | string | boolean; span: SourceSpan }
-  | { kind: "name"; name: string; span: SourceSpan }
+  | { kind: "name"; name: string; global?: boolean; span: SourceSpan }
+  | { kind: "index"; array: Expression; index: Expression; span: SourceSpan }
   | { kind: "unary"; operator: "-" | "not"; value: Expression; span: SourceSpan }
   | {
       kind: "binary";
@@ -14,8 +15,17 @@ export type Expression =
   | { kind: "call"; name: string; args: Expression[]; span: SourceSpan };
 
 export type Statement =
-  | { kind: "assign"; name: string; value: Expression; span: SourceSpan }
+  | { kind: "assign"; name: string; global?: boolean; value: Expression; span: SourceSpan }
+  | {
+      kind: "array-assign";
+      array: Expression;
+      index: Expression;
+      value: Expression;
+      span: SourceSpan;
+    }
+  | { kind: "declaration"; name: string; type: IRType; span: SourceSpan }
   | { kind: "call"; call: Extract<Expression, { kind: "call" }>; span: SourceSpan }
+  | { kind: "thread-run"; functionName: string; span: SourceSpan }
   | {
       kind: "if";
       branches: Array<{ condition: Expression; body: Statement[] }>;

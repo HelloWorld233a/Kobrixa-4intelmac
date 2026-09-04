@@ -13,6 +13,7 @@ import {
   type KobrixaIR,
   type SourceSpan,
 } from "@kobrixa/ir";
+import path from "node:path";
 import type { Expression, FunctionDeclaration, Statement } from "./ast.js";
 
 interface LoweredValue {
@@ -69,20 +70,31 @@ class FunctionBuilder {
   #terminated = false;
   readonly #loopTargets: Array<{ breakTarget: string; continueTarget: string }> = [];
   readonly #knownFunctions: ReadonlyMap<string, FunctionDeclaration>;
+  readonly #globalLabels: ReadonlySet<string>;
+  #localLabels = new Set<string>();
 
   constructor(
     readonly name: string,
     parameters: FunctionDeclaration["parameters"],
     readonly returnType: IRType,
     knownFunctions: ReadonlyMap<string, FunctionDeclaration>,
+    readonly globals: Map<string, IRVariable>,
+    readonly globalScope: boolean,
+    globalLabels: ReadonlySet<string>,
   ) {
     this.#knownFunctions = knownFunctions;
+    this.#globalLabels = globalLabels;
     for (const parameter of parameters)
       this.addVariable(parameter.name, parameter.type, "parameter", undefined, parameter.direction);
     this.#current = this.createBlock("entry");
   }
 
   compile(statements: Statement[]): IRFunction {
+    this.#localLabels = new Set(
+      statements
+        .filter((statement) => statement.kind === "label")
+        .map((statement) => canonical(statement.label)),
+    );
     this.compileStatements(statements);
     if (!this.#terminated)
       this.terminate(
@@ -94,7 +106,7 @@ class FunctionBuilder {
       (variable) => variable.scope === "parameter",
     );
     const locals = [...this.variables.values()].filter(
-      (variable) => variable.scope !== "parameter",
+      (variable) => variable.scope === "local" || variable.scope === "temporary",
     );
     return {
       name: this.name,
@@ -113,7 +125,12 @@ class FunctionBuilder {
       switch (statement.kind) {
         case "assign": {
           const value = this.lowerExpression(statement.value);
-          const variable = this.ensureVariable(statement.name, value.type, statement.span);
+          const variable = this.ensureVariable(
+            statement.name,
+            value.type,
+            statement.span,
+            statement.global,
+          );
           if (!this.assignable(variable.type, value.type)) {
             this.diagnostics.push(
               toDiagnostic(
@@ -131,9 +148,75 @@ class FunctionBuilder {
           });
           break;
         }
+        case "declaration":
+          this.ensureVariable(statement.name, statement.type, statement.span, this.globalScope);
+          break;
+        case "array-assign": {
+          const value = this.lowerExpression(statement.value);
+          const array = this.lowerExpression(statement.array, {
+            kind: "array",
+            element: value.type.kind === "string" ? "string" : "number",
+          });
+          const index = this.lowerExpression(statement.index, { kind: "integer" });
+          if (array.type.kind !== "array") {
+            this.diagnostics.push(
+              toDiagnostic(
+                "BP2008",
+                "Array assignment requires an array variable.",
+                statement.span,
+              ),
+            );
+            break;
+          }
+          const element: IRType = { kind: array.type.element };
+          if (!this.assignable(element, value.type)) {
+            this.diagnostics.push(
+              toDiagnostic(
+                "BP2002",
+                `Cannot assign ${value.type.kind} to ${array.type.element} array element.`,
+                statement.span,
+              ),
+            );
+            break;
+          }
+          this.emit({
+            op: "ev3-call",
+            operation: "Row.Write",
+            args: [array.value, index.value, value.value],
+            span: statement.span,
+          });
+          break;
+        }
         case "call":
           this.lowerCall(statement.call, false);
           break;
+        case "thread-run": {
+          const declaration = this.#knownFunctions.get(canonical(statement.functionName));
+          if (!declaration) {
+            this.diagnostics.push(
+              toDiagnostic(
+                "BP3001",
+                `Unsupported or unresolved thread Sub '${statement.functionName}'.`,
+                statement.span,
+              ),
+            );
+          } else if (declaration.kind !== "sub" || declaration.parameters.length !== 0) {
+            this.diagnostics.push(
+              toDiagnostic(
+                "BP2009",
+                "Thread.Run requires a Sub with no parameters.",
+                statement.span,
+              ),
+            );
+          } else {
+            this.emit({
+              op: "thread-start",
+              functionName: canonical(declaration.name),
+              span: statement.span,
+            });
+          }
+          break;
+        }
         case "property":
           this.ensureVariable(statement.name, { kind: "number" }, statement.span);
           break;
@@ -173,6 +256,17 @@ class FunctionBuilder {
           break;
         }
         case "goto":
+          // Clev3r labels are program-wide. A subroutine may jump to a
+          // top-level ending label; ending this EV3 object preserves that
+          // behavior without creating an invalid cross-object branch.
+          if (
+            !this.globalScope &&
+            !this.#localLabels.has(canonical(statement.label)) &&
+            this.#globalLabels.has(canonical(statement.label))
+          ) {
+            this.terminate({ op: "stop", span: statement.span });
+            break;
+          }
           this.terminate({
             op: "jump",
             target: this.labelId(statement.label),
@@ -332,8 +426,26 @@ class FunctionBuilder {
           expression.name,
           expected ?? { kind: "number" },
           expression.span,
+          expression.global,
         );
         return { value: { kind: "variable", name: variable.name }, type: variable.type };
+      }
+      case "index": {
+        const array = this.lowerExpression(expression.array, {
+          kind: "array",
+          element: "number",
+        });
+        const index = this.lowerExpression(expression.index, { kind: "integer" });
+        const element = array.type.kind === "array" ? array.type.element : "number";
+        const target = this.newTemporary({ kind: element }, expression.span);
+        this.emit({
+          op: "ev3-call",
+          target: target.name,
+          operation: "Row.Read",
+          args: [array.value, index.value],
+          span: expression.span,
+        });
+        return { value: { kind: "variable", name: target.name }, type: target.type };
       }
       case "unary": {
         const value = this.lowerExpression(
@@ -405,7 +517,7 @@ class FunctionBuilder {
     const args = expression.args.map((argument, index) => {
       const operationType = operation?.parameters[index];
       const expected: IRType | undefined = operationType
-        ? { kind: this.preferredOperationType(operationType) }
+        ? this.preferredOperationType(operationType)
         : declaration?.parameters[index]?.type;
       return this.lowerExpression(argument, expected);
     });
@@ -437,9 +549,9 @@ class FunctionBuilder {
           );
         }
       });
-      const type: IRType = { kind: operation.returns };
-      const target =
-        operation.returns !== "void" ? this.newTemporary(type, expression.span) : undefined;
+      const type: IRType =
+        typeof operation.returns === "string" ? { kind: operation.returns } : operation.returns;
+      const target = type.kind !== "void" ? this.newTemporary(type, expression.span) : undefined;
       const instruction: IRInstruction = target
         ? {
             op: "ev3-call",
@@ -528,18 +640,36 @@ class FunctionBuilder {
     return undefined;
   }
 
-  private preferredOperationType(expected: EV3ParameterType): IRPrimitiveType {
-    if (typeof expected === "string") return expected;
-    return expected.includes("number") ? "number" : expected[0]!;
+  private preferredOperationType(expected: EV3ParameterType): IRType {
+    const choices = typeof expected === "string" ? [expected] : expected;
+    if (choices.includes("number")) return { kind: "number" };
+    if (choices.includes("array")) return { kind: "array", element: "number" };
+    return { kind: choices[0]! as IRPrimitiveType };
   }
 
-  private ensureVariable(name: string, type: IRType, span: SourceSpan): IRVariable {
+  private ensureVariable(
+    name: string,
+    type: IRType,
+    span: SourceSpan,
+    forceGlobal = false,
+  ): IRVariable {
     const key = canonical(name);
     const existing = this.variables.get(key);
     if (existing) {
       if (type.kind === "number" && existing.type.kind === "integer")
         existing.type = { kind: "number" };
       return existing;
+    }
+    const global = this.globals.get(key);
+    if (global) {
+      if (type.kind === "number" && global.type.kind === "integer")
+        global.type = { kind: "number" };
+      return global;
+    }
+    if (forceGlobal || this.globalScope) {
+      const variable = this.addVariable(key, type, "global", span);
+      this.globals.set(key, variable);
+      return variable;
     }
     return this.addVariable(key, type, "local", span);
   }
@@ -602,7 +732,11 @@ class FunctionBuilder {
   }
 
   private assignable(target: IRType, source: IRType): boolean {
-    return target.kind === source.kind || (target.kind === "number" && source.kind === "integer");
+    return (
+      target.kind === source.kind ||
+      (target.kind === "number" && ["integer", "boolean"].includes(source.kind)) ||
+      (target.kind === "integer" && source.kind === "boolean")
+    );
   }
 }
 
@@ -621,9 +755,29 @@ export function lowerProgram(
         toDiagnostic("BP2001", `Duplicate function '${declaration.name}'.`, declaration.span),
       );
     known.set(key, declaration);
+    const moduleName = path.posix.basename(
+      declaration.span.file,
+      path.posix.extname(declaration.span.file),
+    );
+    const qualified = canonical(`${moduleName}.${declaration.name}`);
+    if (!known.has(qualified)) known.set(qualified, declaration);
   }
   const functions: IRFunction[] = [];
-  const main = new FunctionBuilder("main", [], { kind: "void" }, known);
+  const globals = new Map<string, IRVariable>();
+  const globalLabels = new Set(
+    body
+      .filter((statement) => statement.kind === "label")
+      .map((statement) => canonical(statement.label)),
+  );
+  const main = new FunctionBuilder(
+    "main",
+    [],
+    { kind: "void" },
+    known,
+    globals,
+    true,
+    globalLabels,
+  );
   functions.push(main.compile(body));
   diagnostics.push(...main.diagnostics);
   for (const declaration of declarations) {
@@ -632,6 +786,9 @@ export function lowerProgram(
       declaration.parameters,
       { kind: declaration.kind === "function" ? "number" : "void" } as { kind: IRPrimitiveType },
       known,
+      globals,
+      false,
+      globalLabels,
     );
     functions.push(builder.compile(declaration.body));
     diagnostics.push(...builder.diagnostics);
@@ -640,7 +797,7 @@ export function lowerProgram(
     ir: {
       version: 1,
       program: { name, entryFunction: "main" },
-      globals: [],
+      globals: [...globals.values()],
       functions,
       resources: [],
       sourceFiles: [...sourceFiles].sort(),

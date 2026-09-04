@@ -4,6 +4,7 @@ import { normalizeRemotePath } from "./path.js";
 
 const SYSTEM_COMMAND_REPLY = 0x01;
 const DIRECT_COMMAND_REPLY = 0x00;
+const DIRECT_COMMAND_NO_REPLY = 0x80;
 const DIRECT_REPLY = 0x02;
 const DIRECT_REPLY_ERROR = 0x04;
 const BEGIN_DOWNLOAD = 0x92;
@@ -91,7 +92,10 @@ export class EV3DeviceSession implements DeviceSession {
     return this.exclusive(async () => {
       const target = normalizeRemotePath(remotePath);
       const bytecode = [0xc0, 0x08, 0x01, ...lcs(target), 0x60, 0x64, 0x03, 0x01, 0x60, 0x64, 0x00];
-      await this.direct(Uint8Array.from([DIRECT_COMMAND_REPLY, 0x08, 0x00, ...bytecode]), signal);
+      await this.connection.transmit(
+        Uint8Array.from([DIRECT_COMMAND_NO_REPLY, 0x08, 0x00, ...bytecode]),
+        signal,
+      );
     });
   }
 

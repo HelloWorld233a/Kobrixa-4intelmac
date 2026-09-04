@@ -72,7 +72,12 @@ class Parser {
         if (declaration) functions.push(declaration);
         continue;
       }
-      if (this.keyword("module") || this.keyword("endmodule")) {
+      if (
+        this.keyword("module") ||
+        this.keyword("endmodule") ||
+        this.keyword("region") ||
+        this.keyword("endregion")
+      ) {
         this.skipLine();
         continue;
       }
@@ -156,6 +161,10 @@ class Parser {
       this.take();
       return undefined;
     }
+    if (this.keyword("region") || this.keyword("endregion")) {
+      this.skipLine();
+      return undefined;
+    }
     if (this.keyword("goto")) {
       this.take();
       const label = this.takeKind("identifier", "BP1020", "Goto expects a label.");
@@ -172,18 +181,87 @@ class Parser {
         ? { kind: "property", name: name.text, span: mergeSpan(start.span, name.span) }
         : undefined;
     }
+    if (this.keyword("number") || this.keyword("string")) {
+      const typeToken = this.take();
+      const element = typeToken.text.toLocaleLowerCase("en-US") as "number" | "string";
+      const type = this.match("[")
+        ? (this.expect("]", "BP1024", "Expected ']' in array declaration."),
+          {
+            kind: "array" as const,
+            element,
+          })
+        : { kind: element };
+      const name = this.takeKind("identifier", "BP1025", "Expected a variable name.");
+      this.skipLine();
+      return name
+        ? { kind: "declaration", name: name.text, type, span: mergeSpan(start.span, name.span) }
+        : undefined;
+    }
     if (this.keyword("dim")) this.take();
-    if (this.is("identifier")) {
+    if (this.is("identifier") || this.isText("@")) {
+      const global = this.match("@");
       const name = this.take();
+      if (name.kind !== "identifier") {
+        this.error("BP1026", "Expected a name after '@'.", name.span);
+        return undefined;
+      }
       if (this.match(":")) {
         this.skipLine();
         return { kind: "label", label: name.text, span: mergeSpan(start.span, name.span) };
+      }
+      if (name.text.toLocaleLowerCase("en-US") === "thread.run" && this.match("=")) {
+        const functionName = this.takeKind(
+          "identifier",
+          "BP1029",
+          "Thread.Run expects a Sub name.",
+        );
+        this.skipLine();
+        return functionName
+          ? {
+              kind: "thread-run",
+              functionName: functionName.text,
+              span: mergeSpan(start.span, functionName.span),
+            }
+          : undefined;
+      }
+      if (name.text.toLocaleLowerCase("en-US") === "f.start" && this.match("=")) {
+        this.takeKind("identifier", "BP1029", "F.Start expects a Sub name.");
+        this.skipLine();
+        return undefined;
       }
       if (this.match("=")) {
         const value = this.parseExpression();
         this.skipLine();
         return value
-          ? { kind: "assign", name: name.text, value, span: mergeSpan(start.span, value.span) }
+          ? {
+              kind: "assign",
+              name: name.text,
+              ...(global ? { global: true } : {}),
+              value,
+              span: mergeSpan(start.span, value.span),
+            }
+          : undefined;
+      }
+      if (this.match("[")) {
+        const index = this.parseExpression();
+        this.expect("]", "BP1027", "Expected ']' after array index.");
+        this.expect("=", "BP1028", "Expected '=' after array index.");
+        const value = this.parseExpression();
+        this.skipLine();
+        const array: Expression = {
+          kind: "name",
+          name: name.text,
+          ...(global ? { global: true } : {}),
+          span: name.span,
+        };
+        return index && value
+          ? {
+              kind: "array-assign",
+              array,
+              index,
+              value,
+              span: mergeSpan(start.span, value.span),
+            }
           : undefined;
       }
       const compound = ["+=", "-=", "*=", "/="].find((operator) => this.isText(operator));
@@ -192,7 +270,12 @@ class Parser {
         const right = this.parseExpression();
         this.skipLine();
         if (!right) return undefined;
-        const left: Expression = { kind: "name", name: name.text, span: name.span };
+        const left: Expression = {
+          kind: "name",
+          name: name.text,
+          ...(global ? { global: true } : {}),
+          span: name.span,
+        };
         const value: Expression = {
           kind: "binary",
           operator: compound[0] as "+" | "-" | "*" | "/",
@@ -200,7 +283,13 @@ class Parser {
           right,
           span: mergeSpan(name.span, right.span),
         };
-        return { kind: "assign", name: name.text, value, span: mergeSpan(start.span, right.span) };
+        return {
+          kind: "assign",
+          name: name.text,
+          ...(global ? { global: true } : {}),
+          value,
+          span: mergeSpan(start.span, right.span),
+        };
       }
       if (this.isText("++") || this.isText("--")) {
         const operator = this.take();
@@ -208,11 +297,22 @@ class Parser {
         const value: Expression = {
           kind: "binary",
           operator: operator.text === "++" ? "+" : "-",
-          left: { kind: "name", name: name.text, span: name.span },
+          left: {
+            kind: "name",
+            name: name.text,
+            ...(global ? { global: true } : {}),
+            span: name.span,
+          },
           right: { kind: "literal", value: 1, span: operator.span },
           span: mergeSpan(name.span, operator.span),
         };
-        return { kind: "assign", name: name.text, value, span: value.span };
+        return {
+          kind: "assign",
+          name: name.text,
+          ...(global ? { global: true } : {}),
+          value,
+          span: value.span,
+        };
       }
       if (this.isText("(")) {
         const call = this.finishCall(name);
@@ -305,7 +405,7 @@ class Parser {
     if (!left) return undefined;
     for (;;) {
       const token = this.current();
-      const operator = token.text.toLocaleLowerCase("en-US");
+      const operator = token.text === "!=" ? "<>" : token.text.toLocaleLowerCase("en-US");
       const precedence = binaryPrecedence.get(operator);
       if (precedence === undefined || precedence < minimum) break;
       this.take();
@@ -349,11 +449,14 @@ class Parser {
       this.take();
       return { kind: "literal", value: lower === "true", span: token.span };
     }
+    if (this.match("@")) {
+      const name = this.takeKind("identifier", "BP1044", "Expected a name after '@'.");
+      if (!name) return undefined;
+      return this.finishReference(name, true);
+    }
     if (token.kind === "identifier") {
       this.take();
-      return this.isText("(")
-        ? this.finishCall(token)
-        : { kind: "name", name: token.text, span: token.span };
+      return this.isText("(") ? this.finishCall(token) : this.finishReference(token, false);
     }
     if (this.match("(")) {
       const expression = this.parseExpression();
@@ -362,6 +465,22 @@ class Parser {
     }
     this.error("BP1041", "Expected an expression.", token.span);
     return undefined;
+  }
+
+  private finishReference(name: Token, global: boolean): Expression | undefined {
+    const reference: Expression = {
+      kind: "name",
+      name: name.text,
+      ...(global ? { global: true } : {}),
+      span: name.span,
+    };
+    if (!this.match("[")) return reference;
+    const index = this.parseExpression();
+    const end = this.current();
+    this.expect("]", "BP1045", "Expected ']' after array index.");
+    return index
+      ? { kind: "index", array: reference, index, span: mergeSpan(name.span, end.span) }
+      : undefined;
   }
 
   private finishCall(name: Token): Extract<Expression, { kind: "call" }> {

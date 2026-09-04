@@ -1,4 +1,4 @@
-import { EV3_OPERATION_CATALOG, type IRPrimitiveType } from "@kobrixa/ir";
+import { EV3_OPERATION_CATALOG, type EV3ParameterKind, type IRPrimitiveType } from "@kobrixa/ir";
 
 export const BASIC_PLUS_KEYWORDS = [
   "And",
@@ -55,7 +55,8 @@ const placeholderByType: Record<IRPrimitiveType, string> = {
   void: "",
 };
 
-function argumentSnippet(type: IRPrimitiveType, tabstop: number): string {
+function argumentSnippet(type: EV3ParameterKind, tabstop: number): string {
+  if (type === "array") return `\${${tabstop}:array}`;
   return type === "string" ? `"\${${tabstop}}"` : `\${${tabstop}:${placeholderByType[type]}}`;
 }
 
@@ -66,9 +67,9 @@ export const BASIC_PLUS_API_COMPLETIONS: readonly BasicPlusApiCompletion[] = [
     const parameters = operation.parameters
       .map((type) => (typeof type === "string" ? type : type.join(" | ")))
       .join(", ");
-    const signature = `${operation.name}(${parameters})${
-      operation.returns === "void" ? "" : `: ${operation.returns}`
-    }`;
+    const returnType =
+      typeof operation.returns === "string" ? operation.returns : `${operation.returns.element}[]`;
+    const signature = `${operation.name}(${parameters})${returnType === "void" ? "" : `: ${returnType}`}`;
     const argumentsSnippet = operation.parameters
       .map((type, index) => argumentSnippet(typeof type === "string" ? type : type[0]!, index + 1))
       .join(", ");
@@ -78,7 +79,7 @@ export const BASIC_PLUS_API_COMPLETIONS: readonly BasicPlusApiCompletion[] = [
       signature,
       insertText: `${operation.name}(${argumentsSnippet})`,
       documentation: `EV3 ${operation.category} API. ${
-        operation.returns === "void" ? "Does not return a value." : `Returns ${operation.returns}.`
+        returnType === "void" ? "Does not return a value." : `Returns ${returnType}.`
       }`,
     };
   })

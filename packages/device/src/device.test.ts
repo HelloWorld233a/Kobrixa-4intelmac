@@ -59,14 +59,15 @@ describe("device protocol", () => {
     ).rejects.toThrow("Unexpected end of file.");
   });
 
-  it("reports an EV3 direct-command error instead of treating it as success", async () => {
-    const transport = new MockTransport(() => Uint8Array.from([0x04]));
+  it("starts programs with a no-reply direct command", async () => {
+    const commands: Uint8Array[] = [];
+    const transport = new MockTransport((payload) => {
+      commands.push(payload);
+      return Uint8Array.from([0x04]);
+    });
     const session = await transport.connect(transport.descriptor, new AbortController().signal);
-    await expect(
-      session.run(
-        "/home/root/lms2012/prjs/demo/main.rbf",
-        new AbortController().signal,
-      ),
-    ).rejects.toThrow("EV3 rejected the direct command.");
+    await session.run("/home/root/lms2012/prjs/demo/main.rbf", new AbortController().signal);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]![0]).toBe(0x80);
   });
 });

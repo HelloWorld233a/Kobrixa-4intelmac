@@ -27,13 +27,7 @@ export abstract class FramedConnection implements Ev3Connection {
   #tail: Promise<void> = Promise.resolve();
 
   async exchange(payload: Uint8Array, signal: AbortSignal, timeoutMs = 5000): Promise<Uint8Array> {
-    let release: () => void = () => undefined;
-    const previous = this.#tail;
-    this.#tail = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await previous;
-    try {
+    return this.exclusive(async () => {
       signal.throwIfAborted();
       this.#counter = (this.#counter + 1) & 0xffff;
       const response = parseFrame(
@@ -42,12 +36,33 @@ export abstract class FramedConnection implements Ev3Connection {
       if (response.counter !== this.#counter)
         throw new DeviceOperationError("protocol", "EV3 reply counter does not match the request.");
       return response.payload;
+    });
+  }
+
+  async transmit(payload: Uint8Array, signal: AbortSignal): Promise<void> {
+    return this.exclusive(async () => {
+      signal.throwIfAborted();
+      this.#counter = (this.#counter + 1) & 0xffff;
+      await this.sendFrame(frameMessage(this.#counter, payload), signal);
+    });
+  }
+
+  private async exclusive<T>(operation: () => Promise<T>): Promise<T> {
+    let release: () => void = () => undefined;
+    const previous = this.#tail;
+    this.#tail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
     } finally {
       release();
     }
   }
 
   abstract close(): Promise<void>;
+  protected abstract sendFrame(frame: Uint8Array, signal: AbortSignal): Promise<void>;
   protected abstract exchangeFrame(
     frame: Uint8Array,
     signal: AbortSignal,

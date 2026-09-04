@@ -66,6 +66,15 @@ class HidConnection extends FramedConnection {
       throw normalizeDeviceError(error, "transfer");
     }
   }
+
+  protected async sendFrame(frame: Uint8Array, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    try {
+      this.device.write([0, ...frame]);
+    } catch (error) {
+      throw normalizeDeviceError(error, "transfer");
+    }
+  }
 }
 
 export class UsbTransport implements DeviceTransport {
