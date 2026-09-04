@@ -50,6 +50,20 @@ export function lv(offset: number): number[] {
   return [0xc3, ...uint32(offset)];
 }
 
+export function gv(offset: number): number[] {
+  if (offset >= 0 && offset <= 31) return [0x60 | offset];
+  if (offset <= 0xff) return [0xe1, offset];
+  if (offset <= 0xffff) return [0xe2, ...uint16(offset)];
+  return [0xe3, ...uint32(offset)];
+}
+
+/** Encodes a local dynamic-array handle as a pointer to its array contents. */
+export function lh(offset: number): number[] {
+  if (offset <= 0xff) return [0xd1, offset];
+  if (offset <= 0xffff) return [0xd2, ...uint16(offset)];
+  return [0xd3, ...uint32(offset)];
+}
+
 export function relativeOffset(value: number): number[] {
   return [0x83, ...int32(value)];
 }

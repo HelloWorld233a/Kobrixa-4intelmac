@@ -19,6 +19,7 @@ export interface IRVariable {
   name: string;
   type: IRType;
   scope: "global" | "local" | "parameter" | "temporary";
+  direction?: "in" | "out";
   span?: SourceSpan;
 }
 

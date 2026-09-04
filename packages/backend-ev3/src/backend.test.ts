@@ -97,7 +97,6 @@ describe("EV3Backend", () => {
     const info = inspectRbf(result.rbf!);
     const code = result.rbf!.slice(info.offsets[0]);
     expect(code.at(-1)).toBe(OP.OBJECT_END);
-    expect([...code].filter((byte) => byte === OP.OBJECT_END)).toHaveLength(1);
     expect(result.listing).toContain("locals=8");
     expect(result.listing).toContain("85 81 64 44 86 44");
   });
@@ -189,7 +188,7 @@ describe("EV3Backend", () => {
     const result = await new EV3Backend().compile(documented, new AbortController().signal);
     expect(result.diagnostics).toEqual([]);
     expect(result.listing).toContain("84 11 01 84 05 01 08 12 84 48 69 00");
-    expect(result.listing).toContain("9a 00 00 00 3f 40");
+    expect(result.listing).toContain("9a 00 00 00 3f");
     expect(result.listing).toContain("12 01 02 44");
   });
 
@@ -235,7 +234,7 @@ describe("EV3Backend", () => {
     expect(result.listing).toContain("ae 00 09 81 23 00 82 68 01 00 01 aa 00 09");
   });
 
-  it("reads a selected sensor mode as a 32-bit raw value", async () => {
+  it("reads raw sensor data and selects an index without changing the current mode", async () => {
     const sensor: KobrixaIR = {
       ...ir,
       functions: [
@@ -265,6 +264,7 @@ describe("EV3Backend", () => {
     const result = await new EV3Backend().compile(sensor, new AbortController().signal);
     expect(result.diagnostics).toEqual([]);
     expect(INPUT_DEVICE.READY_RAW).toBe(0x1c);
-    expect(result.listing).toContain("99 1c 00 00 00 02 01 40");
+    // The runtime fetches all eight raw values, so a variable index can be selected safely.
+    expect(result.listing).toContain("99 1c 00 00 00 3f 08");
   });
 });

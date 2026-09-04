@@ -4,20 +4,40 @@ import type {
   IRFunction,
   IRInstruction,
   IRType,
+  IRVariable,
   IRValue,
   KobrixaIR,
   SourceSpan,
 } from "@kobrixa/ir";
-import { lc, lcf, lcs, lv, relativeOffset } from "./encoding.js";
-import { INPUT_DEVICE, OP, SOUND, UI_DRAW } from "./opcodes.js";
+import { gv, lc, lcf, lcs, lh, lv, relativeOffset } from "./encoding.js";
+import {
+  ARRAY,
+  COM_GET,
+  FILE,
+  FILENAME,
+  INPUT_DEVICE,
+  MATH,
+  OP,
+  SOUND,
+  STRING,
+  UI_BUTTON,
+  UI_DRAW,
+  UI_READ,
+  UI_WRITE,
+} from "./opcodes.js";
 import { createRbf, inspectRbf, type RbfObject } from "./rbf.js";
 
 const OBJECT_EPILOGUE = Symbol("object-epilogue");
-type Label = string | typeof OBJECT_EPILOGUE;
+type Label = string | symbol;
 
 interface Allocation {
   offset: number;
   type: IRType;
+}
+
+interface CallableFunction {
+  fn: IRFunction;
+  objectId: number;
 }
 
 interface Patch {
@@ -25,6 +45,9 @@ interface Patch {
   after: number;
   target: Label;
 }
+
+/** CLEV3R's standard string value capacity, including its terminating NUL. */
+const STRING_BYTES = 252;
 
 function diagnostic(code: string, message: string, span?: SourceSpan): Diagnostic {
   return {
@@ -45,9 +68,34 @@ function diagnostic(code: string, message: string, span?: SourceSpan): Diagnosti
 
 function sizeOf(type: IRType): number {
   if (type.kind === "boolean") return 1;
-  if (type.kind === "string") return 64;
+  if (type.kind === "string") return STRING_BYTES;
   if (type.kind === "array") return 4;
   return type.kind === "void" ? 0 : 4;
+}
+
+function callParameterSize(type: IRType): number {
+  if (type.kind === "string") return STRING_BYTES;
+  if (type.kind === "array") return 2;
+  return sizeOf(type);
+}
+
+function callParameterCode(variable: Pick<IRVariable, "type" | "direction">): number[] {
+  const direction = variable.direction === "out" ? 0x40 : 0x80;
+  if (variable.type.kind === "string") return [direction | 0x04, STRING_BYTES];
+  if (variable.type.kind === "array") return [direction | 0x01];
+  if (variable.type.kind === "boolean") return [direction];
+  return [direction | (variable.type.kind === "integer" ? 0x02 : 0x03)];
+}
+
+function orderedParameters(fn: IRFunction): IRVariable[] {
+  return [...fn.parameters]
+    .map((variable, index) => ({ variable, index }))
+    .sort(
+      (left, right) =>
+        callParameterSize(right.variable.type) - callParameterSize(left.variable.type) ||
+        left.index - right.index,
+    )
+    .map(({ variable }) => variable);
 }
 
 function motorMask(value: IRValue): number | undefined {
@@ -61,16 +109,103 @@ function motorMask(value: IRValue): number | undefined {
   return mask || undefined;
 }
 
+function noteFrequency(value: IRValue): number | undefined {
+  if (value.kind !== "string") return undefined;
+  const match = /^([A-Ga-g])([#b]?)([4-7])$/.exec(value.value);
+  if (!match) return undefined;
+  const semitones: Record<string, number> = {
+    C: 0,
+    "C#": 1,
+    Db: 1,
+    D: 2,
+    "D#": 3,
+    Eb: 3,
+    E: 4,
+    F: 5,
+    "F#": 6,
+    Gb: 6,
+    G: 7,
+    "G#": 8,
+    Ab: 8,
+    A: 9,
+    "A#": 10,
+    Bb: 10,
+    B: 11,
+  };
+  const name = `${match[1]!.toUpperCase()}${match[2] ?? ""}`;
+  const semitone = semitones[name];
+  return semitone === undefined
+    ? undefined
+    : Math.round(440 * 2 ** ((Number(match[3]) * 12 + semitone - 57) / 12));
+}
+
+function ledPattern(color: IRValue, effect: IRValue): number | undefined {
+  if (color.kind !== "string" || effect.kind !== "string") return undefined;
+  const base: Record<string, number> = { OFF: 0, GREEN: 1, RED: 2, ORANGE: 3 };
+  const value = base[color.value.toLocaleUpperCase("en-US")];
+  if (value === undefined) return undefined;
+  const normalized = effect.value.toLocaleUpperCase("en-US");
+  if (normalized === "NORMAL") return value;
+  if (value === 0) return normalized === "NORMAL" ? 0 : undefined;
+  if (normalized === "FLASH") return value + 3;
+  if (normalized === "PULSE") return value + 6;
+  return undefined;
+}
+
+function buttonCode(value: IRValue): number | undefined {
+  if (value.kind !== "string") return undefined;
+  const name = value.value.toLocaleUpperCase("en-US");
+  const buttons: Record<string, number> = {
+    U: 1,
+    UP: 1,
+    E: 2,
+    ENTER: 2,
+    CENTER: 2,
+    D: 3,
+    DOWN: 3,
+    R: 4,
+    RIGHT: 4,
+    L: 5,
+    LEFT: 5,
+    B: 6,
+    BACK: 6,
+    ANY: 7,
+  };
+  return buttons[name];
+}
+
 class ObjectAssembler {
   readonly bytes: number[] = [];
   readonly labels = new Map<Label, number>();
   readonly patches: Patch[] = [];
   readonly allocations = new Map<string, Allocation>();
   readonly diagnostics: Diagnostic[] = [];
+  #timerBaselines: number | undefined;
   localBytes = 0;
 
-  constructor(readonly fn: IRFunction) {
-    for (const variable of [...fn.parameters, ...fn.locals]) {
+  constructor(
+    readonly fn: IRFunction,
+    readonly objectId: number,
+    readonly callables: ReadonlyMap<string, CallableFunction>,
+    readonly hasMutexes: boolean,
+    readonly hasLcdUpdateControl: boolean,
+    readonly mailboxAllocator: { next: number },
+  ) {
+    const parameters = orderedParameters(fn);
+    const variables =
+      fn.returnType.kind === "void"
+        ? [...parameters, ...fn.locals]
+        : [
+            ...parameters,
+            {
+              name: "$return",
+              type: fn.returnType,
+              scope: "parameter" as const,
+              direction: "out" as const,
+            },
+            ...fn.locals,
+          ];
+    for (const variable of variables) {
       const alignment = sizeOf(variable.type) >= 4 ? 4 : 1;
       this.localBytes = Math.ceil(this.localBytes / alignment) * alignment;
       this.allocations.set(variable.name.toLocaleLowerCase("en-US"), {
@@ -82,6 +217,22 @@ class ObjectAssembler {
   }
 
   assemble(signal: AbortSignal): Uint8Array {
+    if (this.fn.name !== "main") {
+      const parameters = orderedParameters(this.fn);
+      if (this.fn.returnType.kind !== "void")
+        parameters.push({
+          name: "$return",
+          type: this.fn.returnType,
+          scope: "parameter",
+          direction: "out",
+        });
+      this.bytes.push(...lc(parameters.length));
+      for (const parameter of parameters) this.bytes.push(...callParameterCode(parameter));
+    }
+    if (this.fn.name === "main") {
+      if (this.hasMutexes) this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(0), ...gv(0));
+      if (this.hasLcdUpdateControl) this.bytes.push(OP.MOVE_32_32, ...lc(0), ...gv(4));
+    }
     for (const block of this.fn.blocks) {
       signal.throwIfAborted();
       this.labels.set(block.id, this.bytes.length);
@@ -114,16 +265,315 @@ class ObjectAssembler {
     return lv(allocation.offset);
   }
 
+  private arrayContents(value: IRValue): number[] | undefined {
+    if (value.kind !== "variable") return undefined;
+    const allocation = this.allocations.get(value.name.toLocaleLowerCase("en-US"));
+    return allocation ? lh(allocation.offset) : undefined;
+  }
+
+  private floatParameter(value: IRValue): number[] | undefined {
+    if (value.kind === "number" || value.kind === "integer") return lcf(value.value);
+    const parameter = this.parameter(value);
+    if (!parameter) return undefined;
+    if (this.typeOf(value)?.kind !== "integer") return parameter;
+    const scratch = this.scratch(4);
+    this.bytes.push(OP.MOVE_32_F, ...parameter, ...lv(scratch));
+    return lv(scratch);
+  }
+
+  private integerParameter(value: IRValue): number[] | undefined {
+    const parameter = this.parameter(value);
+    if (!parameter) return undefined;
+    if (this.typeOf(value)?.kind !== "number") return parameter;
+    const scratch = this.scratch(4);
+    this.bytes.push(OP.MOVE_F_32, ...parameter, ...lv(scratch));
+    return lv(scratch);
+  }
+
+  private byteParameter(value: IRValue): number[] | undefined {
+    if (value.kind === "integer") return lc(value.value);
+    if (value.kind === "number") {
+      const scratch = this.scratch(1);
+      this.bytes.push(OP.MOVE_F_8, ...lcf(value.value), ...lv(scratch));
+      return lv(scratch);
+    }
+    const parameter = this.parameter(value);
+    if (!parameter) return undefined;
+    if (this.typeOf(value)?.kind !== "number") return parameter;
+    const scratch = this.scratch(1);
+    this.bytes.push(OP.MOVE_F_8, ...parameter, ...lv(scratch));
+    return lv(scratch);
+  }
+
+  private byteResult(target: Allocation, emit: (destination: number[]) => void): void {
+    const scratch = this.scratch(1);
+    emit(lv(scratch));
+    this.bytes.push(OP.MOVE_8_32, ...lv(scratch), ...lv(target.offset));
+  }
+
+  private motorSyncParameters(
+    speed1: IRValue,
+    speed2: IRValue,
+  ): { speed: number[]; turn: number[] } | undefined {
+    const first = this.floatParameter(speed1);
+    const second = this.floatParameter(speed2);
+    if (!first || !second) return undefined;
+    const absoluteFirst = this.scratch(4);
+    const absoluteSecond = this.scratch(4);
+    const chooseFirst = this.scratch(1);
+    const chooseFirstFloat = this.scratch(4);
+    const chooseSecondFloat = this.scratch(4);
+    const firstContribution = this.scratch(4);
+    const secondContribution = this.scratch(4);
+    const speed = this.scratch(4);
+    const isZero = this.scratch(1);
+    const zeroFloat = this.scratch(4);
+    const difference = this.scratch(4);
+    const turnFloat = this.scratch(4);
+    const speedByte = this.scratch(1);
+    const turnWord = this.scratch(2);
+    this.bytes.push(OP.MATH, ...lc(MATH.ABS), ...first, ...lv(absoluteFirst));
+    this.bytes.push(OP.MATH, ...lc(MATH.ABS), ...second, ...lv(absoluteSecond));
+    this.bytes.push(OP.CP_GTEQ_F, ...lv(absoluteFirst), ...lv(absoluteSecond), ...lv(chooseFirst));
+    this.bytes.push(OP.MOVE_8_F, ...lv(chooseFirst), ...lv(chooseFirstFloat));
+    this.bytes.push(OP.SUB_F, ...lcf(1), ...lv(chooseFirstFloat), ...lv(chooseSecondFloat));
+    this.bytes.push(OP.MUL_F, ...lv(chooseFirstFloat), ...first, ...lv(firstContribution));
+    this.bytes.push(OP.MUL_F, ...lv(chooseSecondFloat), ...second, ...lv(secondContribution));
+    this.bytes.push(OP.ADD_F, ...lv(firstContribution), ...lv(secondContribution), ...lv(speed));
+    this.bytes.push(OP.CP_EQ_F, ...lv(speed), ...lcf(0), ...lv(isZero));
+    this.bytes.push(OP.MOVE_8_F, ...lv(isZero), ...lv(zeroFloat));
+    this.bytes.push(OP.ADD_F, ...lv(speed), ...lv(zeroFloat), ...lv(speed));
+    this.bytes.push(OP.SUB_F, ...first, ...second, ...lv(difference));
+    this.bytes.push(OP.MUL_F, ...lcf(100), ...lv(difference), ...lv(turnFloat));
+    this.bytes.push(OP.DIV_F, ...lv(turnFloat), ...lv(speed), ...lv(turnFloat));
+    this.bytes.push(OP.MOVE_F_8, ...lv(speed), ...lv(speedByte));
+    this.bytes.push(OP.MOVE_F_16, ...lv(turnFloat), ...lv(turnWord));
+    return { speed: lv(speedByte), turn: lv(turnWord) };
+  }
+
+  private buttonText(target: Allocation, command: number): void {
+    this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...lv(target.offset));
+    for (const [button, letter] of [
+      [1, "U"],
+      [3, "D"],
+      [5, "L"],
+      [4, "R"],
+      [2, "E"],
+    ] as const) {
+      const pressed = this.scratch(1);
+      this.bytes.push(OP.UI_BUTTON, ...lc(command), ...lc(button), ...lv(pressed));
+      this.bytes.push(OP.JR_FALSE, ...lv(pressed));
+      const jumpAt = this.bytes.length;
+      const placeholder = relativeOffset(0);
+      this.bytes.push(...placeholder);
+      const afterJump = this.bytes.length;
+      this.bytes.push(
+        OP.STRING,
+        ...lc(STRING.ADD),
+        ...lv(target.offset),
+        ...lcs(letter),
+        ...lv(target.offset),
+      );
+      const offset = relativeOffset(this.bytes.length - afterJump);
+      this.bytes.splice(jumpAt, placeholder.length, ...offset);
+    }
+  }
+
+  private newLabel(description: string): symbol {
+    return Symbol(`${this.fn.name}:${description}`);
+  }
+
+  private markLabel(label: Label): void {
+    this.labels.set(label, this.bytes.length);
+  }
+
+  private arrayLoop(size: number[], body: (index: number) => void): void {
+    const index = this.scratch(4);
+    const active = this.scratch(1);
+    const loop = this.newLabel("array-loop");
+    const done = this.newLabel("array-done");
+    this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(index));
+    this.markLabel(loop);
+    this.bytes.push(OP.CP_LT_32, ...lv(index), ...size, ...lv(active));
+    this.bytes.push(OP.JR_FALSE, ...lv(active));
+    this.addPatch(done);
+    body(index);
+    this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
+    this.bytes.push(OP.JR);
+    this.addPatch(loop);
+    this.markLabel(done);
+  }
+
+  private arrayConditional(condition: number[], whenTrue: () => void): void {
+    const done = this.newLabel("array-condition-done");
+    this.bytes.push(OP.JR_FALSE, ...condition);
+    this.addPatch(done);
+    whenTrue();
+    this.markLabel(done);
+  }
+
+  private assertionFailure(message: number[]): void {
+    this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.SELECT_FONT), ...lc(1));
+    this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.TEXT), ...lc(1), ...lc(0), ...lc(0), ...message);
+    this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.UPDATE));
+    this.bytes.push(OP.PROGRAM_STOP, ...lc(1));
+  }
+
+  private byteToBinary(value: number[], target: Allocation): void {
+    for (const [index, mask] of [128, 64, 32, 16, 8, 4, 2, 1].entries()) {
+      const masked = this.scratch(1);
+      const zero = this.newLabel("binary-zero");
+      const done = this.newLabel("binary-bit-done");
+      this.bytes.push(OP.AND_8, ...value, ...lc(mask), ...lv(masked));
+      this.bytes.push(OP.JR_FALSE, ...lv(masked));
+      this.addPatch(zero);
+      this.bytes.push(OP.MOVE_8_8, ...lc(49), ...lv(target.offset + index));
+      this.bytes.push(OP.JR);
+      this.addPatch(done);
+      this.markLabel(zero);
+      this.bytes.push(OP.MOVE_8_8, ...lc(48), ...lv(target.offset + index));
+      this.markLabel(done);
+    }
+    this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(target.offset + 8));
+  }
+
   private typeOf(value: IRValue): IRType | undefined {
     if (value.kind !== "variable") return { kind: value.kind };
     return this.allocations.get(value.name.toLocaleLowerCase("en-US"))?.type;
   }
 
-  private sensorPort(value: IRValue): number[] | undefined {
+  /** Maps CLEV3R's one-based, daisy-chain-aware sensor number to EV3 layer/port bytes. */
+  private sensorAddress(value: IRValue): { layer: number[]; port: number[] } | undefined {
     if ((value.kind === "integer" || value.kind === "number") && Number.isInteger(value.value)) {
-      return value.value >= 1 && value.value <= 4 ? lc(value.value - 1) : undefined;
+      if (value.value < 1 || value.value > 16) return undefined;
+      return { layer: lc(Math.floor((value.value - 1) / 4)), port: lc((value.value - 1) % 4) };
     }
-    return undefined;
+    const rawPort = this.byteParameter(value);
+    if (!rawPort) return undefined;
+    const portNumber = this.scratch(4);
+    const layerNumber = this.scratch(4);
+    const layerTimesFour = this.scratch(4);
+    const portNumberWithinLayer = this.scratch(4);
+    const layer = this.scratch(1);
+    const port = this.scratch(1);
+    this.bytes.push(OP.MOVE_8_32, ...rawPort, ...lv(portNumber));
+    this.bytes.push(OP.SUB_32, ...lv(portNumber), ...lc(1), ...lv(portNumber));
+    this.bytes.push(OP.DIV_32, ...lv(portNumber), ...lc(4), ...lv(layerNumber));
+    this.bytes.push(OP.MUL_32, ...lv(layerNumber), ...lc(4), ...lv(layerTimesFour));
+    this.bytes.push(
+      OP.SUB_32,
+      ...lv(portNumber),
+      ...lv(layerTimesFour),
+      ...lv(portNumberWithinLayer),
+    );
+    this.bytes.push(OP.MOVE_32_8, ...lv(layerNumber), ...lv(layer));
+    this.bytes.push(OP.MOVE_32_8, ...lv(portNumberWithinLayer), ...lv(port));
+    return { layer: lv(layer), port: lv(port) };
+  }
+
+  private fixedSensorByteCount(
+    value: IRValue | undefined,
+    maximum: number,
+    description: string,
+    instruction: IRInstruction,
+  ): number | undefined {
+    if (
+      !value ||
+      (value.kind !== "integer" && value.kind !== "number") ||
+      !Number.isInteger(value.value) ||
+      value.value < 0 ||
+      value.value > maximum
+    ) {
+      this.diagnostics.push(
+        diagnostic(
+          "EV32024",
+          `${description} must be a constant whole number from 0 through ${maximum}.`,
+          instruction.span,
+        ),
+      );
+      return undefined;
+    }
+    return value.value;
+  }
+
+  private copyRowToByteArray(source: IRValue, bytes: number): number | undefined {
+    const sourceParameter = this.parameter(source);
+    if (!sourceParameter) return undefined;
+    const handle = this.scratch(2);
+    this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(bytes), ...lv(handle));
+    for (let index = 0; index < bytes; index += 1) {
+      const value = this.scratch(4);
+      const byte = this.scratch(1);
+      this.bytes.push(OP.ARRAY_READ, ...sourceParameter, ...lc(index), ...lv(value));
+      this.bytes.push(OP.MOVE_F_8, ...lv(value), ...lv(byte));
+      this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lc(index), ...lv(byte));
+    }
+    return handle;
+  }
+
+  private i2cResultArray(readHandle: number, bytes: number, target: Allocation): void {
+    const result = this.scratch(2);
+    this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lc(bytes), ...lv(result));
+    for (let index = 0; index < bytes; index += 1) {
+      const byte = this.scratch(1);
+      const value = this.scratch(4);
+      this.bytes.push(OP.ARRAY_READ, ...lv(readHandle), ...lc(index), ...lv(byte));
+      this.bytes.push(OP.MOVE_8_F, ...lv(byte), ...lv(value));
+      this.bytes.push(OP.ARRAY_WRITE, ...lv(result), ...lc(index), ...lv(value));
+    }
+    this.bytes.push(OP.MOVE_16_32, ...lv(result), ...lv(target.offset));
+  }
+
+  private fileName(value: IRValue): number[] | undefined {
+    const source = this.parameter(value);
+    if (!source) return undefined;
+    const fullName = this.scratch(300);
+    const firstCharacter = this.scratch(1);
+    const absolute = this.scratch(1);
+    const relativePath = this.newLabel("relative-file-path");
+    const done = this.newLabel("file-path-ready");
+    this.bytes.push(OP.MOVE_8_8, ...source, ...lv(firstCharacter));
+    this.bytes.push(OP.CP_EQ_8, ...lv(firstCharacter), ...lc(47), ...lv(absolute));
+    this.bytes.push(OP.JR_FALSE, ...lv(absolute));
+    this.addPatch(relativePath);
+    this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(fullName));
+    this.bytes.push(OP.JR);
+    this.addPatch(done);
+    this.markLabel(relativePath);
+    this.bytes.push(
+      OP.STRING,
+      ...lc(STRING.ADD),
+      ...lcs("/home/root/lms2012/prjs/"),
+      ...source,
+      ...lv(fullName),
+    );
+    this.markLabel(done);
+    return lv(fullName);
+  }
+
+  private scratch(bytes: number): number {
+    const offset = Math.ceil(this.localBytes / 4) * 4;
+    this.localBytes = offset + bytes;
+    return offset;
+  }
+
+  private timerBaseline(index: number): number {
+    if (this.#timerBaselines === undefined) this.#timerBaselines = this.scratch(9 * 4);
+    return this.#timerBaselines + index * 4;
+  }
+
+  private lcdAutoUpdate(): void {
+    if (!this.hasLcdUpdateControl) {
+      this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.UPDATE));
+      return;
+    }
+    const enabled = this.scratch(1);
+    const done = this.newLabel("lcd-auto-update-done");
+    this.bytes.push(OP.CP_EQ_32, ...gv(4), ...lc(0), ...lv(enabled));
+    this.bytes.push(OP.JR_FALSE, ...lv(enabled));
+    this.addPatch(done);
+    this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.UPDATE));
+    this.markLabel(done);
   }
 
   private instruction(instruction: IRInstruction): void {
@@ -139,14 +589,18 @@ class ObjectAssembler {
     }
     if (instruction.op === "assign" && target) {
       const source = this.parameter(instruction.value);
-      if (!source || target.type.kind === "string" || target.type.kind === "array") {
+      if (!source || target.type.kind === "array") {
         this.diagnostics.push(
           diagnostic(
             "EV32001",
-            "String and array assignment awaits compatibility corpus coverage.",
+            "Array assignment awaits compatibility corpus coverage.",
             instruction.span,
           ),
         );
+        return;
+      }
+      if (target.type.kind === "string") {
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(target.offset));
         return;
       }
       const opcode =
@@ -172,9 +626,22 @@ class ObjectAssembler {
       const left = this.parameter(instruction.left);
       const right = this.parameter(instruction.right);
       if (!left || !right) return;
+      const leftType = this.typeOf(instruction.left)?.kind;
+      const rightType = this.typeOf(instruction.right)?.kind;
+      if (target.type.kind === "string" && instruction.operator === "+") {
+        this.bytes.push(OP.STRING, ...lc(STRING.ADD), ...left, ...right, ...lv(target.offset));
+        return;
+      }
+      if (leftType === "string" && rightType === "string" && instruction.operator === "=") {
+        this.bytes.push(OP.STRING, ...lc(STRING.COMPARE), ...left, ...right, ...lv(target.offset));
+        return;
+      }
       const integerOperands =
         this.typeOf(instruction.left)?.kind === "integer" &&
         this.typeOf(instruction.right)?.kind === "integer";
+      const numericLeft = integerOperands ? left : this.floatParameter(instruction.left);
+      const numericRight = integerOperands ? right : this.floatParameter(instruction.right);
+      if (!numericLeft || !numericRight) return;
       const floatOpcodes: Partial<
         Record<Extract<IRInstruction, { op: "binary" }>["operator"], number>
       > = {
@@ -206,8 +673,26 @@ class ObjectAssembler {
         and: OP.AND_8,
         or: OP.OR_8,
       };
+      if (instruction.operator === "%") {
+        if (integerOperands) {
+          const quotient = this.scratch(4);
+          const product = this.scratch(4);
+          this.bytes.push(OP.DIV_32, ...left, ...right, ...lv(quotient));
+          this.bytes.push(OP.MUL_32, ...lv(quotient), ...right, ...lv(product));
+          this.bytes.push(OP.SUB_32, ...left, ...lv(product), ...lv(target.offset));
+        } else {
+          this.bytes.push(
+            OP.MATH,
+            ...lc(MATH.MOD),
+            ...numericLeft,
+            ...numericRight,
+            ...lv(target.offset),
+          );
+        }
+        return;
+      }
       const opcode = opcodes[instruction.operator];
-      if (opcode === undefined || instruction.operator === "%") {
+      if (opcode === undefined) {
         this.diagnostics.push(
           diagnostic(
             "EV32002",
@@ -217,17 +702,72 @@ class ObjectAssembler {
         );
         return;
       }
-      this.bytes.push(opcode, ...left, ...right, ...lv(target.offset));
+      this.bytes.push(opcode, ...numericLeft, ...numericRight, ...lv(target.offset));
       return;
     }
     if (instruction.op === "call") {
-      this.diagnostics.push(
-        diagnostic(
-          "EV32003",
-          "User function calls await compatibility corpus calling-convention fixtures.",
-          instruction.span,
-        ),
-      );
+      const callable = this.callables.get(instruction.functionName.toLocaleLowerCase("en-US"));
+      if (!callable) {
+        this.diagnostics.push(
+          diagnostic(
+            "EV32003",
+            `Unknown user function '${instruction.functionName}'.`,
+            instruction.span,
+          ),
+        );
+        return;
+      }
+      const ordered = orderedParameters(callable.fn);
+      const callArguments: number[][] = [];
+      for (const parameter of ordered) {
+        const index = callable.fn.parameters.indexOf(parameter);
+        const value = instruction.args[index];
+        if (!value) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32003",
+              `Missing argument for user function '${instruction.functionName}'.`,
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        if (parameter.direction === "out") {
+          if (value.kind !== "variable") {
+            this.diagnostics.push(
+              diagnostic(
+                "EV32003",
+                `Output argument '${parameter.name}' must be a variable.`,
+                instruction.span,
+              ),
+            );
+            return;
+          }
+          const output = this.parameter(value);
+          if (!output) return;
+          callArguments.push(output);
+        } else {
+          const input =
+            parameter.type.kind === "number" ? this.floatParameter(value) : this.parameter(value);
+          if (!input) return;
+          callArguments.push(input);
+        }
+      }
+      if (callable.fn.returnType.kind !== "void") {
+        if (!target) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32003",
+              `Function '${instruction.functionName}' requires a return target.`,
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        callArguments.push(lv(target.offset));
+      }
+      this.bytes.push(OP.CALL, ...lc(callable.objectId), ...lc(callArguments.length));
+      for (const argument of callArguments) this.bytes.push(...argument);
       return;
     }
     if (instruction.op === "ev3-call") this.ev3Call(instruction, target);
@@ -245,15 +785,1311 @@ class ObjectAssembler {
       return;
     }
     const arg = (index: number): number[] => args[index]!;
+    const floatArg = (index: number): number[] | undefined =>
+      this.floatParameter(instruction.args[index]!);
+    const timer = /^Time\.(Get|Reset)([1-9])$/.exec(instruction.operation);
+    if (timer) {
+      const baseline = this.timerBaseline(Number(timer[2]) - 1);
+      if (timer[1] === "Reset") {
+        this.bytes.push(OP.TIMER_READ, ...lv(baseline));
+      } else if (target) {
+        this.bytes.push(OP.TIMER_READ, ...lv(target.offset));
+        this.bytes.push(OP.SUB_32, ...lv(target.offset), ...lv(baseline), ...lv(target.offset));
+      }
+      return;
+    }
+    const legacyMotor = /^Motor([ABCD]{1,2})\.(.+)$/.exec(instruction.operation);
+    if (legacyMotor) {
+      const mask = motorMask({ kind: "string", value: legacyMotor[1]! });
+      if (!mask) return;
+      const method = legacyMotor[2]!;
+      const port = Math.log2(mask);
+      if (method === "Off") this.bytes.push(OP.OUTPUT_STOP, ...lc(0), ...lc(mask), ...lc(0));
+      else if (method === "OffAndBrake")
+        this.bytes.push(OP.OUTPUT_STOP, ...lc(0), ...lc(mask), ...lc(1));
+      else if (method === "SetSpeed")
+        this.bytes.push(OP.OUTPUT_SPEED, ...lc(0), ...lc(mask), ...arg(0));
+      else if (method === "SetPower")
+        this.bytes.push(OP.OUTPUT_POWER, ...lc(0), ...lc(mask), ...arg(0));
+      else if (method === "Start") this.bytes.push(OP.OUTPUT_START, ...lc(0), ...lc(mask));
+      else if (method === "StartSpeed")
+        this.bytes.push(
+          OP.OUTPUT_SPEED,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(0),
+          OP.OUTPUT_START,
+          ...lc(0),
+          ...lc(mask),
+        );
+      else if (method === "StartPower")
+        this.bytes.push(
+          OP.OUTPUT_POWER,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(0),
+          OP.OUTPUT_START,
+          ...lc(0),
+          ...lc(mask),
+        );
+      else if (method === "ResetCount") this.bytes.push(OP.OUTPUT_RESET, ...lc(0), ...lc(mask));
+      else if (method === "SetDirectPolarity")
+        this.bytes.push(OP.OUTPUT_POLARITY, ...lc(0), ...lc(mask), ...lc(1));
+      else if (method === "SetReversPolarity")
+        this.bytes.push(OP.OUTPUT_POLARITY, ...lc(0), ...lc(mask), ...lc(-1));
+      else if (method === "IsLarge" && Number.isInteger(port))
+        this.bytes.push(OP.OUTPUT_SET_TYPE, ...lc(0), ...lc(port), ...lc(7));
+      else if (method === "IsMedium" && Number.isInteger(port))
+        this.bytes.push(OP.OUTPUT_SET_TYPE, ...lc(0), ...lc(port), ...lc(8));
+      else if (method === "GetTacho" && target && Number.isInteger(port))
+        this.bytes.push(OP.OUTPUT_GET_COUNT, ...lc(0), ...lc(port), ...lv(target.offset));
+      else if (method === "GetSpeed" && target && Number.isInteger(port)) {
+        const speed = this.scratch(1);
+        const tacho = this.scratch(4);
+        this.bytes.push(OP.OUTPUT_READ, ...lc(0), ...lc(port), ...lv(speed), ...lv(tacho));
+        this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...lv(target.offset));
+      } else {
+        this.diagnostics.push(
+          diagnostic(
+            "EV32010",
+            `Unsupported legacy motor call '${instruction.operation}'.`,
+            instruction.span,
+          ),
+        );
+      }
+      return;
+    }
     switch (instruction.operation) {
+      case "Assert.Failed":
+        this.assertionFailure(arg(0));
+        return;
+      case "Assert.Equal":
+      case "Assert.NotEqual":
+      case "Assert.Less":
+      case "Assert.Greater":
+      case "Assert.LessEqual":
+      case "Assert.GreaterEqual":
+      case "Assert.Near": {
+        const passed = this.scratch(1);
+        const leftType = this.typeOf(instruction.args[0]!)?.kind;
+        const rightType = this.typeOf(instruction.args[1]!)?.kind;
+        if (
+          (instruction.operation === "Assert.Equal" ||
+            instruction.operation === "Assert.NotEqual") &&
+          leftType === "string" &&
+          rightType === "string"
+        ) {
+          this.bytes.push(OP.STRING, ...lc(STRING.COMPARE), ...arg(0), ...arg(1), ...lv(passed));
+          if (instruction.operation === "Assert.NotEqual")
+            this.bytes.push(OP.CP_EQ_8, ...lv(passed), ...lc(0), ...lv(passed));
+        } else if (instruction.operation === "Assert.Near") {
+          const left = this.floatParameter(instruction.args[0]!);
+          const right = this.floatParameter(instruction.args[1]!);
+          if (!left || !right) break;
+          const difference = this.scratch(4);
+          this.bytes.push(OP.SUB_F, ...left, ...right, ...lv(difference));
+          this.bytes.push(OP.MATH, ...lc(MATH.ABS), ...lv(difference), ...lv(difference));
+          this.bytes.push(OP.CP_LTEQ_F, ...lv(difference), ...lcf(0.0001), ...lv(passed));
+        } else {
+          const numeric = leftType === "number" || rightType === "number";
+          const left = numeric ? this.floatParameter(instruction.args[0]!) : arg(0);
+          const right = numeric ? this.floatParameter(instruction.args[1]!) : arg(1);
+          if (!left || !right) break;
+          const operation = instruction.operation;
+          const opcode = numeric
+            ? {
+                "Assert.Equal": OP.CP_EQ_F,
+                "Assert.NotEqual": OP.CP_NEQ_F,
+                "Assert.Less": OP.CP_LT_F,
+                "Assert.Greater": OP.CP_GT_F,
+                "Assert.LessEqual": OP.CP_LTEQ_F,
+                "Assert.GreaterEqual": OP.CP_GTEQ_F,
+              }[operation]
+            : {
+                "Assert.Equal": OP.CP_EQ_32,
+                "Assert.NotEqual": OP.CP_NEQ_32,
+                "Assert.Less": OP.CP_LT_32,
+                "Assert.Greater": OP.CP_GT_32,
+                "Assert.LessEqual": OP.CP_LTEQ_32,
+                "Assert.GreaterEqual": OP.CP_GTEQ_32,
+              }[operation];
+          if (opcode === undefined) break;
+          this.bytes.push(opcode, ...left, ...right, ...lv(passed));
+        }
+        const failed = this.newLabel("assertion-failed");
+        const done = this.newLabel("assertion-done");
+        this.bytes.push(OP.JR_FALSE, ...lv(passed));
+        this.addPatch(failed);
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(failed);
+        this.assertionFailure(arg(2));
+        this.markLabel(done);
+        return;
+      }
+      case "Mailbox.Create":
+      case "Mailbox.CreateForNumber": {
+        if (!target) break;
+        const id = this.mailboxAllocator.next;
+        this.mailboxAllocator.next += 1;
+        if (id >= 30) {
+          this.diagnostics.push(
+            diagnostic("EV32023", "EV3 supports at most 30 mailboxes.", instruction.span),
+          );
+          return;
+        }
+        this.bytes.push(
+          OP.MAILBOX_OPEN,
+          ...lc(id),
+          ...arg(0),
+          ...lc(instruction.operation === "Mailbox.Create" ? 4 : 3),
+          ...lc(0),
+          ...lc(0),
+        );
+        this.bytes.push(OP.MOVE_32_32, ...lc(id), ...lv(target.offset));
+        return;
+      }
+      case "Mailbox.Send":
+        this.bytes.push(
+          OP.MAILBOX_WRITE,
+          ...arg(0),
+          ...lc(0),
+          ...arg(1),
+          ...lc(4),
+          ...lc(1),
+          ...arg(2),
+        );
+        return;
+      case "Mailbox.SendNumber": {
+        const value = this.floatParameter(instruction.args[2]!);
+        if (!value) break;
+        this.bytes.push(
+          OP.MAILBOX_WRITE,
+          ...arg(0),
+          ...lc(0),
+          ...arg(1),
+          ...lc(3),
+          ...lc(1),
+          ...value,
+        );
+        return;
+      }
+      case "Mailbox.IsAvailable": {
+        if (!target) break;
+        const busy = this.scratch(1);
+        this.bytes.push(OP.MAILBOX_TEST, ...arg(0), ...lv(busy));
+        this.bytes.push(OP.CP_EQ_8, ...lv(busy), ...lc(0), ...lv(target.offset));
+        return;
+      }
+      case "Mailbox.Receive":
+        if (!target) break;
+        this.bytes.push(OP.MAILBOX_READY, ...arg(0));
+        this.bytes.push(
+          OP.MAILBOX_READ,
+          ...arg(0),
+          ...lc(STRING_BYTES),
+          ...lc(1),
+          ...lv(target.offset),
+        );
+        return;
+      case "Mailbox.ReceiveNumber":
+        if (!target) break;
+        this.bytes.push(OP.MAILBOX_READY, ...arg(0));
+        this.bytes.push(OP.MAILBOX_READ, ...arg(0), ...lc(4), ...lc(1), ...lv(target.offset));
+        return;
+      case "Mailbox.Connect":
+        this.bytes.push(OP.COM_SET, ...lc(7), ...lc(2), ...arg(0), ...lc(1));
+        return;
+      case "Vector.Init": {
+        if (!target) break;
+        const value = this.floatParameter(instruction.args[1]!);
+        if (!value) break;
+        const handle = this.scratch(2);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(0), ...lv(handle));
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...value);
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "Vector.Data": {
+        if (!target) break;
+        const size = arg(0);
+        const text = arg(1);
+        const handle = this.scratch(2);
+        const source = this.scratch(STRING_BYTES);
+        const token = this.scratch(STRING_BYTES);
+        const sourceIndex = this.scratch(4);
+        const tokenIndex = this.scratch(4);
+        const tokenLength = this.scratch(4);
+        const filled = this.scratch(4);
+        const character = this.scratch(1);
+        const equal = this.scratch(1);
+        const parsed = this.scratch(4);
+        const nonempty = this.scratch(1);
+        const loop = this.newLabel("vector-data-loop");
+        const process = this.newLabel("vector-data-process");
+        const copy = this.newLabel("vector-data-copy");
+        const delimiter = this.newLabel("vector-data-delimiter");
+        const finalValue = this.newLabel("vector-data-final");
+        const afterDelimiter = this.newLabel("vector-data-after-delimiter");
+        const done = this.newLabel("vector-data-done");
+        const empty = this.newLabel("vector-data-empty");
+        const positive = this.scratch(1);
+        this.bytes.push(OP.CP_GT_32, ...size, ...lc(0), ...lv(positive));
+        this.bytes.push(OP.JR_FALSE, ...lv(positive));
+        this.addPatch(empty);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...size, ...lv(handle));
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...lcf(0));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...text, ...lv(source));
+        this.bytes.push(OP.MOVE_32_32, ...lc(source), ...lv(sourceIndex));
+        this.bytes.push(OP.MOVE_32_32, ...lc(token), ...lv(tokenIndex));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(tokenLength));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(filled));
+        this.markLabel(loop);
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(sourceIndex),
+          ...lc(1),
+          ...lv(character),
+        );
+        this.bytes.push(OP.CP_EQ_8, ...lv(character), ...lc(0), ...lv(equal));
+        this.bytes.push(OP.JR_FALSE, ...lv(equal));
+        this.addPatch(process);
+        this.bytes.push(OP.JR);
+        this.addPatch(finalValue);
+        this.markLabel(process);
+        this.bytes.push(OP.CP_EQ_8, ...lv(character), ...lc(32), ...lv(equal));
+        this.bytes.push(OP.JR_FALSE, ...lv(equal));
+        this.addPatch(copy);
+        this.bytes.push(OP.JR);
+        this.addPatch(delimiter);
+        this.markLabel(copy);
+        this.bytes.push(
+          OP.MEMORY_WRITE,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(tokenIndex),
+          ...lc(1),
+          ...lv(character),
+        );
+        this.bytes.push(OP.ADD_32, ...lv(tokenIndex), ...lc(1), ...lv(tokenIndex));
+        this.bytes.push(OP.ADD_32, ...lv(tokenLength), ...lc(1), ...lv(tokenLength));
+        this.bytes.push(OP.ADD_32, ...lv(sourceIndex), ...lc(1), ...lv(sourceIndex));
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(delimiter);
+        this.bytes.push(OP.CP_GT_32, ...lv(tokenLength), ...lc(0), ...lv(nonempty));
+        this.bytes.push(OP.JR_FALSE, ...lv(nonempty));
+        this.addPatch(afterDelimiter);
+        this.bytes.push(
+          OP.MEMORY_WRITE,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(tokenIndex),
+          ...lc(1),
+          ...lc(0),
+        );
+        this.bytes.push(OP.STRING, ...lc(STRING.STRING_TO_VALUE), ...lv(token), ...lv(parsed));
+        this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(filled), ...lv(parsed));
+        this.bytes.push(OP.ADD_32, ...lv(filled), ...lc(1), ...lv(filled));
+        this.bytes.push(OP.CP_LT_32, ...lv(filled), ...size, ...lv(positive));
+        this.bytes.push(OP.JR_FALSE, ...lv(positive));
+        this.addPatch(done);
+        this.markLabel(afterDelimiter);
+        this.bytes.push(OP.MOVE_32_32, ...lc(token), ...lv(tokenIndex));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(tokenLength));
+        this.bytes.push(OP.ADD_32, ...lv(sourceIndex), ...lc(1), ...lv(sourceIndex));
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(finalValue);
+        this.bytes.push(OP.CP_GT_32, ...lv(tokenLength), ...lc(0), ...lv(nonempty));
+        this.bytes.push(OP.JR_FALSE, ...lv(nonempty));
+        this.addPatch(done);
+        this.bytes.push(
+          OP.MEMORY_WRITE,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(tokenIndex),
+          ...lc(1),
+          ...lc(0),
+        );
+        this.bytes.push(OP.STRING, ...lc(STRING.STRING_TO_VALUE), ...lv(token), ...lv(parsed));
+        this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(filled), ...lv(parsed));
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(empty);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lc(0), ...lv(handle));
+        this.markLabel(done);
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "Vector.Add": {
+        if (!target) break;
+        const handle = this.scratch(2);
+        const first = this.scratch(4);
+        const second = this.scratch(4);
+        const sum = this.scratch(4);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(0), ...lv(handle));
+        this.arrayLoop(arg(0), (index) => {
+          this.bytes.push(OP.ARRAY_READ, ...arg(1), ...lv(index), ...lv(first));
+          this.bytes.push(OP.ARRAY_READ, ...arg(2), ...lv(index), ...lv(second));
+          this.bytes.push(OP.ADD_F, ...lv(first), ...lv(second), ...lv(sum));
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(index), ...lv(sum));
+        });
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "Vector.Sort": {
+        if (!target) break;
+        const handle = this.scratch(2);
+        const value = this.scratch(4);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(0), ...lv(handle));
+        this.arrayLoop(arg(0), (index) => {
+          this.bytes.push(OP.ARRAY_READ, ...arg(1), ...lv(index), ...lv(value));
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(index), ...lv(value));
+        });
+        const outer = this.scratch(4);
+        const inner = this.scratch(4);
+        const outerActive = this.scratch(1);
+        const innerActive = this.scratch(1);
+        const compare = this.scratch(1);
+        const left = this.scratch(4);
+        const right = this.scratch(4);
+        const limit = this.scratch(4);
+        const next = this.scratch(4);
+        const outerLoop = this.newLabel("sort-outer");
+        const outerDone = this.newLabel("sort-done");
+        const innerLoop = this.newLabel("sort-inner");
+        const innerDone = this.newLabel("sort-inner-done");
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(outer));
+        this.markLabel(outerLoop);
+        this.bytes.push(OP.CP_LT_32, ...lv(outer), ...arg(0), ...lv(outerActive));
+        this.bytes.push(OP.JR_FALSE, ...lv(outerActive));
+        this.addPatch(outerDone);
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(inner));
+        this.bytes.push(OP.SUB_32, ...arg(0), ...lc(1), ...lv(limit));
+        this.bytes.push(OP.SUB_32, ...lv(limit), ...lv(outer), ...lv(limit));
+        this.markLabel(innerLoop);
+        this.bytes.push(OP.CP_LT_32, ...lv(inner), ...lv(limit), ...lv(innerActive));
+        this.bytes.push(OP.JR_FALSE, ...lv(innerActive));
+        this.addPatch(innerDone);
+        this.bytes.push(OP.ARRAY_READ, ...lv(handle), ...lv(inner), ...lv(left));
+        this.bytes.push(OP.ADD_32, ...lv(inner), ...lc(1), ...lv(next));
+        this.bytes.push(OP.ARRAY_READ, ...lv(handle), ...lv(next), ...lv(right));
+        this.bytes.push(OP.CP_GT_F, ...lv(left), ...lv(right), ...lv(compare));
+        this.arrayConditional(lv(compare), () => {
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(inner), ...lv(right));
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(next), ...lv(left));
+        });
+        this.bytes.push(OP.ADD_32, ...lv(inner), ...lc(1), ...lv(inner));
+        this.bytes.push(OP.JR);
+        this.addPatch(innerLoop);
+        this.markLabel(innerDone);
+        this.bytes.push(OP.ADD_32, ...lv(outer), ...lc(1), ...lv(outer));
+        this.bytes.push(OP.JR);
+        this.addPatch(outerLoop);
+        this.markLabel(outerDone);
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "Vector.Multiply": {
+        if (!target) break;
+        const total = this.scratch(4);
+        const handle = this.scratch(2);
+        const sum = this.scratch(4);
+        const aIndex = this.scratch(4);
+        const bIndex = this.scratch(4);
+        const outputIndex = this.scratch(4);
+        const aValue = this.scratch(4);
+        const bValue = this.scratch(4);
+        this.bytes.push(OP.MUL_32, ...arg(0), ...arg(1), ...lv(total));
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lv(total), ...lv(handle));
+        this.arrayLoop(arg(0), (row) => {
+          this.arrayLoop(arg(1), (column) => {
+            this.bytes.push(OP.MOVE_F_F, ...lcf(0), ...lv(sum));
+            this.arrayLoop(arg(2), (index) => {
+              this.bytes.push(OP.MUL_32, ...lv(row), ...arg(2), ...lv(aIndex));
+              this.bytes.push(OP.ADD_32, ...lv(aIndex), ...lv(index), ...lv(aIndex));
+              this.bytes.push(OP.MUL_32, ...lv(index), ...arg(1), ...lv(bIndex));
+              this.bytes.push(OP.ADD_32, ...lv(bIndex), ...lv(column), ...lv(bIndex));
+              this.bytes.push(OP.ARRAY_READ, ...arg(3), ...lv(aIndex), ...lv(aValue));
+              this.bytes.push(OP.ARRAY_READ, ...arg(4), ...lv(bIndex), ...lv(bValue));
+              this.bytes.push(OP.MUL_F, ...lv(aValue), ...lv(bValue), ...lv(aValue));
+              this.bytes.push(OP.ADD_F, ...lv(sum), ...lv(aValue), ...lv(sum));
+            });
+            this.bytes.push(OP.MUL_32, ...lv(row), ...arg(1), ...lv(outputIndex));
+            this.bytes.push(OP.ADD_32, ...lv(outputIndex), ...lv(column), ...lv(outputIndex));
+            this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(outputIndex), ...lv(sum));
+          });
+        });
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "Row.Init": {
+        if (!target) break;
+        const value = this.floatParameter(instruction.args[1]!);
+        if (!value) break;
+        const handle = this.scratch(2);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(0), ...lv(handle));
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...value);
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "Row.Delete":
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.DELETE), ...arg(0));
+        return;
+      case "Row.Read":
+        if (!target) break;
+        this.bytes.push(OP.ARRAY_READ, ...arg(0), ...arg(1), ...lv(target.offset));
+        return;
+      case "Row.Write": {
+        const value = this.floatParameter(instruction.args[2]!);
+        if (!value) break;
+        this.bytes.push(OP.ARRAY_WRITE, ...arg(0), ...arg(1), ...value);
+        return;
+      }
+      case "Row.Size":
+        if (!target) break;
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.SIZE), ...arg(0), ...lv(target.offset));
+        return;
+      case "Row.Resize":
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.RESIZE), ...arg(0), ...arg(1));
+        return;
+      case "Text.Append":
+        if (!target) break;
+        this.bytes.push(OP.STRING, ...lc(STRING.ADD), ...arg(0), ...arg(1), ...lv(target.offset));
+        return;
+      case "Text.GetLength": {
+        if (!target) break;
+        const length = this.scratch(2);
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(0), ...lv(length));
+        this.bytes.push(OP.MOVE_16_32, ...lv(length), ...lv(target.offset));
+        return;
+      }
+      case "Text.GetCharacter":
+        if (!target) break;
+        this.bytes.push(OP.MOVE_32_8, ...arg(0), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(target.offset + 1));
+        return;
+      case "Text.GetCharacterCode":
+        if (!target) break;
+        this.bytes.push(OP.MOVE_8_32, ...arg(0), ...lv(target.offset));
+        return;
+      case "Text.IsSubText":
+      case "Text.EndsWith":
+      case "Text.StartsWith":
+      case "Text.GetIndexOf": {
+        if (!target) break;
+        const textBuffer = this.scratch(STRING_BYTES);
+        const candidate = this.scratch(STRING_BYTES);
+        const textLength16 = this.scratch(2);
+        const subtextLength16 = this.scratch(2);
+        const textLength = this.scratch(4);
+        const subtextLength = this.scratch(4);
+        const limit = this.scratch(4);
+        const index = this.scratch(4);
+        const offset = this.scratch(4);
+        const valid = this.scratch(1);
+        const match = this.scratch(1);
+        const loop = this.newLabel("text-search-loop");
+        const found = this.newLabel("text-search-found");
+        const missing = this.newLabel("text-search-missing");
+        const done = this.newLabel("text-search-done");
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...arg(0), ...lv(textBuffer));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...arg(1), ...lv(candidate));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(0), ...lv(textLength16));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(1), ...lv(subtextLength16));
+        this.bytes.push(OP.MOVE_16_32, ...lv(textLength16), ...lv(textLength));
+        this.bytes.push(OP.MOVE_16_32, ...lv(subtextLength16), ...lv(subtextLength));
+        this.bytes.push(OP.CP_GT_32, ...lv(subtextLength), ...lc(0), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(missing);
+        this.bytes.push(OP.CP_GTEQ_32, ...lv(textLength), ...lv(subtextLength), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(missing);
+        this.bytes.push(OP.SUB_32, ...lv(textLength), ...lv(subtextLength), ...lv(limit));
+        if (instruction.operation === "Text.StartsWith") {
+          this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(index));
+          this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(limit));
+        } else if (instruction.operation === "Text.EndsWith") {
+          this.bytes.push(OP.MOVE_32_32, ...lv(limit), ...lv(index));
+        } else this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(index));
+        this.markLabel(loop);
+        this.bytes.push(OP.ADD_32, ...lc(textBuffer), ...lv(index), ...lv(offset));
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(offset),
+          ...lv(subtextLength),
+          ...lv(candidate),
+        );
+        this.bytes.push(
+          OP.STRING,
+          ...lc(STRING.COMPARE),
+          ...arg(1),
+          ...lv(candidate),
+          ...lv(match),
+        );
+        this.bytes.push(OP.JR_FALSE, ...lv(match));
+        this.addPatch(found);
+        this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
+        this.bytes.push(OP.CP_LTEQ_32, ...lv(index), ...lv(limit), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(missing);
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(found);
+        if (instruction.operation === "Text.GetIndexOf")
+          this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(target.offset));
+        else this.bytes.push(OP.MOVE_8_8, ...lc(1), ...lv(target.offset));
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(missing);
+        this.bytes.push(
+          instruction.operation === "Text.GetIndexOf" ? OP.MOVE_32_32 : OP.MOVE_8_8,
+          ...lc(0),
+          ...lv(target.offset),
+        );
+        this.markLabel(done);
+        return;
+      }
+      case "Text.GetSubText":
+      case "Text.GetSubTextToEnd": {
+        if (!target) break;
+        const buffer = this.scratch(STRING_BYTES);
+        const length16 = this.scratch(2);
+        const length = this.scratch(4);
+        const start = this.scratch(4);
+        const requested = this.scratch(4);
+        const available = this.scratch(4);
+        const offset = this.scratch(4);
+        const size = this.scratch(4);
+        const valid = this.scratch(1);
+        const empty = this.newLabel("text-sub-empty");
+        const clamp = this.newLabel("text-sub-clamp");
+        const copy = this.newLabel("text-sub-copy");
+        const done = this.newLabel("text-sub-done");
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...arg(0), ...lv(buffer));
+        this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...arg(0), ...lv(length16));
+        this.bytes.push(OP.MOVE_16_32, ...lv(length16), ...lv(length));
+        this.bytes.push(OP.MOVE_32_32, ...arg(1), ...lv(start));
+        this.bytes.push(OP.SUB_32, ...lv(start), ...lc(1), ...lv(start));
+        this.bytes.push(OP.CP_GTEQ_32, ...lv(start), ...lc(0), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(empty);
+        this.bytes.push(OP.CP_LT_32, ...lv(start), ...lv(length), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(empty);
+        this.bytes.push(OP.SUB_32, ...lv(length), ...lv(start), ...lv(available));
+        if (instruction.operation === "Text.GetSubTextToEnd") {
+          this.bytes.push(OP.MOVE_32_32, ...lv(available), ...lv(requested));
+          this.bytes.push(OP.JR);
+          this.addPatch(copy);
+        } else {
+          this.bytes.push(OP.MOVE_32_32, ...arg(2), ...lv(requested));
+          this.bytes.push(OP.CP_GT_32, ...lv(requested), ...lc(0), ...lv(valid));
+          this.bytes.push(OP.JR_FALSE, ...lv(valid));
+          this.addPatch(empty);
+          this.bytes.push(OP.CP_GT_32, ...lv(requested), ...lv(available), ...lv(valid));
+          this.bytes.push(OP.JR_FALSE, ...lv(valid));
+          this.addPatch(copy);
+          this.markLabel(clamp);
+          this.bytes.push(OP.MOVE_32_32, ...lv(available), ...lv(requested));
+        }
+        this.markLabel(copy);
+        this.bytes.push(OP.ADD_32, ...lc(buffer), ...lv(start), ...lv(offset));
+        this.bytes.push(OP.ADD_32, ...lv(requested), ...lc(1), ...lv(size));
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(offset),
+          ...lv(size),
+          ...lv(target.offset),
+        );
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(empty);
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...lv(target.offset));
+        this.markLabel(done);
+        return;
+      }
+      case "Text.ConvertToLowerCase":
+      case "Text.ConvertToUpperCase": {
+        if (!target) break;
+        const source = arg(0);
+        const index = this.scratch(4);
+        const character = this.scratch(1);
+        const numeric = this.scratch(4);
+        const isTerminator = this.scratch(1);
+        const inRange = this.scratch(1);
+        const loop = this.newLabel("text-case-loop");
+        const process = this.newLabel("text-case-process");
+        const done = this.newLabel("text-case-done");
+        const skip = this.newLabel("text-case-skip");
+        const lower = instruction.operation === "Text.ConvertToLowerCase";
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lc(target.offset - 1), ...lv(index));
+        this.markLabel(loop);
+        this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(index),
+          ...lc(1),
+          ...lv(character),
+        );
+        this.bytes.push(OP.CP_EQ_8, ...lv(character), ...lc(0), ...lv(isTerminator));
+        this.bytes.push(OP.JR_FALSE, ...lv(isTerminator));
+        this.addPatch(process);
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(process);
+        this.bytes.push(OP.MOVE_8_32, ...lv(character), ...lv(numeric));
+        this.bytes.push(OP.CP_GTEQ_32, ...lv(numeric), ...lc(lower ? 65 : 97), ...lv(inRange));
+        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        this.addPatch(skip);
+        this.bytes.push(OP.CP_LTEQ_32, ...lv(numeric), ...lc(lower ? 90 : 122), ...lv(inRange));
+        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        this.addPatch(skip);
+        this.bytes.push(OP.ADD_8, ...lv(character), ...lc(lower ? 32 : -32), ...lv(character));
+        this.bytes.push(
+          OP.MEMORY_WRITE,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(index),
+          ...lc(1),
+          ...lv(character),
+        );
+        this.markLabel(skip);
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(done);
+        return;
+      }
+      case "EV3File.OpenAppend":
+      case "EV3File.OpenRead":
+      case "EV3File.OpenWrite": {
+        if (!target) break;
+        const handle = this.scratch(2);
+        const command =
+          instruction.operation === "EV3File.OpenAppend"
+            ? FILE.OPEN_APPEND
+            : instruction.operation === "EV3File.OpenRead"
+              ? FILE.OPEN_READ
+              : FILE.OPEN_WRITE;
+        const filename = this.fileName(instruction.args[0]!);
+        if (!filename) break;
+        this.bytes.push(OP.FILE, ...lc(command), ...filename, ...lv(handle));
+        if (instruction.operation === "EV3File.OpenRead") this.bytes.push(...lv(this.scratch(4)));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        return;
+      }
+      case "EV3File.Close":
+        this.bytes.push(OP.FILE, ...lc(FILE.CLOSE), ...arg(0));
+        return;
+      case "EV3File.WriteLine":
+        this.bytes.push(OP.FILE, ...lc(FILE.WRITE_TEXT), ...arg(0), ...lc(6), ...arg(1));
+        return;
+      case "EV3File.ReadLine":
+        if (!target) break;
+        this.bytes.push(
+          OP.FILE,
+          ...lc(FILE.READ_TEXT),
+          ...arg(0),
+          ...lc(6),
+          ...lc(64),
+          ...lv(target.offset),
+        );
+        return;
+      case "EV3File.WriteByte": {
+        const text = this.scratch(2);
+        this.bytes.push(OP.MOVE_32_8, ...arg(1), ...lv(text));
+        this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(text + 1));
+        this.bytes.push(OP.FILE, ...lc(FILE.WRITE_TEXT), ...arg(0), ...lc(0), ...lv(text));
+        return;
+      }
+      case "EV3File.ReadByte": {
+        if (!target) break;
+        const text = this.scratch(2);
+        this.bytes.push(OP.FILE, ...lc(FILE.READ_TEXT), ...arg(0), ...lc(0), ...lc(1), ...lv(text));
+        this.bytes.push(OP.MOVE_8_32, ...lv(text), ...lv(target.offset));
+        return;
+      }
+      case "EV3File.ConvertToNumber":
+        if (!target) break;
+        this.bytes.push(OP.STRING, ...lc(STRING.STRING_TO_VALUE), ...arg(0), ...lv(target.offset));
+        return;
+      case "EV3File.ReadNumberArray": {
+        if (!target) break;
+        const array = this.scratch(2);
+        const offset = this.scratch(4);
+        const remaining = this.scratch(4);
+        const chunk = this.scratch(4);
+        const bytes = this.scratch(2);
+        const chunkArray = this.scratch(2);
+        const active = this.scratch(1);
+        const value = this.scratch(4);
+        const destination = this.scratch(4);
+        const loop = this.newLabel("file-read-number-array-loop");
+        const limited = this.newLabel("file-read-number-array-limited");
+        const done = this.newLabel("file-read-number-array-done");
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(1), ...lv(array));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(offset));
+        this.markLabel(loop);
+        this.bytes.push(OP.CP_LT_32, ...lv(offset), ...arg(1), ...lv(active));
+        this.bytes.push(OP.JR_FALSE, ...lv(active));
+        this.addPatch(done);
+        this.bytes.push(OP.SUB_32, ...arg(1), ...lv(offset), ...lv(remaining));
+        this.bytes.push(OP.MOVE_32_32, ...lv(remaining), ...lv(chunk));
+        this.bytes.push(OP.CP_GT_32, ...lv(chunk), ...lc(1000), ...lv(active));
+        this.bytes.push(OP.JR_FALSE, ...lv(active));
+        this.addPatch(limited);
+        this.bytes.push(OP.MOVE_32_32, ...lc(1000), ...lv(chunk));
+        this.markLabel(limited);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lv(chunk), ...lv(chunkArray));
+        this.bytes.push(OP.MUL_32, ...lv(chunk), ...lc(4), ...lv(remaining));
+        this.bytes.push(OP.MOVE_32_16, ...lv(remaining), ...lv(bytes));
+        this.bytes.push(
+          OP.FILE,
+          ...lc(FILE.READ_BYTES),
+          ...arg(0),
+          ...lv(bytes),
+          ...lh(chunkArray),
+        );
+        this.arrayLoop(lv(chunk), (index) => {
+          this.bytes.push(OP.ARRAY_READ, ...lv(chunkArray), ...lv(index), ...lv(value));
+          this.bytes.push(OP.ADD_32, ...lv(offset), ...lv(index), ...lv(destination));
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(array), ...lv(destination), ...lv(value));
+        });
+        this.bytes.push(OP.ADD_32, ...lv(offset), ...lv(chunk), ...lv(offset));
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(done);
+        this.bytes.push(OP.MOVE_16_32, ...lv(array), ...lv(target.offset));
+        return;
+      }
+      case "EV3File.WriteNumberArray": {
+        const contents = this.arrayContents(instruction.args[2]!);
+        if (!contents) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32028",
+              "EV3File.WriteNumberArray requires a Row or Vector result variable.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        const offset = this.scratch(4);
+        const remaining = this.scratch(4);
+        const chunk = this.scratch(4);
+        const bytes = this.scratch(2);
+        const chunkArray = this.scratch(2);
+        const active = this.scratch(1);
+        const value = this.scratch(4);
+        const source = this.scratch(4);
+        const loop = this.newLabel("file-write-number-array-loop");
+        const limited = this.newLabel("file-write-number-array-limited");
+        const done = this.newLabel("file-write-number-array-done");
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(offset));
+        this.markLabel(loop);
+        this.bytes.push(OP.CP_LT_32, ...lv(offset), ...arg(1), ...lv(active));
+        this.bytes.push(OP.JR_FALSE, ...lv(active));
+        this.addPatch(done);
+        this.bytes.push(OP.SUB_32, ...arg(1), ...lv(offset), ...lv(remaining));
+        this.bytes.push(OP.MOVE_32_32, ...lv(remaining), ...lv(chunk));
+        this.bytes.push(OP.CP_GT_32, ...lv(chunk), ...lc(1000), ...lv(active));
+        this.bytes.push(OP.JR_FALSE, ...lv(active));
+        this.addPatch(limited);
+        this.bytes.push(OP.MOVE_32_32, ...lc(1000), ...lv(chunk));
+        this.markLabel(limited);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lv(chunk), ...lv(chunkArray));
+        this.arrayLoop(lv(chunk), (index) => {
+          this.bytes.push(OP.ADD_32, ...lv(offset), ...lv(index), ...lv(source));
+          this.bytes.push(OP.ARRAY_READ, ...arg(2), ...lv(source), ...lv(value));
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(chunkArray), ...lv(index), ...lv(value));
+        });
+        this.bytes.push(OP.MUL_32, ...lv(chunk), ...lc(4), ...lv(remaining));
+        this.bytes.push(OP.MOVE_32_16, ...lv(remaining), ...lv(bytes));
+        this.bytes.push(
+          OP.FILE,
+          ...lc(FILE.WRITE_BYTES),
+          ...arg(0),
+          ...lv(bytes),
+          ...lh(chunkArray),
+        );
+        this.bytes.push(OP.ADD_32, ...lv(offset), ...lv(chunk), ...lv(offset));
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(done);
+        return;
+      }
+      case "EV3File.TableLookup": {
+        if (!target) break;
+        const handle = this.scratch(2);
+        const offset = this.scratch(4);
+        const count = this.scratch(4);
+        const active = this.scratch(1);
+        const byte = this.scratch(1);
+        const loop = this.newLabel("table-lookup");
+        const done = this.newLabel("table-lookup-done");
+        const filename = this.fileName(instruction.args[0]!);
+        if (!filename) break;
+        this.bytes.push(
+          OP.FILE,
+          ...lc(FILE.OPEN_READ),
+          ...filename,
+          ...lv(handle),
+          ...lv(this.scratch(4)),
+        );
+        this.bytes.push(OP.MUL_32, ...arg(1), ...arg(2), ...lv(offset));
+        this.bytes.push(OP.ADD_32, ...lv(offset), ...arg(3), ...lv(offset));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(count));
+        this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(byte));
+        this.markLabel(loop);
+        this.bytes.push(OP.CP_LTEQ_32, ...lv(count), ...lv(offset), ...lv(active));
+        this.bytes.push(OP.JR_FALSE, ...lv(active));
+        this.addPatch(done);
+        this.bytes.push(OP.FILE, ...lc(FILE.READ_BYTES), ...lv(handle), ...lc(1), ...lv(byte));
+        this.bytes.push(OP.ADD_32, ...lv(count), ...lc(1), ...lv(count));
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(done);
+        this.bytes.push(OP.FILE, ...lc(FILE.CLOSE), ...lv(handle));
+        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...lv(target.offset));
+        return;
+      }
+      case "Byte.NOT": {
+        if (!target) break;
+        const value = this.byteParameter(instruction.args[0]!);
+        if (!value) break;
+        this.byteResult(target, (destination) => {
+          this.bytes.push(OP.XOR_8, ...value, ...lc(0xff), ...destination);
+        });
+        return;
+      }
+      case "Byte.AND_":
+      case "Byte.OR_":
+      case "Byte.XOR": {
+        if (!target) break;
+        const left = this.byteParameter(instruction.args[0]!);
+        const right = this.byteParameter(instruction.args[1]!);
+        if (!left || !right) break;
+        const opcode =
+          instruction.operation === "Byte.AND_"
+            ? OP.AND_8
+            : instruction.operation === "Byte.OR_"
+              ? OP.OR_8
+              : OP.XOR_8;
+        this.byteResult(target, (destination) => {
+          this.bytes.push(opcode, ...left, ...right, ...destination);
+        });
+        return;
+      }
+      case "Byte.BIT": {
+        if (!target) break;
+        const value = this.byteParameter(instruction.args[0]!);
+        const index = instruction.args[1];
+        if (!value || !index) break;
+        const indexValue = this.parameter(index);
+        if (!indexValue) break;
+        const indexInteger = this.scratch(4);
+        if (this.typeOf(index)?.kind === "number")
+          this.bytes.push(OP.MOVE_F_32, ...indexValue, ...lv(indexInteger));
+        else this.bytes.push(OP.MOVE_32_32, ...indexValue, ...lv(indexInteger));
+        const rotationInteger = this.scratch(4);
+        const rotation = this.scratch(1);
+        const rotated = this.scratch(1);
+        this.bytes.push(OP.SUB_32, ...lc(8), ...lv(indexInteger), ...lv(rotationInteger));
+        this.bytes.push(OP.AND_32, ...lv(rotationInteger), ...lc(7), ...lv(rotationInteger));
+        this.bytes.push(OP.MOVE_32_8, ...lv(rotationInteger), ...lv(rotation));
+        this.bytes.push(OP.RL_8, ...value, ...lv(rotation), ...lv(rotated));
+        this.byteResult(target, (destination) => {
+          this.bytes.push(OP.AND_8, ...lv(rotated), ...lc(1), ...destination);
+        });
+        return;
+      }
+      case "Byte.SHL":
+      case "Byte.SHR": {
+        if (!target) break;
+        const value = this.byteParameter(instruction.args[0]!);
+        const distance = this.floatParameter(instruction.args[1]!);
+        if (!value || !distance) break;
+        const valueInteger = this.scratch(4);
+        const valueFloat = this.scratch(4);
+        const multiplier = this.scratch(4);
+        const result = this.scratch(4);
+        this.bytes.push(OP.MOVE_8_32, ...value, ...lv(valueInteger));
+        this.bytes.push(OP.MOVE_32_F, ...lv(valueInteger), ...lv(valueFloat));
+        this.bytes.push(OP.MATH, ...lc(MATH.POW), ...lcf(2), ...distance, ...lv(multiplier));
+        this.bytes.push(
+          instruction.operation === "Byte.SHL" ? OP.MUL_F : OP.DIV_F,
+          ...lv(valueFloat),
+          ...lv(multiplier),
+          ...lv(result),
+        );
+        if (instruction.operation === "Byte.SHR")
+          this.bytes.push(OP.MATH, ...lc(MATH.FLOOR), ...lv(result), ...lv(result));
+        else this.bytes.push(OP.MATH, ...lc(MATH.MOD), ...lv(result), ...lcf(256), ...lv(result));
+        const byte = this.scratch(1);
+        this.bytes.push(OP.MOVE_F_8, ...lv(result), ...lv(byte));
+        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...lv(target.offset));
+        return;
+      }
+      case "Byte.ToLogic": {
+        if (!target) break;
+        const value = this.parameter(instruction.args[0]!);
+        if (!value) break;
+        if (this.typeOf(instruction.args[0]!)?.kind === "number")
+          this.bytes.push(OP.CP_GT_F, ...value, ...lcf(0), ...lv(target.offset));
+        else this.bytes.push(OP.CP_GT_32, ...value, ...lc(0), ...lv(target.offset));
+        return;
+      }
+      case "Byte.H":
+      case "Byte.B":
+      case "Byte.L": {
+        if (!target) break;
+        const source = arg(0);
+        const buffer = this.scratch(STRING_BYTES);
+        const index = this.scratch(4);
+        const character = this.scratch(1);
+        const characterNumber = this.scratch(4);
+        const value = this.scratch(4);
+        const digit = this.scratch(4);
+        const inRange = this.scratch(1);
+        const loop = this.newLabel("byte-parse-loop");
+        const next = this.newLabel("byte-parse-next");
+        const done = this.newLabel("byte-parse-done");
+        const digitFound = this.newLabel("byte-parse-digit");
+
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(buffer));
+        if (instruction.operation === "Byte.L") {
+          const process = this.newLabel("byte-logic-process");
+          const skip = this.newLabel("byte-logic-skip");
+          this.bytes.push(OP.MOVE_32_32, ...lc(buffer - 1), ...lv(index));
+          this.markLabel(loop);
+          this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
+          this.bytes.push(
+            OP.MEMORY_READ,
+            ...lc(1),
+            ...lc(this.objectId),
+            ...lv(index),
+            ...lc(1),
+            ...lv(character),
+          );
+          this.bytes.push(OP.CP_EQ_8, ...lv(character), ...lc(0), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(process);
+          this.bytes.push(OP.JR);
+          this.addPatch(done);
+          this.markLabel(process);
+          this.bytes.push(OP.MOVE_8_32, ...lv(character), ...lv(characterNumber));
+          this.bytes.push(OP.CP_GTEQ_32, ...lv(characterNumber), ...lc(97), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(skip);
+          this.bytes.push(OP.CP_LTEQ_32, ...lv(characterNumber), ...lc(122), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(skip);
+          this.bytes.push(OP.ADD_8, ...lv(character), ...lc(-32), ...lv(character));
+          this.bytes.push(
+            OP.MEMORY_WRITE,
+            ...lc(1),
+            ...lc(this.objectId),
+            ...lv(index),
+            ...lc(1),
+            ...lv(character),
+          );
+          this.markLabel(skip);
+          this.bytes.push(OP.JR);
+          this.addPatch(loop);
+          this.markLabel(done);
+          const matched = this.scratch(1);
+          this.bytes.push(
+            OP.STRING,
+            ...lc(STRING.COMPARE),
+            ...lv(buffer),
+            ...lcs("TRUE"),
+            ...lv(matched),
+          );
+          this.bytes.push(OP.MOVE_8_32, ...lv(matched), ...lv(target.offset));
+          return;
+        }
+
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(value));
+        this.bytes.push(OP.MOVE_32_32, ...lc(buffer - 1), ...lv(index));
+        this.markLabel(loop);
+        this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(index),
+          ...lc(1),
+          ...lv(character),
+        );
+        this.bytes.push(OP.CP_EQ_8, ...lv(character), ...lc(0), ...lv(inRange));
+        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        this.addPatch(done);
+        this.bytes.push(OP.MOVE_8_32, ...lv(character), ...lv(characterNumber));
+        this.bytes.push(OP.CP_GTEQ_32, ...lv(characterNumber), ...lc(48), ...lv(inRange));
+        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        this.addPatch(next);
+        this.bytes.push(
+          OP.CP_LTEQ_32,
+          ...lv(characterNumber),
+          ...lc(instruction.operation === "Byte.B" ? 49 : 57),
+          ...lv(inRange),
+        );
+        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        const upper = this.newLabel("byte-parse-upper");
+        this.addPatch(instruction.operation === "Byte.B" ? next : upper);
+        if (instruction.operation === "Byte.B") {
+          this.bytes.push(OP.SUB_32, ...lv(characterNumber), ...lc(48), ...lv(digit));
+          this.bytes.push(OP.JR);
+          this.addPatch(digitFound);
+        } else {
+          const lower = this.newLabel("byte-parse-lower");
+          this.bytes.push(OP.SUB_32, ...lv(characterNumber), ...lc(48), ...lv(digit));
+          this.bytes.push(OP.JR);
+          this.addPatch(digitFound);
+          this.markLabel(upper);
+          this.bytes.push(OP.CP_GTEQ_32, ...lv(characterNumber), ...lc(65), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(next);
+          this.bytes.push(OP.CP_LTEQ_32, ...lv(characterNumber), ...lc(70), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(lower);
+          this.bytes.push(OP.SUB_32, ...lv(characterNumber), ...lc(55), ...lv(digit));
+          this.bytes.push(OP.JR);
+          this.addPatch(digitFound);
+          this.markLabel(lower);
+          this.bytes.push(OP.CP_GTEQ_32, ...lv(characterNumber), ...lc(97), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(next);
+          this.bytes.push(OP.CP_LTEQ_32, ...lv(characterNumber), ...lc(102), ...lv(inRange));
+          this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+          this.addPatch(next);
+          this.bytes.push(OP.SUB_32, ...lv(characterNumber), ...lc(87), ...lv(digit));
+        }
+        this.markLabel(digitFound);
+        this.bytes.push(
+          OP.MUL_32,
+          ...lv(value),
+          ...lc(instruction.operation === "Byte.B" ? 2 : 16),
+          ...lv(value),
+        );
+        this.bytes.push(OP.ADD_32, ...lv(value), ...lv(digit), ...lv(value));
+        this.markLabel(next);
+        this.bytes.push(OP.CP_GT_32, ...lv(index), ...lc(126), ...lv(inRange));
+        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        this.addPatch(loop);
+        this.markLabel(done);
+        this.bytes.push(OP.AND_32, ...lv(value), ...lc(255), ...lv(value));
+        this.bytes.push(OP.MOVE_32_32, ...lv(value), ...lv(target.offset));
+        return;
+      }
+      case "Byte.ToHex": {
+        if (!target) break;
+        const value = this.byteParameter(instruction.args[0]!);
+        if (!value) break;
+        const number = this.scratch(4);
+        this.bytes.push(OP.MOVE_8_32, ...value, ...lv(number));
+        this.bytes.push(
+          OP.STRING,
+          ...lc(STRING.NUMBER_FORMATTED),
+          ...lv(number),
+          ...lcs("%02X"),
+          ...lc(3),
+          ...lv(target.offset),
+        );
+        return;
+      }
+      case "Byte.ToBinary": {
+        if (!target) break;
+        const value = this.byteParameter(instruction.args[0]!);
+        if (!value) break;
+        this.byteToBinary(value, target);
+        return;
+      }
+      case "Math.Pi":
+        if (!target) break;
+        this.bytes.push(OP.MOVE_F_F, ...lcf(Math.PI), ...lv(target.offset));
+        return;
+      case "Math.GetRandomNumber":
+        if (!target) break;
+        this.bytes.push(OP.RANDOM, ...lc(1), ...arg(0), ...lv(target.offset));
+        return;
+      case "Math.DoubleToDecimal": {
+        if (!target) break;
+        const source = floatArg(0);
+        if (!source) break;
+        this.bytes.push(OP.MOVE_F_F, ...source, ...lv(target.offset));
+        return;
+      }
+      case "Math.GetDegrees":
+      case "Math.GetRadians": {
+        if (!target) break;
+        const source = floatArg(0);
+        if (!source) break;
+        this.bytes.push(
+          OP.MUL_F,
+          ...source,
+          ...lcf(instruction.operation === "Math.GetDegrees" ? 180 / Math.PI : Math.PI / 180),
+          ...lv(target.offset),
+        );
+        return;
+      }
+      case "Math.Max":
+      case "Math.Min": {
+        if (!target) break;
+        const left = floatArg(0);
+        const right = floatArg(1);
+        if (!left || !right) break;
+        const difference = this.scratch(4);
+        const absolute = this.scratch(4);
+        const sum = this.scratch(4);
+        this.bytes.push(OP.SUB_F, ...left, ...right, ...lv(difference));
+        this.bytes.push(OP.MATH, ...lc(MATH.ABS), ...lv(difference), ...lv(absolute));
+        this.bytes.push(OP.ADD_F, ...left, ...right, ...lv(sum));
+        this.bytes.push(
+          instruction.operation === "Math.Max" ? OP.ADD_F : OP.SUB_F,
+          ...lv(sum),
+          ...lv(absolute),
+          ...lv(target.offset),
+        );
+        this.bytes.push(OP.DIV_F, ...lv(target.offset), ...lcf(2), ...lv(target.offset));
+        return;
+      }
+      case "Math.Abs":
+      case "Math.Ceiling":
+      case "Math.Floor":
+      case "Math.NaturalLog":
+      case "Math.Log":
+      case "Math.Cos":
+      case "Math.Sin":
+      case "Math.Tan":
+      case "Math.ArcSin":
+      case "Math.ArcCos":
+      case "Math.ArcTan":
+      case "Math.SquareRoot":
+      case "Math.Round": {
+        if (!target) break;
+        const source = floatArg(0);
+        if (!source) break;
+        const command: Partial<Record<typeof instruction.operation, number>> = {
+          "Math.Abs": MATH.ABS,
+          "Math.Ceiling": MATH.CEIL,
+          "Math.Floor": MATH.FLOOR,
+          "Math.NaturalLog": MATH.LN,
+          "Math.Log": MATH.LOG,
+          "Math.Cos": MATH.COS,
+          "Math.Sin": MATH.SIN,
+          "Math.Tan": MATH.TAN,
+          "Math.ArcSin": MATH.ASIN,
+          "Math.ArcCos": MATH.ACOS,
+          "Math.ArcTan": MATH.ATAN,
+          "Math.SquareRoot": MATH.SQRT,
+          "Math.Round": MATH.ROUND,
+        };
+        this.bytes.push(
+          OP.MATH,
+          ...lc(command[instruction.operation]!),
+          ...source,
+          ...lv(target.offset),
+        );
+        return;
+      }
+      case "Math.Power":
+      case "Math.Remainder": {
+        if (!target) break;
+        const left = floatArg(0);
+        const right = floatArg(1);
+        if (!left || !right) break;
+        this.bytes.push(
+          OP.MATH,
+          ...lc(instruction.operation === "Math.Power" ? MATH.POW : MATH.MOD),
+          ...left,
+          ...right,
+          ...lv(target.offset),
+        );
+        return;
+      }
+      case "EV3.Time":
+        if (!target) break;
+        this.bytes.push(OP.TIMER_READ, ...lv(target.offset));
+        return;
+      case "EV3.BatteryLevel":
+        if (!target) break;
+        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_LBATT), ...lv(target.offset));
+        return;
+      case "EV3.BatteryVoltage":
+        if (!target) break;
+        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_VBATT), ...lv(target.offset));
+        return;
+      case "EV3.BatteryCurrent":
+        if (!target) break;
+        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_IBATT), ...lv(target.offset));
+        return;
+      case "EV3.BrickName":
+        if (!target) break;
+        this.bytes.push(OP.COM_GET, ...lc(COM_GET.BRICK_NAME), ...lc(18), ...lv(target.offset));
+        return;
+      case "EV3.SetLEDColor": {
+        const pattern = ledPattern(instruction.args[0]!, instruction.args[1]!);
+        if (pattern === undefined) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32015",
+              "EV3.SetLEDColor requires supported constant color and effect names.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        this.bytes.push(OP.UI_WRITE, ...lc(UI_WRITE.LED), ...lc(pattern));
+        return;
+      }
+      case "EV3.SystemCall":
+        if (!target) break;
+        this.bytes.push(OP.SYSTEM, ...arg(0), ...lv(target.offset));
+        return;
+      case "EV3.QueueNextCommand":
+        // Queuing only affects the desktop-to-brick transport path. RBF programs already execute locally.
+        return;
       case "LCD.Clear":
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.CLEAN));
+        this.lcdAutoUpdate();
         return;
       case "LCD.Update":
+        if (this.hasLcdUpdateControl) this.bytes.push(OP.MOVE_32_32, ...lc(0), ...gv(4));
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.UPDATE));
+        return;
+      case "LCD.StopUpdate":
+        this.bytes.push(OP.MOVE_32_32, ...lc(1), ...gv(4));
         return;
       case "LCD.Text":
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.SELECT_FONT), ...arg(3));
+        if (this.typeOf(instruction.args[4]!)?.kind !== "string") {
+          const sourceType = this.typeOf(instruction.args[4]!)?.kind;
+          const value = sourceType === "integer" ? this.scratch(4) : undefined;
+          if (value !== undefined) this.bytes.push(OP.MOVE_32_F, ...arg(4), ...lv(value));
+          this.bytes.push(
+            OP.UI_DRAW,
+            ...lc(UI_DRAW.VALUE),
+            ...arg(0),
+            ...arg(1),
+            ...arg(2),
+            ...(value === undefined ? arg(4) : lv(value)),
+            ...lc(7),
+            ...lc(0),
+          );
+          this.lcdAutoUpdate();
+          return;
+        }
         this.bytes.push(
           OP.UI_DRAW,
           ...lc(UI_DRAW.TEXT),
@@ -262,6 +2098,68 @@ class ObjectAssembler {
           ...arg(2),
           ...arg(4),
         );
+        this.lcdAutoUpdate();
+        return;
+      case "LCD.Pixel":
+        this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.PIXEL), ...arg(0), ...arg(1), ...arg(2));
+        this.lcdAutoUpdate();
+        return;
+      case "LCD.FillRect":
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.FILLRECT),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+          ...arg(4),
+        );
+        this.lcdAutoUpdate();
+        return;
+      case "LCD.Rect":
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.RECT),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+          ...arg(4),
+        );
+        this.lcdAutoUpdate();
+        return;
+      case "LCD.InverseRect":
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.INVERSERECT),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+        );
+        this.lcdAutoUpdate();
+        return;
+      case "LCD.FillCircle":
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.FILLCIRCLE),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+        );
+        this.lcdAutoUpdate();
+        return;
+      case "LCD.BmpFile":
+        this.bytes.push(
+          OP.UI_DRAW,
+          ...lc(UI_DRAW.BMPFILE),
+          ...arg(0),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+        );
+        this.lcdAutoUpdate();
         return;
       case "LCD.Value":
         this.bytes.push(
@@ -274,9 +2172,11 @@ class ObjectAssembler {
           ...arg(4),
           ...arg(5),
         );
+        this.lcdAutoUpdate();
         return;
       case "LCD.Write":
         this.bytes.push(OP.UI_DRAW, ...lc(UI_DRAW.TEXT), ...lc(1), ...arg(0), ...arg(1), ...arg(2));
+        this.lcdAutoUpdate();
         return;
       case "LCD.Line":
         this.bytes.push(
@@ -288,28 +2188,147 @@ class ObjectAssembler {
           ...arg(3),
           ...arg(4),
         );
+        this.lcdAutoUpdate();
         return;
-      case "LCD.Circle":
+      case "LCD.Circle": {
+        const values = instruction.args.map((value) => this.integerParameter(value));
+        if (values.some((value) => !value)) break;
         this.bytes.push(
           OP.UI_DRAW,
           ...lc(UI_DRAW.CIRCLE),
-          ...arg(0),
-          ...arg(1),
-          ...arg(2),
-          ...arg(3),
+          ...values[0]!,
+          ...values[1]!,
+          ...values[2]!,
+          ...values[3]!,
         );
+        this.lcdAutoUpdate();
         return;
-      case "Speaker.Tone":
-        this.bytes.push(OP.SOUND, ...lc(SOUND.TONE), ...arg(0), ...arg(1), ...arg(2));
+      }
+      case "Speaker.Tone": {
+        const values = instruction.args.map((value) => this.integerParameter(value));
+        if (values.some((value) => !value)) break;
+        this.bytes.push(OP.SOUND, ...lc(SOUND.TONE), ...values[0]!, ...values[1]!, ...values[2]!);
         return;
+      }
       case "Speaker.Play":
         this.bytes.push(OP.SOUND, ...lc(SOUND.PLAY), ...arg(0), ...arg(1));
         return;
       case "Speaker.Stop":
         this.bytes.push(OP.SOUND, ...lc(SOUND.BREAK));
         return;
+      case "Speaker.Note": {
+        const frequency = noteFrequency(instruction.args[1]!);
+        if (!frequency) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32014",
+              "Speaker.Note requires a constant note from C4 through B7.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        this.bytes.push(OP.SOUND, ...lc(SOUND.TONE), ...arg(0), ...lc(frequency), ...arg(2));
+        return;
+      }
+      case "Speaker.IsBusy":
+        if (!target) break;
+        this.bytes.push(OP.SOUND_TEST, ...lv(target.offset));
+        return;
+      case "Speaker.Wait":
+        this.bytes.push(OP.SOUND_READY);
+        return;
+      case "Buttons.Wait":
+        this.bytes.push(OP.UI_BUTTON, ...lc(UI_BUTTON.WAIT_FOR_PRESS));
+        return;
+      case "Buttons.Flush":
+        this.bytes.push(OP.UI_BUTTON, ...lc(UI_BUTTON.FLUSH));
+        return;
+      case "Buttons.GetClicks":
+        if (!target) break;
+        this.buttonText(target, UI_BUTTON.SHORTPRESS);
+        return;
+      case "Buttons.Current":
+        if (!target) break;
+        this.buttonText(target, UI_BUTTON.PRESSED);
+        return;
+      case "Button.IsPressed": {
+        if (!target) break;
+        const button = buttonCode(instruction.args[0]!);
+        if (button === undefined) {
+          this.diagnostics.push(
+            diagnostic(
+              "EV32020",
+              "Button.IsPressed requires a supported constant button name.",
+              instruction.span,
+            ),
+          );
+          return;
+        }
+        this.bytes.push(
+          OP.UI_BUTTON,
+          ...lc(UI_BUTTON.PRESSED),
+          ...lc(button),
+          ...lv(target.offset),
+        );
+        return;
+      }
       case "Program.End":
-        this.bytes.push(OP.PROGRAM_STOP, ...lc(1));
+        this.bytes.push(OP.PROGRAM_STOP, ...lc(-1));
+        return;
+      case "Program.ArgumentCount":
+        if (!target) break;
+        // Native RBF launch does not carry a command-line argument vector.
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(target.offset));
+        return;
+      case "Program.GetArgument":
+        if (!target) break;
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...lv(target.offset));
+        return;
+      case "Program.Directory":
+        if (!target) break;
+        this.bytes.push(
+          OP.FILENAME,
+          ...lc(FILENAME.GET_FOLDERNAME),
+          ...lc(127),
+          ...lv(target.offset),
+        );
+        return;
+      case "Thread.Yield": {
+        this.bytes.push(OP.SLEEP);
+        return;
+      }
+      case "Thread.CreateMutex": {
+        if (!target) break;
+        const index = this.scratch(4);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.SIZE), ...gv(0), ...lv(index));
+        this.bytes.push(OP.ARRAY_APPEND, ...gv(0), ...lc(0));
+        this.bytes.push(OP.MOVE_32_32, ...lv(index), ...lv(target.offset));
+        return;
+      }
+      case "Thread.Lock": {
+        const previous = this.scratch(1);
+        const acquired = this.scratch(1);
+        const loop = this.newLabel("thread-lock");
+        const busy = this.newLabel("thread-lock-busy");
+        const done = this.newLabel("thread-lock-done");
+        this.markLabel(loop);
+        this.bytes.push(OP.ARRAY_READ, ...gv(0), ...arg(0), ...lv(previous));
+        this.bytes.push(OP.CP_EQ_8, ...lv(previous), ...lc(0), ...lv(acquired));
+        this.bytes.push(OP.JR_FALSE, ...lv(acquired));
+        this.addPatch(busy);
+        this.bytes.push(OP.ARRAY_WRITE, ...gv(0), ...arg(0), ...lc(1));
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(busy);
+        this.bytes.push(OP.SLEEP);
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(done);
+        return;
+      }
+      case "Thread.Unlock":
+        this.bytes.push(OP.ARRAY_WRITE, ...gv(0), ...arg(0), ...lc(0));
         return;
       case "Program.Delay": {
         const scratch = Math.ceil(this.localBytes / 4) * 4;
@@ -322,6 +2341,20 @@ class ObjectAssembler {
         const mask = motorMask(instruction.args[0]!);
         if (!mask) break;
         this.bytes.push(
+          OP.OUTPUT_SPEED,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(1),
+          OP.OUTPUT_START,
+          ...lc(0),
+          ...lc(mask),
+        );
+        return;
+      }
+      case "Motor.StartPower": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(
           OP.OUTPUT_POWER,
           ...lc(0),
           ...lc(mask),
@@ -329,6 +2362,36 @@ class ObjectAssembler {
           OP.OUTPUT_START,
           ...lc(0),
           ...lc(mask),
+        );
+        return;
+      }
+      case "Motor.StartSteer": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(
+          OP.OUTPUT_STEP_SYNC,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(1),
+          ...arg(2),
+          ...lc(0),
+          ...lc(0),
+        );
+        return;
+      }
+      case "Motor.StartSync": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        const values = this.motorSyncParameters(instruction.args[1]!, instruction.args[2]!);
+        if (!values) break;
+        this.bytes.push(
+          OP.OUTPUT_STEP_SYNC,
+          ...lc(0),
+          ...lc(mask),
+          ...values.speed,
+          ...values.turn,
+          ...lc(0),
+          ...lc(0),
         );
         return;
       }
@@ -354,6 +2417,100 @@ class ObjectAssembler {
         this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
         return;
       }
+      case "Motor.MovePower": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(
+          OP.OUTPUT_STEP_POWER,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(1),
+          ...lc(0),
+          ...arg(2),
+          ...lc(0),
+          ...arg(3),
+          OP.OUTPUT_READY,
+          ...lc(0),
+          ...lc(mask),
+        );
+        return;
+      }
+      case "Motor.Schedule":
+      case "Motor.SchedulePower": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(
+          instruction.operation === "Motor.Schedule" ? OP.OUTPUT_STEP_SPEED : OP.OUTPUT_STEP_POWER,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+          ...arg(4),
+          ...arg(5),
+        );
+        return;
+      }
+      case "Motor.ResetCount": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(OP.OUTPUT_CLR_COUNT, ...lc(0), ...lc(mask));
+        return;
+      }
+      case "Motor.ScheduleSteer":
+      case "Motor.MoveSteer": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(
+          OP.OUTPUT_STEP_SYNC,
+          ...lc(0),
+          ...lc(mask),
+          ...arg(1),
+          ...arg(2),
+          ...arg(3),
+          ...arg(4),
+        );
+        if (instruction.operation === "Motor.MoveSteer")
+          this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+        return;
+      }
+      case "Motor.ScheduleSync":
+      case "Motor.MoveSync": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        const values = this.motorSyncParameters(instruction.args[1]!, instruction.args[2]!);
+        if (!values) break;
+        this.bytes.push(
+          OP.OUTPUT_STEP_SYNC,
+          ...lc(0),
+          ...lc(mask),
+          ...values.speed,
+          ...values.turn,
+          ...arg(3),
+          ...arg(4),
+        );
+        if (instruction.operation === "Motor.MoveSync")
+          this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+        return;
+      }
+      case "Motor.IsBusy": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask || !target) break;
+        this.bytes.push(OP.OUTPUT_TEST, ...lc(0), ...lc(mask), ...lv(target.offset));
+        return;
+      }
+      case "Motor.Wait": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(OP.OUTPUT_READY, ...lc(0), ...lc(mask));
+        return;
+      }
+      case "Motor.Invert": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask) break;
+        this.bytes.push(OP.OUTPUT_POLARITY, ...lc(0), ...lc(mask), ...lc(0));
+        return;
+      }
       case "Motor.GetCount": {
         const mask = motorMask(instruction.args[0]!);
         if (!mask || !target) break;
@@ -362,105 +2519,444 @@ class ObjectAssembler {
         this.bytes.push(OP.OUTPUT_GET_COUNT, ...lc(0), ...lc(port), ...lv(target.offset));
         return;
       }
+      case "Motor.GetSpeed": {
+        const mask = motorMask(instruction.args[0]!);
+        if (!mask || !target) break;
+        const port = Math.log2(mask);
+        if (!Number.isInteger(port)) break;
+        const speed = this.scratch(1);
+        const tacho = this.scratch(4);
+        this.bytes.push(OP.OUTPUT_READ, ...lc(0), ...lc(port), ...lv(speed), ...lv(tacho));
+        this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...lv(target.offset));
+        return;
+      }
+      case "Sensor.GetName": {
+        if (!target) break;
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        if (!sensor) break;
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.GET_NAME),
+          ...sensor.layer,
+          ...sensor.port,
+          ...lc(32),
+          ...lv(target.offset),
+        );
+        this.bytes.push(OP.STRING, ...lc(STRING.STRIP), ...lv(target.offset), ...lv(target.offset));
+        return;
+      }
+      case "Sensor.GetType":
+      case "Sensor.GetMode": {
+        if (!target) break;
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        if (!sensor) break;
+        const type = this.scratch(1);
+        const mode = this.scratch(1);
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.GET_TYPEMODE),
+          ...sensor.layer,
+          ...sensor.port,
+          ...lv(type),
+          ...lv(mode),
+        );
+        this.bytes.push(
+          OP.MOVE_8_32,
+          ...lv(instruction.operation === "Sensor.GetType" ? type : mode),
+          ...lv(target.offset),
+        );
+        return;
+      }
+      case "Sensor.IsBusy": {
+        if (!target) break;
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        if (!sensor) break;
+        this.byteResult(target, (destination) =>
+          this.bytes.push(OP.INPUT_TEST, ...sensor.layer, ...sensor.port, ...destination),
+        );
+        return;
+      }
       case "Sensor.ReadPercent": {
         if (!target) break;
-        const port = this.sensorPort(instruction.args[0]!);
-        if (!port) {
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        if (!sensor) {
           this.diagnostics.push(
-            diagnostic(
-              "EV32011",
-              "Sensor port must be a constant from 1 through 4 in v1.",
-              instruction.span,
-            ),
+            diagnostic("EV32011", "Sensor port must be between 1 and 16.", instruction.span),
           );
           return;
         }
+        const percent = this.scratch(1);
+        const nonnegative = this.scratch(1);
+        const negative = this.newLabel("sensor-percent-negative");
+        const done = this.newLabel("sensor-percent-done");
         this.bytes.push(
           OP.INPUT_READ,
-          ...lc(0),
-          ...port,
+          ...sensor.layer,
+          ...sensor.port,
           ...lc(0),
           ...lc(-1),
-          ...lv(target.offset),
+          ...lv(percent),
         );
+        this.bytes.push(OP.MOVE_8_32, ...lv(percent), ...lv(target.offset));
+        this.bytes.push(OP.CP_GTEQ_32, ...lv(target.offset), ...lc(0), ...lv(nonnegative));
+        this.bytes.push(OP.JR_FALSE, ...lv(nonnegative));
+        this.addPatch(negative);
+        this.bytes.push(OP.JR);
+        this.addPatch(done);
+        this.markLabel(negative);
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(target.offset));
+        this.markLabel(done);
+        return;
+      }
+      case "Sensor.ReadRaw": {
+        if (!target) break;
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        if (!sensor) return;
+        const values = arg(1);
+        const raw = this.scratch(32);
+        const handle = this.scratch(2);
+        this.bytes.push(
+          OP.INPUT_READ_EXT,
+          ...sensor.layer,
+          ...sensor.port,
+          ...lc(0),
+          ...lc(-1),
+          ...lc(18),
+          ...lc(8),
+          ...lv(raw),
+          ...lv(raw + 4),
+          ...lv(raw + 8),
+          ...lv(raw + 12),
+          ...lv(raw + 16),
+          ...lv(raw + 20),
+          ...lv(raw + 24),
+          ...lv(raw + 28),
+        );
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...values, ...lv(handle));
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...lcf(0));
+        const index = this.scratch(4);
+        const active = this.scratch(1);
+        const withinData = this.scratch(1);
+        const offset = this.scratch(4);
+        const rawValue = this.scratch(4);
+        const value = this.scratch(4);
+        const loop = this.newLabel("sensor-raw-loop");
+        const noData = this.newLabel("sensor-raw-no-data");
+        const write = this.newLabel("sensor-raw-write");
+        const done = this.newLabel("sensor-raw-done");
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(index));
+        this.markLabel(loop);
+        this.bytes.push(OP.CP_LT_32, ...lv(index), ...values, ...lv(active));
+        this.bytes.push(OP.JR_FALSE, ...lv(active));
+        this.addPatch(done);
+        this.bytes.push(OP.CP_LT_32, ...lv(index), ...lc(8), ...lv(withinData));
+        this.bytes.push(OP.JR_FALSE, ...lv(withinData));
+        this.addPatch(noData);
+        this.bytes.push(OP.MUL_32, ...lv(index), ...lc(4), ...lv(offset));
+        this.bytes.push(OP.ADD_32, ...lv(offset), ...lc(raw), ...lv(offset));
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(offset),
+          ...lc(4),
+          ...lv(rawValue),
+        );
+        this.bytes.push(OP.CP_LT_32, ...lv(rawValue), ...lc(-1000000000), ...lv(withinData));
+        this.bytes.push(OP.JR_FALSE, ...lv(withinData));
+        this.addPatch(noData);
+        this.bytes.push(OP.MOVE_32_F, ...lv(rawValue), ...lv(value));
+        this.bytes.push(OP.JR);
+        this.addPatch(write);
+        this.markLabel(noData);
+        this.bytes.push(OP.MOVE_F_F, ...lcf(0), ...lv(value));
+        this.markLabel(write);
+        this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(index), ...lv(value));
+        this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
+        this.bytes.push(OP.JR);
+        this.addPatch(loop);
+        this.markLabel(done);
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
         return;
       }
       case "Sensor.ReadRawValue": {
         if (!target) break;
-        const port = this.sensorPort(instruction.args[0]!);
-        const mode = instruction.args[1];
-        if (!port || !mode || (mode.kind !== "integer" && mode.kind !== "number")) {
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        const index = instruction.args[1];
+        if (!sensor || !index || this.typeOf(index)?.kind !== "integer") {
           this.diagnostics.push(
             diagnostic(
               "EV32012",
-              "Sensor port must be a constant from 1 through 4 and mode must be an integer in v1.",
+              "Sensor port and value index must be integers.",
               instruction.span,
             ),
           );
           return;
         }
-        if (!Number.isInteger(mode.value) || mode.value < 0 || mode.value > 7) {
-          this.diagnostics.push(
-            diagnostic(
-              "EV32013",
-              "Sensor mode must be a constant from 0 through 7 in v1.",
-              instruction.span,
-            ),
-          );
-          return;
-        }
+        const raw = this.scratch(32);
+        const valid = this.scratch(1);
+        const offset = this.scratch(4);
+        const result = this.scratch(4);
+        const done = this.newLabel("sensor-raw-value-done");
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.READY_RAW),
+          ...sensor.layer,
+          ...sensor.port,
+          ...lc(0),
+          ...lc(-1),
+          ...lc(8),
+          ...lv(raw),
+          ...lv(raw + 4),
+          ...lv(raw + 8),
+          ...lv(raw + 12),
+          ...lv(raw + 16),
+          ...lv(raw + 20),
+          ...lv(raw + 24),
+          ...lv(raw + 28),
+        );
+        const requested = this.parameter(index);
+        if (!requested) break;
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(target.offset));
+        this.bytes.push(OP.CP_GTEQ_32, ...requested, ...lc(0), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(done);
+        this.bytes.push(OP.CP_LT_32, ...requested, ...lc(8), ...lv(valid));
+        this.bytes.push(OP.JR_FALSE, ...lv(valid));
+        this.addPatch(done);
+        this.bytes.push(OP.MUL_32, ...requested, ...lc(4), ...lv(offset));
+        this.bytes.push(OP.ADD_32, ...lv(offset), ...lc(raw), ...lv(offset));
+        this.bytes.push(
+          OP.MEMORY_READ,
+          ...lc(1),
+          ...lc(this.objectId),
+          ...lv(offset),
+          ...lc(4),
+          ...lv(result),
+        );
+        this.bytes.push(OP.MOVE_32_32, ...lv(result), ...lv(target.offset));
+        this.markLabel(done);
+        return;
+      }
+      case "Sensor1.Raw1":
+      case "Sensor2.Raw1":
+      case "Sensor3.Raw1":
+      case "Sensor4.Raw1": {
+        if (!target) break;
+        const port = Number(instruction.operation[6]) - 1;
         this.bytes.push(
           OP.INPUT_DEVICE,
           ...lc(INPUT_DEVICE.READY_RAW),
           ...lc(0),
-          ...port,
+          ...lc(port),
           ...lc(0),
-          ...lc(mode.value),
+          ...lc(-1),
           ...lc(1),
           ...lv(target.offset),
         );
         return;
       }
-      case "Sensor.ReadValue": {
-        if (!target) break;
-        const port = this.sensorPort(instruction.args[0]!);
-        const mode = instruction.args[1];
-        if (!port || !mode || (mode.kind !== "integer" && mode.kind !== "number")) {
+      case "Sensor1.Raw3":
+      case "Sensor2.Raw3":
+      case "Sensor3.Raw3":
+      case "Sensor4.Raw3": {
+        const outputs = instruction.args.map((value) =>
+          value.kind === "variable"
+            ? this.allocations.get(value.name.toLocaleLowerCase("en-US"))
+            : undefined,
+        );
+        if (outputs.length !== 3 || outputs.some((output) => output?.type.kind !== "integer")) {
           this.diagnostics.push(
             diagnostic(
-              "EV32012",
-              "Sensor port must be a constant from 1 through 4 and mode must be an integer in v1.",
+              "EV32026",
+              "Sensor.Raw3 requires three integer variables to receive its values.",
               instruction.span,
             ),
           );
           return;
         }
-        if (!Number.isInteger(mode.value) || mode.value < 0 || mode.value > 7) {
-          this.diagnostics.push(
-            diagnostic(
-              "EV32013",
-              "Sensor mode must be a constant from 0 through 7 in v1.",
-              instruction.span,
-            ),
-          );
-          return;
-        }
+        const port = Number(instruction.operation[6]) - 1;
         this.bytes.push(
           OP.INPUT_DEVICE,
-          ...lc(INPUT_DEVICE.READY_SI),
+          ...lc(INPUT_DEVICE.READY_RAW),
           ...lc(0),
-          ...port,
+          ...lc(port),
           ...lc(0),
-          ...lc(mode.value),
+          ...lc(-1),
+          ...lc(3),
+          ...lv(outputs[0]!.offset),
+          ...lv(outputs[1]!.offset),
+          ...lv(outputs[2]!.offset),
+        );
+        return;
+      }
+      case "Sensor.SetMode": {
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        const mode = instruction.args[1];
+        if (!sensor || !mode || this.typeOf(mode)?.kind !== "integer") {
+          this.diagnostics.push(
+            diagnostic("EV32012", "Sensor port and mode must be integers.", instruction.span),
+          );
+          return;
+        }
+        const modeByte = this.byteParameter(mode);
+        if (!modeByte) break;
+        const scratch = this.scratch(4);
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.READY_RAW),
+          ...sensor.layer,
+          ...sensor.port,
+          ...lc(0),
+          ...modeByte,
           ...lc(1),
-          ...lv(target.offset),
+          ...lv(scratch),
         );
         return;
       }
       case "Sensor.Wait": {
-        const port = this.sensorPort(instruction.args[0]!);
-        if (!port) break;
-        this.bytes.push(OP.INPUT_READY, ...lc(0), ...port);
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        if (!sensor) break;
+        this.bytes.push(OP.INPUT_READY, ...sensor.layer, ...sensor.port);
+        return;
+      }
+      case "Sensor.CommunicateI2C":
+      case "Sensor.ReadI2CRegisters":
+      case "Sensor.ReadI2CRegister": {
+        if (!target) break;
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        const readBytes =
+          instruction.operation === "Sensor.ReadI2CRegister"
+            ? 1
+            : this.fixedSensorByteCount(
+                instruction.args[instruction.operation === "Sensor.CommunicateI2C" ? 3 : 3],
+                32,
+                "I2C read byte count",
+                instruction,
+              );
+        const writeBytes =
+          instruction.operation === "Sensor.CommunicateI2C"
+            ? this.fixedSensorByteCount(
+                instruction.args[2],
+                31,
+                "I2C write byte count",
+                instruction,
+              )
+            : 1;
+        if (!sensor || readBytes === undefined || writeBytes === undefined || readBytes < 1) {
+          if (readBytes === 0)
+            this.diagnostics.push(
+              diagnostic("EV32027", "I2C reads request at least one byte.", instruction.span),
+            );
+          return;
+        }
+        const address = this.byteParameter(instruction.args[1]!);
+        if (!address) break;
+        const payload =
+          instruction.operation === "Sensor.CommunicateI2C"
+            ? this.copyRowToByteArray(instruction.args[4]!, writeBytes)
+            : undefined;
+        if (instruction.operation === "Sensor.CommunicateI2C" && payload === undefined) break;
+        const writeHandle = this.scratch(2);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(writeBytes + 1), ...lv(writeHandle));
+        this.bytes.push(OP.ARRAY_WRITE, ...lv(writeHandle), ...lc(0), ...address);
+        if (instruction.operation === "Sensor.CommunicateI2C") {
+          for (let index = 0; index < writeBytes; index += 1) {
+            const byte = this.scratch(1);
+            this.bytes.push(OP.ARRAY_READ, ...lv(payload!), ...lc(index), ...lv(byte));
+            this.bytes.push(OP.ARRAY_WRITE, ...lv(writeHandle), ...lc(index + 1), ...lv(byte));
+          }
+        } else {
+          const register = this.byteParameter(instruction.args[2]!);
+          if (!register) break;
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(writeHandle), ...lc(1), ...register);
+        }
+        const readHandle = this.scratch(2);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(readBytes), ...lv(readHandle));
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.SETUP),
+          ...sensor.layer,
+          ...sensor.port,
+          ...lc(1),
+          ...lc(0),
+          ...lc(writeBytes + 1),
+          ...lh(writeHandle),
+          ...lc(readBytes),
+          ...lh(readHandle),
+        );
+        if (instruction.operation === "Sensor.ReadI2CRegister") {
+          const value = this.scratch(1);
+          this.bytes.push(OP.ARRAY_READ, ...lv(readHandle), ...lc(0), ...lv(value));
+          this.bytes.push(OP.MOVE_8_32, ...lv(value), ...lv(target.offset));
+        } else this.i2cResultArray(readHandle, readBytes, target);
+        return;
+      }
+      case "Sensor.WriteI2CRegister":
+      case "Sensor.WriteI2CRegisters": {
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        const writeBytes =
+          instruction.operation === "Sensor.WriteI2CRegister"
+            ? 1
+            : this.fixedSensorByteCount(
+                instruction.args[3],
+                30,
+                "I2C write byte count",
+                instruction,
+              );
+        if (!sensor || writeBytes === undefined) return;
+        const payload =
+          instruction.operation === "Sensor.WriteI2CRegister"
+            ? undefined
+            : this.copyRowToByteArray(instruction.args[4]!, writeBytes);
+        if (instruction.operation === "Sensor.WriteI2CRegisters" && payload === undefined) break;
+        const handle = this.scratch(2);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(writeBytes + 2), ...lv(handle));
+        const address = this.byteParameter(instruction.args[1]!);
+        if (!address) break;
+        this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lc(0), ...address);
+        const register = this.byteParameter(instruction.args[2]!);
+        if (!register) break;
+        this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lc(1), ...register);
+        if (instruction.operation === "Sensor.WriteI2CRegister") {
+          const value = this.byteParameter(instruction.args[3]!);
+          if (!value) break;
+          this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lc(2), ...value);
+        } else {
+          for (let index = 0; index < writeBytes; index += 1) {
+            const byte = this.scratch(1);
+            this.bytes.push(OP.ARRAY_READ, ...lv(payload!), ...lc(index), ...lv(byte));
+            this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lc(index + 2), ...lv(byte));
+          }
+        }
+        const reply = this.scratch(2);
+        this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(0), ...lv(reply));
+        this.bytes.push(
+          OP.INPUT_DEVICE,
+          ...lc(INPUT_DEVICE.SETUP),
+          ...sensor.layer,
+          ...sensor.port,
+          ...lc(1),
+          ...lc(0),
+          ...lc(writeBytes + 2),
+          ...lh(handle),
+          ...lc(0),
+          ...lh(reply),
+        );
+        return;
+      }
+      case "Sensor.SendUARTData": {
+        const sensor = this.sensorAddress(instruction.args[0]!);
+        const bytes = this.fixedSensorByteCount(
+          instruction.args[1],
+          32,
+          "UART write byte count",
+          instruction,
+        );
+        if (!sensor || bytes === undefined || bytes === 0) return;
+        const data = this.copyRowToByteArray(instruction.args[2]!, bytes);
+        if (data === undefined) break;
+        this.bytes.push(OP.INPUT_WRITE, ...sensor.layer, ...sensor.port, ...lc(bytes), ...lh(data));
         return;
       }
     }
@@ -481,14 +2977,17 @@ class ObjectAssembler {
       return;
     }
     if (terminator.op === "return") {
-      if (terminator.value)
-        this.diagnostics.push(
-          diagnostic(
-            "EV32004",
-            "Function return values await calling-convention fixtures.",
-            terminator.span,
-          ),
-        );
+      if (terminator.value) {
+        const result = this.allocations.get("$return");
+        const value = this.floatParameter(terminator.value);
+        if (!result || !value) {
+          this.diagnostics.push(
+            diagnostic("EV32004", "Unable to encode the function return value.", terminator.span),
+          );
+          return;
+        }
+        this.bytes.push(OP.MOVE_F_F, ...value, ...lv(result.offset));
+      }
       this.bytes.push(OP.JR);
       this.addPatch(OBJECT_EPILOGUE);
       return;
@@ -520,8 +3019,39 @@ export class EV3Backend implements CompilerBackend {
     const diagnostics: Diagnostic[] = [];
     const objects: RbfObject[] = [];
     const listing: string[] = [];
+    const callables = new Map<string, CallableFunction>(
+      ir.functions.map((fn, index) => [
+        fn.name.toLocaleLowerCase("en-US"),
+        { fn, objectId: index + 1 },
+      ]),
+    );
+    const hasMutexes = ir.functions.some((fn) =>
+      fn.blocks.some((block) =>
+        block.instructions.some(
+          (instruction) =>
+            instruction.op === "ev3-call" &&
+            ["Thread.CreateMutex", "Thread.Lock", "Thread.Unlock"].includes(instruction.operation),
+        ),
+      ),
+    );
+    const hasLcdUpdateControl = ir.functions.some((fn) =>
+      fn.blocks.some((block) =>
+        block.instructions.some(
+          (instruction) =>
+            instruction.op === "ev3-call" && instruction.operation === "LCD.StopUpdate",
+        ),
+      ),
+    );
+    const mailboxAllocator = { next: 0 };
     for (const [index, fn] of ir.functions.entries()) {
-      const assembler = new ObjectAssembler(fn);
+      const assembler = new ObjectAssembler(
+        fn,
+        index + 1,
+        callables,
+        hasMutexes,
+        hasLcdUpdateControl,
+        mailboxAllocator,
+      );
       const code = assembler.assemble(signal);
       diagnostics.push(...assembler.diagnostics);
       objects.push({
@@ -535,7 +3065,7 @@ export class EV3Backend implements CompilerBackend {
       );
     }
     if (diagnostics.some((item) => item.severity === "error")) return { diagnostics };
-    const rbf = createRbf(objects);
+    const rbf = createRbf(objects, hasMutexes || hasLcdUpdateControl ? 8 : 0);
     try {
       inspectRbf(rbf);
       return { rbf, listing: `${listing.join("\n")}\n`, diagnostics };

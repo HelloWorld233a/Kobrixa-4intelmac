@@ -98,10 +98,12 @@ function validateFunction(fn: IRFunction, globals: Map<string, IRType>): IRValid
         } else {
           signature.parameters.forEach((expected, index) => {
             const actual = valueType(instruction.args[index]!, symbols);
+            const accepted = Array.isArray(expected) ? expected : [expected];
             if (
               actual &&
-              !sameType({ kind: expected }, actual) &&
-              !(expected === "number" && actual.kind === "integer")
+              !accepted.some((candidate) => sameType({ kind: candidate }, actual)) &&
+              !(accepted.includes("number") && actual.kind === "integer") &&
+              !(accepted.includes("integer") && actual.kind === "number")
             ) {
               issues.push(
                 issue(

@@ -1,6 +1,7 @@
 import type { Diagnostic } from "@kobrixa/compiler";
 import {
   getEV3Operation,
+  type EV3ParameterType,
   type IRBasicBlock,
   type IRFunction,
   type IRInstruction,
@@ -77,7 +78,7 @@ class FunctionBuilder {
   ) {
     this.#knownFunctions = knownFunctions;
     for (const parameter of parameters)
-      this.addVariable(parameter.name, parameter.type, "parameter");
+      this.addVariable(parameter.name, parameter.type, "parameter", undefined, parameter.direction);
     this.#current = this.createBlock("entry");
   }
 
@@ -321,6 +322,12 @@ class FunctionBuilder {
           : { value: { kind: "number", value: expression.value }, type: { kind: "number" } };
       }
       case "name": {
+        const operation = getEV3Operation(expression.name);
+        if (operation?.parameters.length === 0)
+          return this.lowerCall(
+            { kind: "call", name: expression.name, args: [], span: expression.span },
+            true,
+          )!;
         const variable = this.ensureVariable(
           expression.name,
           expected ?? { kind: "number" },
@@ -398,7 +405,7 @@ class FunctionBuilder {
     const args = expression.args.map((argument, index) => {
       const operationType = operation?.parameters[index];
       const expected: IRType | undefined = operationType
-        ? { kind: operationType }
+        ? { kind: this.preferredOperationType(operationType) }
         : declaration?.parameters[index]?.type;
       return this.lowerExpression(argument, expected);
     });
@@ -414,7 +421,13 @@ class FunctionBuilder {
       }
       operation.parameters.forEach((expected, index) => {
         const actual = args[index]?.type.kind;
-        if (actual && actual !== expected && !(expected === "number" && actual === "integer")) {
+        const accepted = Array.isArray(expected) ? expected : [expected];
+        if (
+          actual &&
+          !accepted.includes(actual) &&
+          !(accepted.includes("number") && actual === "integer") &&
+          !(accepted.includes("integer") && actual === "number")
+        ) {
           this.diagnostics.push(
             toDiagnostic(
               "BP3004",
@@ -468,6 +481,25 @@ class FunctionBuilder {
         ),
       );
     }
+    declaration.parameters.forEach((parameter, index) => {
+      const actual = args[index]?.type;
+      if (
+        parameter.direction === "out" &&
+        actual &&
+        (actual.kind !== parameter.type.kind ||
+          (actual.kind === "array" &&
+            parameter.type.kind === "array" &&
+            actual.element !== parameter.type.element))
+      ) {
+        this.diagnostics.push(
+          toDiagnostic(
+            "BP2006",
+            `Output argument ${index + 1} of '${declaration.name}' must have type ${parameter.type.kind}.`,
+            expression.args[index]?.span ?? expression.span,
+          ),
+        );
+      }
+    });
     const returnsValue = declaration.kind === "function";
     const target = returnsValue
       ? this.newTemporary({ kind: "number" }, expression.span)
@@ -496,10 +528,19 @@ class FunctionBuilder {
     return undefined;
   }
 
+  private preferredOperationType(expected: EV3ParameterType): IRPrimitiveType {
+    if (typeof expected === "string") return expected;
+    return expected.includes("number") ? "number" : expected[0]!;
+  }
+
   private ensureVariable(name: string, type: IRType, span: SourceSpan): IRVariable {
     const key = canonical(name);
     const existing = this.variables.get(key);
-    if (existing) return existing;
+    if (existing) {
+      if (type.kind === "number" && existing.type.kind === "integer")
+        existing.type = { kind: "number" };
+      return existing;
+    }
     return this.addVariable(key, type, "local", span);
   }
 
@@ -508,10 +549,12 @@ class FunctionBuilder {
     type: IRType,
     scope: IRVariable["scope"],
     span?: SourceSpan,
+    direction?: "in" | "out",
   ): IRVariable {
+    const directionField = direction === undefined ? {} : { direction };
     const variable: IRVariable = span
-      ? { name: canonical(name), type, scope, span }
-      : { name: canonical(name), type, scope };
+      ? { name: canonical(name), type, scope, ...directionField, span }
+      : { name: canonical(name), type, scope, ...directionField };
     this.variables.set(canonical(name), variable);
     return variable;
   }

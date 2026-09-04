@@ -63,12 +63,14 @@ export const BASIC_PLUS_API_COMPLETIONS: readonly BasicPlusApiCompletion[] = [
   ...EV3_OPERATION_CATALOG.values(),
 ]
   .map((operation) => {
-    const parameters = operation.parameters.join(", ");
+    const parameters = operation.parameters
+      .map((type) => (typeof type === "string" ? type : type.join(" | ")))
+      .join(", ");
     const signature = `${operation.name}(${parameters})${
       operation.returns === "void" ? "" : `: ${operation.returns}`
     }`;
     const argumentsSnippet = operation.parameters
-      .map((type, index) => argumentSnippet(type, index + 1))
+      .map((type, index) => argumentSnippet(typeof type === "string" ? type : type[0]!, index + 1))
       .join(", ");
     return {
       label: operation.name,
