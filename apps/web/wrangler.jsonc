@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kobrixa-web",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "kobrixa.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

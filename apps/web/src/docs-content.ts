@@ -1,0 +1,243 @@
+import architectureEn from "../../../docs/en/architecture.md?raw";
+import deviceSupportEn from "../../../docs/en/device-support.md?raw";
+import installationEn from "../../../docs/en/installation.md?raw";
+import languageSupportEn from "../../../docs/en/language-support.md?raw";
+import productEn from "../../../docs/en/product.md?raw";
+import roadmapEn from "../../../docs/en/roadmap.md?raw";
+import architectureZh from "../../../docs/zh-TW/architecture.md?raw";
+import deviceSupportZh from "../../../docs/zh-TW/device-support.md?raw";
+import installationZh from "../../../docs/zh-TW/installation.md?raw";
+import languageSupportZh from "../../../docs/zh-TW/language-support.md?raw";
+import productZh from "../../../docs/zh-TW/product.md?raw";
+import roadmapZh from "../../../docs/zh-TW/roadmap.md?raw";
+import gettingReadyEn from "../../../docs/tutorials/en/00-getting-ready.md?raw";
+import firstProgramEn from "../../../docs/tutorials/en/01-first-program.md?raw";
+import valuesEn from "../../../docs/tutorials/en/02-values-and-logic.md?raw";
+import controlEn from "../../../docs/tutorials/en/03-control-flow.md?raw";
+import feedbackEn from "../../../docs/tutorials/en/04-feedback.md?raw";
+import functionsEn from "../../../docs/tutorials/en/05-functions-projects.md?raw";
+import motorsEn from "../../../docs/tutorials/en/06-motors.md?raw";
+import sensorsEn from "../../../docs/tutorials/en/07-sensors.md?raw";
+import dataEn from "../../../docs/tutorials/en/08-data-files.md?raw";
+import runtimeEn from "../../../docs/tutorials/en/09-brick-runtime.md?raw";
+import communicationEn from "../../../docs/tutorials/en/10-communication.md?raw";
+import capstoneEn from "../../../docs/tutorials/en/11-capstone.md?raw";
+import gettingReadyZh from "../../../docs/tutorials/zh-TW/00-getting-ready.md?raw";
+import firstProgramZh from "../../../docs/tutorials/zh-TW/01-first-program.md?raw";
+import valuesZh from "../../../docs/tutorials/zh-TW/02-values-and-logic.md?raw";
+import controlZh from "../../../docs/tutorials/zh-TW/03-control-flow.md?raw";
+import feedbackZh from "../../../docs/tutorials/zh-TW/04-feedback.md?raw";
+import functionsZh from "../../../docs/tutorials/zh-TW/05-functions-projects.md?raw";
+import motorsZh from "../../../docs/tutorials/zh-TW/06-motors.md?raw";
+import sensorsZh from "../../../docs/tutorials/zh-TW/07-sensors.md?raw";
+import dataZh from "../../../docs/tutorials/zh-TW/08-data-files.md?raw";
+import runtimeZh from "../../../docs/tutorials/zh-TW/09-brick-runtime.md?raw";
+import communicationZh from "../../../docs/tutorials/zh-TW/10-communication.md?raw";
+import capstoneZh from "../../../docs/tutorials/zh-TW/11-capstone.md?raw";
+
+export type DocsLocale = "zh-TW" | "en";
+export type DocumentSlug =
+  "product" | "installation" | "language-support" | "device-support" | "architecture" | "roadmap";
+
+export type DocumentEntry = {
+  slug: DocumentSlug;
+  category: "product" | "technical";
+  title: Record<DocsLocale, string>;
+  summary: Record<DocsLocale, string>;
+  content: Record<DocsLocale, string>;
+};
+
+export type TutorialEntry = {
+  slug: string;
+  number: string;
+  title: Record<DocsLocale, string>;
+  summary: Record<DocsLocale, string>;
+  hardware: Record<DocsLocale, string>;
+  example: string;
+  content: Record<DocsLocale, string>;
+};
+
+export const tutorials: readonly TutorialEntry[] = [
+  {
+    slug: "getting-ready",
+    number: "00",
+    title: { "zh-TW": "準備 Kobrixa 與 EV3", en: "Prepare Kobrixa and your EV3" },
+    summary: { "zh-TW": "安裝、連線與安全準備。", en: "Installation, connection, and safety." },
+    hardware: { "zh-TW": "EV3、USB 線", en: "EV3 and USB cable" },
+    example: "getting-started/hello-ev3",
+    content: { "zh-TW": gettingReadyZh, en: gettingReadyEn },
+  },
+  {
+    slug: "first-program",
+    number: "01",
+    title: { "zh-TW": "第一個程式", en: "First program" },
+    summary: { "zh-TW": "顯示文字與播放聲音。", en: "Display text and play sound." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "getting-started/hello-ev3",
+    content: { "zh-TW": firstProgramZh, en: firstProgramEn },
+  },
+  {
+    slug: "values-and-logic",
+    number: "02",
+    title: { "zh-TW": "值、文字與運算", en: "Values, text, and math" },
+    summary: { "zh-TW": "使用變數與運算式。", en: "Use variables and expressions." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "language/text-and-math",
+    content: { "zh-TW": valuesZh, en: valuesEn },
+  },
+  {
+    slug: "control-flow",
+    number: "03",
+    title: { "zh-TW": "控制流程", en: "Control flow" },
+    summary: { "zh-TW": "判斷、迴圈與布林值。", en: "Decisions, loops, and booleans." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "control-flow/control-flow",
+    content: { "zh-TW": controlZh, en: controlEn },
+  },
+  {
+    slug: "feedback",
+    number: "04",
+    title: { "zh-TW": "互動回饋", en: "Interactive feedback" },
+    summary: { "zh-TW": "顯示、聲音、按鍵與時間。", en: "Display, sound, buttons, and time." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "buttons/button-feedback",
+    content: { "zh-TW": feedbackZh, en: feedbackEn },
+  },
+  {
+    slug: "functions-projects",
+    number: "05",
+    title: { "zh-TW": "函式與專案", en: "Functions and projects" },
+    summary: {
+      "zh-TW": "Sub、Function、Include 與 Import。",
+      en: "Subs, Functions, Includes, and Imports.",
+    },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "language/local-functions",
+    content: { "zh-TW": functionsZh, en: functionsEn },
+  },
+  {
+    slug: "motors",
+    number: "06",
+    title: { "zh-TW": "安全控制馬達", en: "Motors safely" },
+    summary: { "zh-TW": "移動、停止與回授。", en: "Move, stop, and measure." },
+    hardware: { "zh-TW": "A、D 馬達；先架高輪子", en: "Motors A and D; lift wheels" },
+    example: "motors/motor-move",
+    content: { "zh-TW": motorsZh, en: motorsEn },
+  },
+  {
+    slug: "sensors",
+    number: "07",
+    title: { "zh-TW": "感測器", en: "Sensors" },
+    summary: { "zh-TW": "讀取模式與門檻判斷。", en: "Read modes and thresholds." },
+    hardware: { "zh-TW": "輸入埠 1 感測器", en: "Sensor on input 1" },
+    example: "sensors/sensor-threshold",
+    content: { "zh-TW": sensorsZh, en: sensorsEn },
+  },
+  {
+    slug: "data-files",
+    number: "08",
+    title: { "zh-TW": "資料與檔案", en: "Data and files" },
+    summary: { "zh-TW": "陣列、Vector 與檔案。", en: "Arrays, vectors, and files." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "collections/row-vector",
+    content: { "zh-TW": dataZh, en: dataEn },
+  },
+  {
+    slug: "brick-runtime",
+    number: "09",
+    title: { "zh-TW": "本體與執行期", en: "Brick and runtime" },
+    summary: { "zh-TW": "狀態、時間與程式結束。", en: "Status, time, and program endings." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "program/brick-status",
+    content: { "zh-TW": runtimeZh, en: runtimeEn },
+  },
+  {
+    slug: "communication",
+    number: "10",
+    title: { "zh-TW": "信箱與並行", en: "Mailboxes and concurrency" },
+    summary: { "zh-TW": "本機訊息與背景工作。", en: "Local messages and background work." },
+    hardware: { "zh-TW": "僅 EV3 本體", en: "EV3 brick only" },
+    example: "concurrency/thread-mutex",
+    content: { "zh-TW": communicationZh, en: communicationEn },
+  },
+  {
+    slug: "capstone",
+    number: "11",
+    title: { "zh-TW": "整合專題", en: "Capstone" },
+    summary: { "zh-TW": "製作可安全測試的機器人。", en: "Build a robot you can test safely." },
+    hardware: { "zh-TW": "馬達、按鍵、感測器", en: "Motors, buttons, and a sensor" },
+    example: "capstones/obstacle-rover",
+    content: { "zh-TW": capstoneZh, en: capstoneEn },
+  },
+];
+
+export function findTutorial(slug: string | undefined) {
+  return tutorials.find((tutorial) => tutorial.slug === slug);
+}
+
+export const documents: readonly DocumentEntry[] = [
+  {
+    slug: "product",
+    category: "product",
+    title: { "zh-TW": "產品規格", en: "Product specification" },
+    summary: {
+      "zh-TW": "Kobrixa 的目的、v1 使用流程、範圍與成功標準。",
+      en: "Kobrixa's purpose, v1 workflow, scope, and success criteria.",
+    },
+    content: { "zh-TW": productZh, en: productEn },
+  },
+  {
+    slug: "installation",
+    category: "product",
+    title: { "zh-TW": "安裝與復原", en: "Installation and recovery" },
+    summary: {
+      "zh-TW": "開發版設定、USB／Wi-Fi 連線與可復原的常見情境。",
+      en: "Development setup, USB/Wi-Fi connection, and recoverable situations.",
+    },
+    content: { "zh-TW": installationZh, en: installationEn },
+  },
+  {
+    slug: "language-support",
+    category: "product",
+    title: { "zh-TW": "語言支援政策", en: "Language support policy" },
+    summary: {
+      "zh-TW": "Basic Plus 相容性與後續語言前端的支援界線。",
+      en: "Basic Plus compatibility and boundaries for future language frontends.",
+    },
+    content: { "zh-TW": languageSupportZh, en: languageSupportEn },
+  },
+  {
+    slug: "device-support",
+    category: "technical",
+    title: { "zh-TW": "設備與平台支援", en: "Device and platform support" },
+    summary: {
+      "zh-TW": "USB、Wi-Fi 與跨平台硬體驗收的支援狀態。",
+      en: "Support status for USB, Wi-Fi, and cross-platform hardware validation.",
+    },
+    content: { "zh-TW": deviceSupportZh, en: deviceSupportEn },
+  },
+  {
+    slug: "architecture",
+    category: "technical",
+    title: { "zh-TW": "架構與公共契約", en: "Architecture and public contracts" },
+    summary: {
+      "zh-TW": "Kobrixa 的系統邊界、建置、裝置與安全契約。",
+      en: "Kobrixa's system boundaries, build, device, and security contracts.",
+    },
+    content: { "zh-TW": architectureZh, en: architectureEn },
+  },
+  {
+    slug: "roadmap",
+    category: "technical",
+    title: { "zh-TW": "路線圖", en: "Roadmap" },
+    summary: {
+      "zh-TW": "從 v1 到後續語言前端的產品方向。",
+      en: "Product direction from v1 through future language frontends.",
+    },
+    content: { "zh-TW": roadmapZh, en: roadmapEn },
+  },
+];
+
+export function findDocument(slug: string | undefined) {
+  return documents.find((document) => document.slug === slug);
+}
