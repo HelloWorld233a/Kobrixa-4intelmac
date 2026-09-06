@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import kobrixaMark from "../../../../assets/brand/kobrixa-mark.svg";
 import type {
   BuildEvent,
   DeviceDescriptor,
@@ -1128,7 +1129,7 @@ export function App(): React.JSX.Element {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark">K</span>
+          <img className="brand-mark" src={kobrixaMark} alt="" aria-hidden="true" />
           <span>Kobrixa</span>
           <small>{t.candidate}</small>
         </div>

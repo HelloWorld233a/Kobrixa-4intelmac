@@ -5,6 +5,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const workspaceNodeModules = fileURLToPath(new URL("../../node_modules", import.meta.url));
+const platformIcon = path.resolve(
+  "resources/icons",
+  process.platform === "darwin" ? "kobrixa.icns" : process.platform === "win32" ? "kobrixa.ico" : "png/512x512.png",
+);
 
 async function copyNativeDependencies(buildPath: string): Promise<void> {
   const destination = path.join(buildPath, "node_modules");
@@ -22,6 +26,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     name: "Kobrixa",
     executableName: "kobrixa",
+    icon: platformIcon,
     asar: { unpack: "**/*.node" },
     ignore: (file) =>
       Boolean(file) &&

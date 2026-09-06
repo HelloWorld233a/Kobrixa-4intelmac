@@ -63,14 +63,8 @@ a:focus-visible {
 .brand-mark {
   width: 2rem;
   height: 2rem;
-  display: grid;
-  place-items: center;
-  background: #2457d6;
-  border: 2px solid #1e2933;
-  color: #fff;
-  font-family: "DM Mono", monospace;
-  font-size: 0.9rem;
-  box-shadow: 3px 3px 0 #e86f3d;
+  display: block;
+  flex: 0 0 auto;
 }
 nav {
   display: flex;
@@ -1916,8 +1910,7 @@ body:has(.docs-header) {
   letter-spacing: -0.02em;
 }
 .docs-header .brand-mark {
-  border-radius: 0.2rem;
-  background: #2457d6;
+  border-radius: 0;
 }
 .docs-header nav a {
   padding: 0.45rem 0.3rem;

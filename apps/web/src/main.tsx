@@ -211,7 +211,7 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
       </a>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Kobrixa home">
-          <span className="brand-mark">K</span>
+          <img className="brand-mark" src="/icons/kobrixa-mark.svg" alt="" aria-hidden="true" />
           <span>Kobrixa</span>
         </a>
         <nav aria-label="Primary navigation">
@@ -388,7 +388,7 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
 
       <footer>
         <div className="footer-brand">
-          <span className="brand-mark">K</span>
+          <img className="brand-mark" src="/icons/kobrixa-mark.svg" alt="" aria-hidden="true" />
           <div>
             <strong>Kobrixa</strong>
             <p>{t.footer.description}</p>

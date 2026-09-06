@@ -56,12 +56,8 @@ button {
 .brand-mark {
   width: 30px;
   height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  color: #102019;
-  background: #72e6a6;
-  box-shadow: 0 0 24px #72e6a633;
+  display: block;
+  flex: 0 0 auto;
 }
 .brand small {
   color: #75837d;

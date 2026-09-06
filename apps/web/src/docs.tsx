@@ -369,7 +369,7 @@ function DocsHeader({ locale, onLocaleChange }: Pick<DocsPageProps, "locale" | "
   return (
     <header className="docs-header">
       <a className="brand" href="/" aria-label="Kobrixa home">
-        <span className="brand-mark">K</span>
+        <img className="brand-mark" src="/icons/kobrixa-mark.svg" alt="" aria-hidden="true" />
         <span>Kobrixa</span>
       </a>
       <nav aria-label="Documentation navigation">
