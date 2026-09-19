@@ -466,12 +466,17 @@ class FunctionBuilder {
             { kind: "call", name: expression.name, args: [], span: expression.span },
             true,
           )!;
-        const variable = this.ensureVariable(
-          expression.name,
-          expected ?? { kind: "number" },
-          expression.span,
-          expression.global,
-        );
+        // Reading a variable must not change its storage representation.
+        const key = canonical(expression.name);
+        const variable =
+          this.variables.get(key) ??
+          this.globals.get(key) ??
+          this.ensureVariable(
+            expression.name,
+            expected ?? { kind: "number" },
+            expression.span,
+            expression.global,
+          );
         return { value: { kind: "variable", name: variable.name }, type: variable.type };
       }
       case "index": {

@@ -195,7 +195,7 @@ describe("BasicPlusFrontend", () => {
     expect(result.diagnostics).toEqual([]);
     expect(validateIR(result.ir!)).toEqual([]);
     expect(result.ir!.globals).toMatchObject([
-      { name: "angle", type: { kind: "number" }, scope: "global" },
+      { name: "angle", type: { kind: "integer" }, scope: "global" },
     ]);
     expect(result.ir!.functions.find((fn) => fn.name === "updateangle")?.locals).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ name: "angle" })]),
@@ -270,5 +270,24 @@ describe("BasicPlusFrontend", () => {
       new AbortController().signal,
     );
     expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(["BP2006", "BP2007"]);
+  });
+});
+
+describe("numeric variable storage", () => {
+  it("preserves integer storage across comparisons, text, and number API arguments", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(`
+value = 2
+If value = 2 Then
+  text = "Value: " + value
+  power = Math.Power(value, 2)
+EndIf
+`),
+      new AbortController().signal,
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir!.globals.find((variable) => variable.name === "value")!.type.kind).toBe(
+      "integer",
+    );
   });
 });

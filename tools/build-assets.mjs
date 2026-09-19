@@ -33,7 +33,8 @@ function mascotRgf() {
   bytes[1] = height;
   for (let y = 0; y < height; y += 1)
     for (let x = 0; x < width; x += 1)
-      if (pixels[y][x]) bytes[2 + y * (width / 8) + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+      // EV3 RGF stores the leftmost pixel in the least significant bit.
+      if (pixels[y][x]) bytes[2 + y * (width / 8) + Math.floor(x / 8)] |= 1 << (x % 8);
   return bytes;
 }
 
@@ -41,7 +42,11 @@ function chimeRsf() {
   const sampleRate = 8000;
   const samples = sampleRate / 2;
   const bytes = new Uint8Array(8 + samples);
-  bytes.set([1, 0, 8, 0x0b, sampleRate & 0xff, sampleRate >> 8, 0, 0]);
+  const header = new DataView(bytes.buffer);
+  header.setUint16(0, 0x0100, false); // Uncompressed PCM, big endian.
+  header.setUint16(2, samples, false);
+  header.setUint16(4, sampleRate, false);
+  header.setUint16(6, 0, false);
   for (let index = 0; index < samples; index += 1) {
     const envelope = Math.max(0, 1 - index / samples);
     bytes[8 + index] = Math.round(

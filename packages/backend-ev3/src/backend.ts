@@ -773,7 +773,9 @@ class ObjectAssembler {
               : OP.MOVE_32_32
             : sourceType === "boolean"
               ? OP.MOVE_8_F
-              : OP.MOVE_F_F;
+              : sourceType === "integer"
+                ? OP.MOVE_32_F
+                : OP.MOVE_F_F;
       this.bytes.push(opcode, ...source, ...this.location(target));
       return;
     }
@@ -978,6 +980,23 @@ class ObjectAssembler {
         diagnostic("EV31005", "Unable to encode an EV3 call argument.", instruction.span),
       );
       return;
+    }
+    // LCD coordinate/color/font operands are integers even when the source
+    // expression has floating-point storage. Keep text and VALUE's data float.
+    if (instruction.operation.startsWith("LCD.")) {
+      const nonInteger =
+        instruction.operation === "LCD.Text"
+          ? 4
+          : instruction.operation === "LCD.Write"
+            ? 2
+            : instruction.operation === "LCD.BmpFile"
+              ? 3
+              : instruction.operation === "LCD.Value"
+                ? 3
+                : -1;
+      for (let index = 0; index < args.length; index += 1) {
+        if (index !== nonInteger) args[index] = this.integerParameter(instruction.args[index]!);
+      }
     }
     const arg = (index: number): number[] => args[index]!;
     const floatArg = (index: number): number[] | undefined =>
@@ -1444,7 +1463,7 @@ class ObjectAssembler {
       case "Row.Delete":
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.DELETE), ...arg(0));
         return;
-      case "Row.Read":
+      case "Row.Read": {
         if (!target) break;
         const readArray = this.typeOf(instruction.args[0]!);
         if (readArray?.kind === "array" && readArray.element === "string") {
@@ -1457,6 +1476,7 @@ class ObjectAssembler {
           this.bytes.push(OP.ARRAY_READ, ...arg(0), ...index, ...this.location(target));
         }
         return;
+      }
       case "Row.Write": {
         const writeArray = this.typeOf(instruction.args[0]!);
         if (writeArray?.kind === "array" && writeArray.element === "string") {
@@ -2477,7 +2497,8 @@ class ObjectAssembler {
       }
       case "Speaker.Play":
         {
-          const file = this.mediaFileName(instruction.args[1]!, ".rsf");
+          // SOUND.PLAY resolves the program resource path and appends .rsf itself.
+          const file = this.parameter(instruction.args[1]!);
           if (!file) break;
           this.bytes.push(OP.SOUND, ...lc(SOUND.PLAY), ...arg(0), ...file);
         }
@@ -2932,7 +2953,7 @@ class ObjectAssembler {
           ...lc(4),
           ...lv(rawValue),
         );
-        this.bytes.push(OP.CP_LT_32, ...lv(rawValue), ...lc(-1000000000), ...lv(withinData));
+        this.bytes.push(OP.CP_NEQ_32, ...lv(rawValue), ...lc(-2147483648), ...lv(withinData));
         this.bytes.push(OP.JR_FALSE, ...lv(withinData));
         this.addPatch(noData);
         this.bytes.push(OP.MOVE_32_F, ...lv(rawValue), ...lv(value));

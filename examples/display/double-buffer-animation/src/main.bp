@@ -1,9 +1,9 @@
 ' Stop automatic updates so each frame appears together.
-LCD.StopUpdate()
 For frame = 1 To 4
+  LCD.StopUpdate()
   LCD.Clear()
-  LCD.FillCircle(1, frame * 30, 50, 10) ' 圓形越來越左
-  LCD.Text(1, 8, 90, 1, "Frame " + frame) ' 沒有輸出 frame 的值
+  LCD.FillCircle(1, frame * 30, 50, 10) ' 圓形逐格向右移動
+  LCD.Text(1, 8, 90, 1, "Frame " + frame) ' 顯示目前幀號
   LCD.Update()
   Program.Delay(1200)
 EndFor

@@ -642,6 +642,12 @@ for (const dir of (await projects(path.join(root, "examples"))).sort()) {
       { sensor: 75, motorCount: -1, button: 2 },
     ])
       variants.push({ scenario, ...new VM(decoded, scenario).run() });
+  if (["sensors/raw-and-mode", "sensors/sensor-details"].includes(project)) {
+    for (const sensor of [-42, -2147483648]) {
+      const scenario = { sensor };
+      variants.push({ scenario, ...new VM(decoded, scenario).run() });
+    }
+  }
   const filename = project.replaceAll("/", "--");
   await fs.writeFile(path.join(out, filename + ".rbf"), back.rbf);
   await fs.writeFile(

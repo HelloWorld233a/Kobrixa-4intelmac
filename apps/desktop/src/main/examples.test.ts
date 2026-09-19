@@ -140,3 +140,46 @@ describe("shipped examples", () => {
     }
   });
 });
+
+it("ships an RSF header matching its PCM payload and sample rate", async () => {
+  const sound = await readFile(
+    path.join(repositoryRoot, "examples/media/original-media/assets/deploy/kobrixa-chime.rsf"),
+  );
+  expect(sound.readUInt16BE(0)).toBe(0x0100);
+  expect(sound.readUInt16BE(2)).toBe(sound.length - 8);
+  expect(sound.readUInt16BE(4)).toBe(8000);
+  expect(sound.readUInt16BE(6)).toBe(0);
+});
+
+it("renders the mascot outline and limbs intact using EV3 RGF pixel order", async () => {
+  const bitmap = await readFile(
+    path.join(repositoryRoot, "examples/media/original-media/assets/deploy/kobrixa-mascot.rgf"),
+  );
+  const [width, height] = bitmap;
+  expect(width).toBe(176);
+  expect(height).toBe(128);
+  const stride = Math.ceil(width! / 8);
+  expect(bitmap.length).toBe(2 + stride * height!);
+  // dLcdDrawBitmap consumes bit 0 first, moving left to right.
+  const black = (x: number, y: number) =>
+    (bitmap[2 + y * stride + Math.floor(x / 8)]! & (1 << (x % 8))) !== 0;
+  for (let y = 16; y < 76; y += 1) {
+    for (const x of [44, 47, 128, 131]) expect(black(x, y), `head ${x},${y}`).toBe(true);
+  }
+  for (const [x, y] of [
+    [26, 50],
+    [149, 57],
+    [64, 120],
+    [111, 123],
+  ])
+    expect(black(x!, y!), `limb ${x},${y}`).toBe(true);
+  for (const [x, y] of [
+    [43, 20],
+    [48, 20],
+    [127, 20],
+    [132, 20],
+    [63, 120],
+    [78, 120],
+  ])
+    expect(black(x!, y!), `background ${x},${y}`).toBe(false);
+});

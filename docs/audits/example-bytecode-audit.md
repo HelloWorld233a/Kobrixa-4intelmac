@@ -1,5 +1,21 @@
 # Example 字節碼邏輯稽核（2026-09-19）
 
+實機後續結果與新增媒體修復請見 [實機報告](./hardware-verification-2026-09-19.md)。
+
+## 修復後驗證
+
+Checkpoint：`8ac27ec`，保留以下原始稽核結果與當時全部修改。
+
+已修復 F1–F4：變數讀取保留已知型別、integer → number 賦值明確轉換、LCD 整數參數統一轉換、Sensor.ReadRaw 排除 DATA32_NAN（0x80000000），以及雙緩衝範例每幀重新停用自動更新。
+
+全專案型別檢查及 63 個測試通過。全域 ESLint 尚有既有的 `apps/web/src/docs.tsx:391` 未使用 `DocumentCards` 錯誤，與字節碼修復無關。
+
+重新建置後，**53 / 53 個 example 的預期檢查通過，mismatch 0**。另驗證 raw=-42 保留負值、raw=DATA32_NAN 清零，以及四幀只有四次螢幕更新。修復後 RBF 雜湊與逐項結果見 [修復後 JSON](./example-bytecode-fixed-results.json)。
+
+下文保留修復前的發現作為歷史證據；重現指令在修復後版本應回傳 exit 0、mismatch 0 total 53。硬體與排程交錯的驗證界線仍適用。
+
+## 修復前稽核
+
 結論：**53 個 example 全部能編譯與解碼，但其中 19 個在代表性執行路徑上有可重現的邏輯錯誤。** 其餘 34 個在本次已檢查路徑未發現不一致；這不是實機認證，也不是所有輸入與執行緒交錯的正確性證明。
 
 本次檢查的是目前工作目錄中的程式碼（包含既有未提交變更），重新建置 compiler、frontend、backend 後產生的 RBF。未修改 compiler、backend 或 example 原始碼；新增稽核工具與報告。

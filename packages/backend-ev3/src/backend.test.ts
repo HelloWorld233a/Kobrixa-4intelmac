@@ -527,3 +527,78 @@ describe("EV3Backend", () => {
     expect(result.listing).toContain("99 1c 00 00 00 3f 08");
   });
 });
+
+describe("numeric assignments", () => {
+  it("converts integer inputs into floating-point storage", async () => {
+    const program = structuredClone(ir);
+    program.globals = [{ name: "value", type: { kind: "number" }, scope: "global" }];
+    program.functions[0]!.blocks[0]!.instructions = [
+      { op: "assign", target: "value", value: { kind: "integer", value: 2 } },
+    ];
+    const result = await new EV3Backend().compile(program, new AbortController().signal);
+    expect(result.diagnostics).toEqual([]);
+    const start = inspectRbf(result.rbf!).offsets[0]!;
+    expect([...result.rbf!.slice(start, start + 3)]).toEqual([OP.MOVE_32_F, 2, 0x60]);
+  });
+});
+
+describe("LCD numeric operands", () => {
+  it("converts a floating-point line coordinate before the DATA16 operand", async () => {
+    const program = structuredClone(ir);
+    program.functions[0]!.blocks[0]!.instructions = [
+      {
+        op: "ev3-call",
+        operation: "LCD.Line",
+        args: [
+          { kind: "integer", value: 1 },
+          { kind: "number", value: 2.5 },
+          { kind: "integer", value: 3 },
+          { kind: "integer", value: 4 },
+          { kind: "integer", value: 5 },
+        ],
+      },
+    ];
+    const result = await new EV3Backend().compile(program, new AbortController().signal);
+    expect(result.diagnostics).toEqual([]);
+    const start = inspectRbf(result.rbf!).offsets[0]!;
+    expect([...result.rbf!.slice(start, start + 15)]).toEqual([
+      OP.MOVE_F_32,
+      0x83,
+      0,
+      0,
+      0x20,
+      0x40,
+      0x40,
+      OP.UI_DRAW,
+      3,
+      1,
+      0x40,
+      3,
+      4,
+      5,
+      OP.UI_DRAW,
+    ]);
+  });
+});
+
+describe("native sound resources", () => {
+  it("lets the firmware resolve the resource directory and RSF extension", async () => {
+    const program = structuredClone(ir);
+    program.functions[0]!.blocks[0]!.instructions = [
+      {
+        op: "ev3-call",
+        operation: "Speaker.Play",
+        args: [
+          { kind: "integer", value: 20 },
+          { kind: "string", value: "assets/chime" },
+        ],
+      },
+    ];
+    const result = await new EV3Backend().compile(program, new AbortController().signal);
+    expect(result.diagnostics).toEqual([]);
+    const start = inspectRbf(result.rbf!).offsets[0]!;
+    expect([...result.rbf!.slice(start, start + 4)]).toEqual([OP.SOUND, 2, 20, 0x84]);
+    expect(new TextDecoder().decode(result.rbf)).toContain("assets/chime\0");
+    expect(new TextDecoder().decode(result.rbf)).not.toContain(".rsf");
+  });
+});
