@@ -1,0 +1,8 @@
+' Capstone: color sensor on input 1; display its current percentage.
+Sensor.Wait(1)
+reading = Sensor.ReadPercent(1)
+LCD.Clear()
+LCD.Rect(1, 8, 42, 150, 14)
+LCD.FillRect(1, 8, 42, reading, 14)
+LCD.Text(1, 8, 18, 1, "Sensor: " + reading)
+LCD.Update()

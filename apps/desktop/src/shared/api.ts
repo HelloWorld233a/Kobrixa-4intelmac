@@ -79,6 +79,7 @@ export interface KobrixaApi {
     connectWifi(address: string): Promise<string>;
     disconnect(sessionId: string): Promise<void>;
     upload(sessionId: string, buildId: string, remotePath: string): Promise<void>;
+    deploy(sessionId: string, buildId: string, remoteDirectory: string): Promise<void>;
     run(sessionId: string, remotePath: string): Promise<void>;
     stop(sessionId: string): Promise<void>;
     delete(sessionId: string, remotePath: string): Promise<void>;

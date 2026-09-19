@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Press any brick button to continue.
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Press an EV3 button")
+LCD.Update()
+Buttons.Flush()
+Buttons.Wait()
+click = Buttons.GetClicks()
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Button: " + click)
+LCD.Update()
+Speaker.Tone(25, 660, 100)
+Program.Delay(1000)

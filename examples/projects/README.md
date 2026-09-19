@@ -12,3 +12,5 @@ Lift the robot before running either project so connected motors can turn safely
 
 - [include-settings](./include-settings/) — Load one shared settings file.／載入一個共用設定檔。
 - [include-multiple](./include-multiple/) — Load configuration and startup operations from two files.／從兩個檔案載入設定與啟動操作。
+- [import-functions](./import-functions/) — Import a `.bpm` Function and use its return value.／匯入 `.bpm` Function 並使用回傳值。
+- [import-module](./import-module/) — Use a private helper from an imported module.／使用匯入模組中的 private helper。

@@ -1,0 +1,13 @@
+' Creates a small binary record in the project directory.
+handle = EV3File.OpenWrite("lesson.bin")
+EV3File.WriteByte(handle, 42)
+EV3File.Close(handle)
+handle = EV3File.OpenRead("lesson.bin")
+value = EV3File.ReadByte(handle)
+EV3File.Close(handle)
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Byte: " + value)
+LCD.Update()
+Program.Delay(1000)
+
+' 輸出了 Byte: .

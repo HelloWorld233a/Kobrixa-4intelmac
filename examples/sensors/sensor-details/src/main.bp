@@ -1,0 +1,15 @@
+' Independently authored Kobrixa example
+' Inspect the connected sensor on input port 4 after it is ready.
+Sensor.Wait(4)
+name = Sensor.GetName(4)
+type = Sensor.GetType(4)
+mode = Sensor.GetMode(4)
+raw = Sensor.ReadRaw(4, 2)
+first = raw[0]
+
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, name) ' 沒有值
+LCD.Text(1, 8, 38, 1, "Type/mode: " + type + "/" + mode) ' 沒有值
+LCD.Text(1, 8, 58, 1, "Raw 0: " + first) ' 沒有值
+LCD.Update()
+Program.Delay(1000)

@@ -12,3 +12,6 @@ Connect the sensor required by each project to input port 1. Each project waits 
 - [sensor-sampling](./sensor-sampling/) — Sample the sensor four times in a finite loop.／在有限迴圈中取樣四次。
 - [color-sensor](./color-sensor/) — Read a detected color in Color mode.／以 Color 模式讀取辨識到的顏色。
 - [gyro-sensor](./gyro-sensor/) — Read a rotation angle in Angle mode.／以 Angle 模式讀取旋轉角度。
+- [sensor-details](./sensor-details/) — Inspect name, type, mode, and a raw reading.／檢視名稱、類型、模式與原始讀值。
+- [raw-and-mode](./raw-and-mode/) — Choose a mode then inspect a raw channel.／選擇模式並檢視原始通道。
+- [i2c-registers](./i2c-registers/) — Read a documented I2C register.／讀取文件化的 I2C 暫存器。

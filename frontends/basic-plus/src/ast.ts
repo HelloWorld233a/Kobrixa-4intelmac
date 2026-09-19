@@ -59,6 +59,8 @@ export interface FunctionDeclaration {
   }>;
   body: Statement[];
   span: SourceSpan;
+  /** Inferred during lowering because Basic Plus declarations do not spell it out. */
+  returnType?: IRType;
 }
 
 export interface ParsedFile {

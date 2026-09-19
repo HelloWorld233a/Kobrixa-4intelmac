@@ -218,6 +218,24 @@ describe("BasicPlusFrontend", () => {
     );
   });
 
+  it("infers a string Function return so callers receive text rather than a numeric bit pattern", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(
+        'message = Greeting("Kobrixa")\nFunction Greeting(in string name)\nReturn "Hi " + name\nEndFunction\n',
+      ),
+      new AbortController().signal,
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir?.functions.find((fn) => fn.name === "greeting")?.returnType).toEqual({
+      kind: "string",
+    });
+    expect(result.ir?.globals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "message", type: { kind: "string" } }),
+      ]),
+    );
+  });
+
   it("accepts Clev3r byte-array UART data and Boolean values in numeric storage", async () => {
     const result = await new BasicPlusFrontend().compile(
       project(

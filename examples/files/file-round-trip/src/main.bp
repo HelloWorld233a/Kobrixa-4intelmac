@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Writes one line to KobrixaExample.txt in the EV3 project directory, then reads it back.
+handle = EV3File.OpenWrite("KobrixaExample.txt")
+EV3File.WriteLine(handle, "Hello from Kobrixa")
+EV3File.Close(handle)
+
+handle = EV3File.OpenRead("KobrixaExample.txt")
+message = EV3File.ReadLine(handle)
+EV3File.Close(handle)
+
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, message)
+LCD.Update()

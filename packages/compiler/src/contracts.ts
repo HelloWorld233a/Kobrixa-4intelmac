@@ -16,9 +16,11 @@ export interface Diagnostic {
 }
 
 export interface BuildArtifact {
-  kind: "rbf" | "ir" | "listing";
+  kind: "rbf" | "ir" | "listing" | "asset";
   path: string;
   sha256: string;
+  /** Project-relative destination used by device deployment for runtime assets. */
+  remotePath?: string;
 }
 
 export interface CompileResult {

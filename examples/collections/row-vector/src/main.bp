@@ -1,0 +1,17 @@
+' Independently authored Kobrixa example
+' Fixed Rows and number Vectors provide compact numeric collections.
+rowa = Row.Init(3, 0)
+Row.Write(rowa, 0, 10)
+Row.Write(rowa, 1, 20)
+middle = Row.Read(rowa, 1)
+
+number[] values
+values = Vector.Init(3, 2)
+total = Vector.Add(3, values, values)
+
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Row middle: " + middle)
+LCD.Text(1, 8, 38, 1, "Vector doubled")
+LCD.Update()
+Row.Delete(rowa)
+Program.Delay(1000)

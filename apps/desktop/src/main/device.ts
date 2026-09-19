@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import type { WebContents } from "electron";
 import {
   DeviceOperationError,
@@ -14,15 +16,26 @@ import type { BuildService } from "./build.js";
 export function mergeDiscoveryResults(
   settled: PromiseSettledResult<DeviceDescriptor[]>[],
 ): DeviceDescriptor[] {
-  const devices = settled.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : [],
-  );
+  const devices = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
   if (devices.length) return devices;
   const rejection = settled.find(
     (result): result is PromiseRejectedResult => result.status === "rejected",
   );
   if (rejection) throw rejection.reason;
   return [];
+}
+
+export function deploymentTargets(
+  files: Array<{ path: string; remotePath: string }>,
+  remoteDirectory: string,
+): Array<{ path: string; remotePath: string }> {
+  return files.map((file) => {
+    const relative = file.remotePath.replaceAll("\\", "/");
+    if (relative.startsWith("/") || relative.split("/").some((part) => part === "..")) {
+      throw new DeviceOperationError("transfer", `Unsafe asset deployment path '${relative}'.`);
+    }
+    return { path: file.path, remotePath: path.posix.join(remoteDirectory, relative) };
+  });
 }
 
 export class DeviceService {
@@ -69,6 +82,22 @@ export class DeviceService {
     return this.operation(id, async (session, signal) =>
       session.upload(remotePath, await this.builds.artifactBytes(buildId), signal),
     );
+  }
+
+  deploy(id: string, buildId: string, remoteDirectory: string): Promise<void> {
+    return this.operation(id, async (session, signal) => {
+      const files = await this.builds.deployableArtifacts(buildId);
+      for (const file of deploymentTargets(files, remoteDirectory)) {
+        try {
+          await session.upload(file.remotePath, await readFile(file.path), signal);
+        } catch (error) {
+          throw new DeviceOperationError(
+            "transfer",
+            `Unable to deploy '${file.remotePath}': ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    });
   }
 
   run(id: string, remotePath: string): Promise<void> {

@@ -1,0 +1,6 @@
+Import "lib/motion"
+steps = SafeSteps(3)
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Steps: " + steps)
+LCD.Update()
+Program.Delay(1000)

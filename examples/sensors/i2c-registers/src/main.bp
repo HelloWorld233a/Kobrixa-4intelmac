@@ -1,0 +1,6 @@
+' Advanced lesson: use only with a documented I2C device on input 1.
+Sensor.Wait(1)
+deviceId = Sensor.ReadI2CRegister(1, 2, 0)
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "I2C ID: " + deviceId)
+LCD.Update()

@@ -1,0 +1,4 @@
+Private
+Function SafeSteps(in number count)
+  Return count * 120
+EndFunction

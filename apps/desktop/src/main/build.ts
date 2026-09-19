@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { BuildSession, type BuildArtifact } from "@kobrixa/compiler";
 import { BasicPlusFrontend } from "@kobrixa/basic-plus";
 import { EV3Backend } from "@kobrixa/backend-ev3";
@@ -45,6 +46,18 @@ export class BuildService {
     const artifact = this.require(buildId).artifacts.find((item) => item.kind === "rbf");
     if (!artifact) throw new Error("This build has no deployable .rbf artifact.");
     return readFile(artifact.path);
+  }
+
+  async deployableArtifacts(buildId: string): Promise<Array<{ path: string; remotePath: string }>> {
+    const artifacts = this.require(buildId).artifacts;
+    const rbf = artifacts.find((item) => item.kind === "rbf");
+    if (!rbf) throw new Error("This build has no deployable .rbf artifact.");
+    return [
+      ...artifacts
+        .filter((item) => item.kind === "asset" && item.remotePath)
+        .map((item) => ({ path: item.path, remotePath: item.remotePath! })),
+      { path: rbf.path, remotePath: path.basename(rbf.path) },
+    ];
   }
 
   private require(id: string): BuildRecord {

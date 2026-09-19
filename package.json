@@ -12,6 +12,7 @@
     "check": "pnpm -r check && eslint .",
     "test": "pnpm -r test",
     "test:hardware": "node tests/hardware/run.mjs",
+    "assets:build": "node tools/build-assets.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "package": "pnpm -r --filter=!@kobrixa/desktop build && pnpm --filter @kobrixa/desktop package"

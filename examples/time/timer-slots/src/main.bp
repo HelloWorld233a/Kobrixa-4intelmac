@@ -1,0 +1,10 @@
+' Timer slots measure independent elapsed intervals in milliseconds.
+Time.Reset1()
+Program.Delay(120)
+elapsed = Time.Get1()
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Timer 1: " + elapsed)
+LCD.Update()
+Program.Delay(1200)
+
+' 時間輸出了 x

@@ -1003,7 +1003,11 @@ export function App(): React.JSX.Element {
     try {
       if (action === "upload") {
         if (!buildId) throw new Error("Build the project successfully before uploading.");
-        await window.kobrixa.device.upload(sessionId, buildId, remotePath);
+        await window.kobrixa.device.deploy(
+          sessionId,
+          buildId,
+          remotePath.slice(0, remotePath.lastIndexOf("/")),
+        );
       } else if (action === "run") await window.kobrixa.device.run(sessionId, remotePath);
       else if (action === "stop") await window.kobrixa.device.stop(sessionId);
       else await window.kobrixa.device.delete(sessionId, remotePath);

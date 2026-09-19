@@ -13,3 +13,6 @@ Kobrixa 在布林情境中同時接受裸 `true`／`false` 與舊式帶引號的
 ## Projects / 專案
 
 - [case-insensitive](./case-insensitive/) — Mix keyword, identifier, and API letter casing safely.／安全混用關鍵字、變數與 API 的大小寫。
+- [text-and-math](./text-and-math/) — Combine math results with text operations.／將數學結果與文字操作結合。
+- [byte-logic](./byte-logic/) — Apply byte logic and hexadecimal formatting.／使用位元邏輯與十六進位格式化。
+- [local-functions](./local-functions/) — Define and call a local Function.／定義並呼叫本地 Function。

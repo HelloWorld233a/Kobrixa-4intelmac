@@ -1,0 +1,12 @@
+' Capstone: use brick buttons to briefly drive A+D. Lift wheels before testing.
+Buttons.Flush()
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Press Enter to drive")
+LCD.Update()
+Buttons.Wait()
+If Button.IsPressed("ENTER") Then
+  Motor.Move("AD", 25, 360, true)
+Else
+  Speaker.Tone(25, 220, 120)
+EndIf
+Motor.Stop("AD", true)

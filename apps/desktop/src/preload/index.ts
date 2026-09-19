@@ -41,6 +41,8 @@ const api: KobrixaApi = {
     disconnect: (sessionId) => ipcRenderer.invoke("device:disconnect", sessionId),
     upload: (sessionId, buildId, remotePath) =>
       ipcRenderer.invoke("device:upload", sessionId, buildId, remotePath),
+    deploy: (sessionId, buildId, remoteDirectory) =>
+      ipcRenderer.invoke("device:deploy", sessionId, buildId, remoteDirectory),
     run: (sessionId, remotePath) => ipcRenderer.invoke("device:run", sessionId, remotePath),
     stop: (sessionId) => ipcRenderer.invoke("device:stop", sessionId),
     delete: (sessionId, remotePath) => ipcRenderer.invoke("device:delete", sessionId, remotePath),

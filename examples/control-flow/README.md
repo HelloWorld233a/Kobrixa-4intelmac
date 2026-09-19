@@ -12,6 +12,7 @@ Explore finite loops, branches, Boolean logic, comparisons, nesting, labels, and
 - [while-loop](./while-loop/) — A terminating `While` loop.／一定會結束的 `While` 迴圈。
 - [if-elseif](./if-elseif/) — Select one `If`／`ElseIf`／`Else` branch.／選擇一個條件分支。
 - [boolean-logic](./boolean-logic/) — Combine Boolean values with `And` and `Not`.／以 `And` 與 `Not` 組合布林值。
+- [break-and-continue](./break-and-continue/) — Skip loop iterations and exit a loop early.／略過迴圈迭代並提早離開迴圈。
 - [comparison-operators](./comparison-operators/) — Use parentheses, `>=`, and `<>`.／使用括號、`>=` 與 `<>`。
 - [nested-control](./nested-control/) — Place an `If` inside a `For` loop.／在 `For` 迴圈中使用 `If`。
 - [labels-and-goto](./labels-and-goto/) — Jump forward to a named label.／向前跳至具名 Label。

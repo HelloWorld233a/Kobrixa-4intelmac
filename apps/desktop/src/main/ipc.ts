@@ -131,6 +131,11 @@ export function registerIpc(
   handle("device:upload", (_event, sessionId: unknown, buildId: unknown, remotePath: unknown) =>
     devices.upload(id.parse(sessionId), id.parse(buildId), file.parse(remotePath)),
   );
+  handle(
+    "device:deploy",
+    (_event, sessionId: unknown, buildId: unknown, remoteDirectory: unknown) =>
+      devices.deploy(id.parse(sessionId), id.parse(buildId), directory.parse(remoteDirectory)),
+  );
   handle("device:run", (_event, sessionId: unknown, remotePath: unknown) =>
     devices.run(id.parse(sessionId), file.parse(remotePath)),
   );

@@ -10,3 +10,4 @@ Use integer frequency, volume, duration, delay, and stop operations with the bui
 
 - [speaker-scale](./speaker-scale/) — Raise the pitch with a finite loop.／以有限迴圈逐步提高音調。
 - [speaker-interrupt](./speaker-interrupt/) — Stop a long tone before its requested duration.／在長音調結束前將它停止。
+- [speaker-melody](./speaker-melody/) — Play a short sequence of named notes.／播放一段簡短的具名音符序列。

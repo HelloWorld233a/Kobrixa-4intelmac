@@ -13,3 +13,5 @@
 - [motor-reverse](./motor-reverse/) — Reverse motor A with a negative speed.／以負速度反轉 A 馬達。
 - [motor-sequence](./motor-sequence/) — Move motors A and D in sequence.／依序移動 A、D 馬達。
 - [motor-counter](./motor-counter/) — Read and branch on motor A's encoder count.／讀取 A 馬達編碼器並據此分支。
+- [motor-steer-sync](./motor-steer-sync/) — Make coordinated A and D steering and synchronized moves.／協調 A、D 馬達的轉向與同步移動。
+- [motor-schedule](./motor-schedule/) — Schedule a ramped motor movement and wait for completion.／排程帶有加減速的馬達移動並等待完成。

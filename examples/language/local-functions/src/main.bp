@@ -1,0 +1,8 @@
+result = Double(21)
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Double: " + result)
+LCD.Update()
+
+Function Double(in number value)
+  Return value * 2
+EndFunction

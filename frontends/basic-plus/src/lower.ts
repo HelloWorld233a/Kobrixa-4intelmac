@@ -21,6 +21,50 @@ interface LoweredValue {
   type: IRType;
 }
 
+function inferredExpressionType(expression: Expression): IRType {
+  if (expression.kind === "literal") {
+    if (typeof expression.value === "string") return { kind: "string" };
+    if (typeof expression.value === "boolean") return { kind: "boolean" };
+    return { kind: Number.isInteger(expression.value) ? "integer" : "number" };
+  }
+  if (expression.kind === "binary" && expression.operator === "+") {
+    const left = inferredExpressionType(expression.left);
+    const right = inferredExpressionType(expression.right);
+    if (left.kind === "string" || right.kind === "string") return { kind: "string" };
+  }
+  if (expression.kind === "call") {
+    const operation = getEV3Operation(expression.name);
+    if (operation)
+      return typeof operation.returns === "string"
+        ? { kind: operation.returns }
+        : operation.returns;
+  }
+  return { kind: "number" };
+}
+
+function inferredFunctionReturnType(declaration: FunctionDeclaration): IRType {
+  const visit = (statements: Statement[]): IRType | undefined => {
+    for (const statement of statements) {
+      if (statement.kind === "return" && statement.value)
+        return inferredExpressionType(statement.value);
+      if (statement.kind === "if") {
+        for (const branch of statement.branches) {
+          const result = visit(branch.body);
+          if (result) return result;
+        }
+        const result = visit(statement.otherwise);
+        if (result) return result;
+      }
+      if (statement.kind === "while" || statement.kind === "for") {
+        const result = visit(statement.body);
+        if (result) return result;
+      }
+    }
+    return undefined;
+  };
+  return visit(declaration.body) ?? { kind: "number" };
+}
+
 function canonical(name: string): string {
   return name.toLocaleLowerCase("en-US");
 }
@@ -614,7 +658,7 @@ class FunctionBuilder {
     });
     const returnsValue = declaration.kind === "function";
     const target = returnsValue
-      ? this.newTemporary({ kind: "number" }, expression.span)
+      ? this.newTemporary(declaration.returnType ?? { kind: "number" }, expression.span)
       : undefined;
     this.emit(
       target
@@ -749,6 +793,8 @@ export function lowerProgram(
   const known = new Map<string, FunctionDeclaration>();
   const diagnostics: Diagnostic[] = [];
   for (const declaration of declarations) {
+    if (declaration.kind === "function")
+      declaration.returnType = inferredFunctionReturnType(declaration);
     const key = canonical(declaration.name);
     if (known.has(key))
       diagnostics.push(
@@ -784,7 +830,7 @@ export function lowerProgram(
     const builder = new FunctionBuilder(
       canonical(declaration.name),
       declaration.parameters,
-      { kind: declaration.kind === "function" ? "number" : "void" } as { kind: IRPrimitiveType },
+      declaration.kind === "function" ? declaration.returnType! : { kind: "void" },
       known,
       globals,
       false,

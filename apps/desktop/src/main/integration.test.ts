@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -17,7 +17,7 @@ describe("v1 compiler pipeline", () => {
         language: "bp",
         entry: "main.bp",
         target: "ev3-native",
-        assets: [],
+        assets: ["assets/**/*"],
         outputDir: "build",
       }),
     );
@@ -25,6 +25,8 @@ describe("v1 compiler pipeline", () => {
       path.join(root, "main.bp"),
       'LCD.Clear()\nLCD.Text(1, 0, 0, 1, "Hello")\nLCD.Update()\n',
     );
+    await mkdir(path.join(root, "assets"));
+    await writeFile(path.join(root, "assets", "lesson.txt"), "asset");
     const loaded = await loadProject(root);
     expect(loaded.diagnostics).toEqual([]);
     const result = await new BuildSession(new BasicPlusFrontend(), new EV3Backend()).compile(
@@ -34,5 +36,10 @@ describe("v1 compiler pipeline", () => {
     const artifact = result.artifacts.find((item) => item.kind === "rbf");
     expect(artifact).toBeDefined();
     expect(inspectRbf(await readFile(artifact!.path)).objectCount).toBe(1);
+    expect(result.artifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "asset", remotePath: "assets/lesson.txt" }),
+      ]),
+    );
   });
 });

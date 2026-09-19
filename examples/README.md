@@ -1,8 +1,8 @@
 # Kobrixa examples
 
-These 26 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
+These 53 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
 
-<a href="./getting-started/">Getting started</a> · <a href="./display/">Display</a> · <a href="./sound/">Sound</a> · <a href="./control-flow/">Control flow</a> · <a href="./language/">Language</a> · <a href="./program/">Program</a> · <a href="./projects/">Projects</a> · <a href="./motors/">Motors</a> · <a href="./sensors/">Sensors</a>
+<a href="./getting-started/">Getting started</a> · <a href="./capstones/">Capstones</a> · <a href="./display/">Display</a> · <a href="./sound/">Sound</a> · <a href="./media/">Media</a> · <a href="./time/">Time</a> · <a href="./buttons/">Buttons</a> · <a href="./control-flow/">Control flow</a> · <a href="./language/">Language</a> · <a href="./collections/">Collections</a> · <a href="./concurrency/">Concurrency</a> · <a href="./files/">Files</a> · <a href="./mailboxes/">Mailboxes</a> · <a href="./program/">Program</a> · <a href="./projects/">Projects</a> · <a href="./motors/">Motors</a> · <a href="./sensors/">Sensors</a>
 
 | Category        | Example                                                    | What it teaches                                  | Hardware notes                       |
 | --------------- | ---------------------------------------------------------- | ------------------------------------------------ | ------------------------------------ |
@@ -12,6 +12,8 @@ These 26 examples are independently authored for Kobrixa and progress from displ
 | Display         | [display-shapes](display/display-shapes/)                  | Lines, concentric circles, and coordinates       | Display                              |
 | Sound           | [speaker-scale](sound/speaker-scale/)                      | A four-note scale with arithmetic                | Speaker                              |
 | Sound           | [speaker-interrupt](sound/speaker-interrupt/)              | Stop a long tone early                           | Speaker                              |
+| Sound           | [speaker-melody](sound/speaker-melody/)                    | Named notes and `Speaker.Wait`                   | Speaker                              |
+| Button          | [button-feedback](buttons/button-feedback/)                | Flush, wait for, and identify a button press     | EV3 brick buttons                    |
 | Control flow    | [control-flow](control-flow/control-flow/)                 | Variables, arithmetic, `For`, and drawing        | Display and speaker                  |
 | Control flow    | [while-loop](control-flow/while-loop/)                     | A finite `While` loop                            | Display                              |
 | Control flow    | [if-elseif](control-flow/if-elseif/)                       | `If` / `ElseIf` / `Else`                         | Display and speaker                  |
@@ -19,21 +21,41 @@ These 26 examples are independently authored for Kobrixa and progress from displ
 | Control flow    | [comparison-operators](control-flow/comparison-operators/) | Parentheses, `>=`, `<>`, and combined conditions | Display                              |
 | Control flow    | [nested-control](control-flow/nested-control/)             | An `If` nested inside a `For` loop               | Display                              |
 | Control flow    | [labels-and-goto](control-flow/labels-and-goto/)           | Labels, forward `Goto`, and relocation           | Display and speaker                  |
+| Control flow    | [break-and-continue](control-flow/break-and-continue/)     | Exit and skip loop iterations                    | Display                              |
 | Language        | [case-insensitive](language/case-insensitive/)             | Mixed-case keywords, identifiers, and APIs       | Display                              |
+| Language        | [text-and-math](language/text-and-math/)                   | Text composition and math functions              | Display                              |
+| Language        | [byte-logic](language/byte-logic/)                         | Byte masks and hexadecimal formatting            | Display                              |
+| Collection      | [row-vector](collections/row-vector/)                      | Fixed Rows and number Vectors                    | Display                              |
+| Concurrency     | [thread-mutex](concurrency/thread-mutex/)                  | Background Sub, mutex, and yielding              | Display and LED                      |
+| File            | [file-round-trip](files/file-round-trip/)                  | Write and read an EV3 project file               | Display; writes one EV3 file         |
+| Mailbox         | [mailbox-local](mailboxes/mailbox-local/)                  | Create a named inbox and poll it                 | Optional second EV3                  |
 | Program         | [program-end](program/program-end/)                        | Explicitly end an EV3 program                    | Display                              |
+| Program         | [brick-status](program/brick-status/)                      | Brick name, battery, time, and LED               | Display and EV3 brick                |
 | Project         | [include-settings](projects/include-settings/)             | One extension-free `Include` and shared values   | Motors A and D must be clear to move |
 | Project         | [include-multiple](projects/include-multiple/)             | Multiple project-relative `.bpi` files           | Motor A must be clear to move        |
+| Project         | [import-functions](projects/import-functions/)             | Imported `.bpm` Function return value            | Display                              |
 | Motor           | [motor-move](motors/motor-move/)                           | Blocking movement, delay, and brake              | Motors A and D                       |
 | Motor           | [motor-start-stop](motors/motor-start-stop/)               | Start motors continuously, then stop safely      | Motors A and D                       |
 | Motor           | [motor-reverse](motors/motor-reverse/)                     | Negative speed and reverse movement              | Motor A                              |
 | Motor           | [motor-sequence](motors/motor-sequence/)                   | Two blocking moves in sequence                   | Motors A and D                       |
 | Motor           | [motor-counter](motors/motor-counter/)                     | Read a motor encoder and branch with `If`        | Motor A                              |
+| Motor           | [motor-steer-sync](motors/motor-steer-sync/)               | Coordinated steering and synchronized movement   | Motors A and D                       |
 | Sensor          | [sensor-threshold](sensors/sensor-threshold/)              | Wait, read a percentage, and select feedback     | Touch sensor on input port 1         |
 | Sensor          | [sensor-sampling](sensors/sensor-sampling/)                | Repeated sensor sampling in a finite loop        | Touch sensor on input port 1         |
 | Sensor          | [color-sensor](sensors/color-sensor/)                      | Read a detected color value in Color mode        | Color sensor on input port 1         |
 | Sensor          | [gyro-sensor](sensors/gyro-sensor/)                        | Read a rotation angle in Angle mode              | Gyro sensor on input port 1          |
+| Sensor          | [sensor-details](sensors/sensor-details/)                  | Sensor identity, mode, and raw values            | A sensor on input port 1             |
 
 Each category is a physical folder under `examples/`; every link above opens the corresponding project folder. Open a project directory, its `kobrixa.json`, or its `src/main.bp` in Kobrixa. Build before connecting to an EV3. For motor examples, lift the robot so its wheels can turn safely during the first run.
+
+## Extended curriculum
+
+- [button-car](capstones/button-car/), [sensor-dashboard](capstones/sensor-dashboard/), [obstacle-rover](capstones/obstacle-rover/)
+- [drawing-primitives](display/drawing-primitives/), [double-buffer-animation](display/double-buffer-animation/), [timer-slots](time/timer-slots/), [original-media](media/original-media/)
+- [local-functions](language/local-functions/), [vector-workbench](collections/vector-workbench/), [binary-record](files/binary-record/), [import-module](projects/import-module/)
+- [motor-schedule](motors/motor-schedule/), [raw-and-mode](sensors/raw-and-mode/), [i2c-registers](sensors/i2c-registers/)
+
+See [core API coverage](API-COVERAGE.md) for the complete teaching map and [the learning path](LEARNING-PATH.md) for recommended lesson order.
 
 ## Verification status
 
@@ -41,4 +63,4 @@ The syntax and argument order are cross-checked against the public [CLEV3R Engli
 
 These checks make the examples compiler- and bytecode-verified v1 candidates. Physical USB/Wi-Fi upload and execution still require an EV3 acceptance run on the stated hardware, so they are not described as hardware-certified yet.
 
-The topic taxonomy was informed by the public CLEV3R example directory (control flow, functions, includes, sensors, motors, time, graphics, sound, files, and mailboxes). No CLEV3R source, documentation, assets, or generated output is included here. Examples for user-function calls, files, mailboxes, threads, and third-party sensors will be added only after their compiler/backend support and compatibility fixtures are complete; Kobrixa does not ship examples that merely parse but cannot produce runnable bytecode.
+The topic taxonomy was informed by the public CLEV3R example directory (control flow, functions, includes, sensors, motors, time, graphics, sound, files, mailboxes, and threads). No CLEV3R source, documentation, assets, or generated output is included here. Every shipped example is parsed, lowered, validated, and compiled to native bytecode; device-to-device mailbox exchange and physical hardware acceptance remain separate runtime checks.

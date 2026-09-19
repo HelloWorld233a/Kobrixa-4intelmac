@@ -1,0 +1,12 @@
+' Independently authored Kobrixa example
+' Create a text mailbox. A second EV3 program may send to this mailbox by name.
+inbox = Mailbox.Create("kobrixa-demo")
+available = Mailbox.IsAvailable(inbox)
+
+LCD.Clear()
+If available Then
+  LCD.Text(1, 8, 18, 1, "Message waiting")
+Else
+  LCD.Text(1, 8, 18, 1, "Mailbox created")
+EndIf
+LCD.Update()

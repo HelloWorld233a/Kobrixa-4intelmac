@@ -1,0 +1,12 @@
+' Capstone: touch sensor on 1 stops motors A+D. Lift wheels before testing.
+Sensor.Wait(1)
+Motor.Start("AD", 25)
+For sample = 1 To 50
+  If Sensor.ReadPercent(1) > 50 Then
+    Motor.Stop("AD", true)
+    EV3.SetLEDColor("RED", "NORMAL")
+    Break
+  EndIf
+  Program.Delay(40)
+EndFor
+Motor.Stop("AD", true)

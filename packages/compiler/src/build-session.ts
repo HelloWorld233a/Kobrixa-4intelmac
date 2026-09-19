@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { serializeIR, validateIR } from "@kobrixa/ir";
 import type {
@@ -99,6 +99,23 @@ export class BuildSession {
         const destination = path.join(outputDir, path.basename(entry.staged));
         await rename(entry.staged, destination);
         artifacts.push({ kind: entry.kind, path: destination, sha256: sha256(entry.data) });
+      }
+      for (const asset of project.assets) {
+        this.#throwIfCancelled();
+        const relative = asset.path.replaceAll("\\", "/");
+        const staged = path.join(stagingDir, "assets", relative);
+        const destination = path.join(outputDir, "assets", relative);
+        await mkdir(path.dirname(staged), { recursive: true });
+        await copyFile(asset.absolutePath, staged);
+        await mkdir(path.dirname(destination), { recursive: true });
+        await rename(staged, destination);
+        const data = await readFile(destination);
+        artifacts.push({
+          kind: "asset",
+          path: destination,
+          sha256: sha256(data),
+          remotePath: relative,
+        });
       }
       this.#progress("complete", "Build complete");
       return { success: true, diagnostics, artifacts };

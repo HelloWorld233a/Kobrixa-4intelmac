@@ -421,7 +421,7 @@ class ObjectAssembler {
   private byteResult(target: Allocation, emit: (destination: number[]) => void): void {
     const scratch = this.scratch(1);
     emit(lv(scratch));
-    this.bytes.push(OP.MOVE_8_32, ...lv(scratch), ...lv(target.offset));
+    this.bytes.push(OP.MOVE_8_32, ...lv(scratch), ...this.location(target));
   }
 
   private motorSyncParameters(
@@ -503,7 +503,7 @@ class ObjectAssembler {
   }
 
   private buttonText(target: Allocation, command: number): void {
-    this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...lv(target.offset));
+    this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...this.location(target));
     for (const [button, letter] of [
       [1, "U"],
       [3, "D"],
@@ -521,9 +521,9 @@ class ObjectAssembler {
       this.bytes.push(
         OP.STRING,
         ...lc(STRING.ADD),
-        ...lv(target.offset),
+        ...this.location(target),
         ...lcs(letter),
-        ...lv(target.offset),
+        ...this.location(target),
       );
       const offset = relativeOffset(this.bytes.length - afterJump);
       this.bytes.splice(jumpAt, placeholder.length, ...offset);
@@ -672,7 +672,7 @@ class ObjectAssembler {
       this.bytes.push(OP.MOVE_8_F, ...lv(byte), ...lv(value));
       this.bytes.push(OP.ARRAY_WRITE, ...lv(result), ...lc(index), ...lv(value));
     }
-    this.bytes.push(OP.MOVE_16_32, ...lv(result), ...lv(target.offset));
+    this.bytes.push(OP.MOVE_16_32, ...lv(result), ...this.location(target));
   }
 
   private fileName(value: IRValue): number[] | undefined {
@@ -699,6 +699,15 @@ class ObjectAssembler {
       ...lv(fullName),
     );
     this.markLabel(done);
+    return lv(fullName);
+  }
+
+  /** Resolves a project media name to the EV3 file-system path and extension. */
+  private mediaFileName(value: IRValue, extension: string): number[] | undefined {
+    const name = this.fileName(value);
+    if (!name) return undefined;
+    const fullName = this.scratch(300);
+    this.bytes.push(OP.STRING, ...lc(STRING.ADD), ...name, ...lcs(extension), ...lv(fullName));
     return lv(fullName);
   }
 
@@ -772,10 +781,10 @@ class ObjectAssembler {
       const source = this.parameter(instruction.value);
       if (!source) return;
       if (instruction.operator === "not")
-        this.bytes.push(OP.CP_EQ_8, ...source, ...lc(0), ...lv(target.offset));
+        this.bytes.push(OP.CP_EQ_8, ...source, ...lc(0), ...this.location(target));
       else if (target.type.kind === "integer")
-        this.bytes.push(OP.SUB_32, ...lc(0), ...source, ...lv(target.offset));
-      else this.bytes.push(OP.SUB_F, ...lcf(0), ...source, ...lv(target.offset));
+        this.bytes.push(OP.SUB_32, ...lc(0), ...source, ...this.location(target));
+      else this.bytes.push(OP.SUB_F, ...lcf(0), ...source, ...this.location(target));
       return;
     }
     if (instruction.op === "binary" && target) {
@@ -785,11 +794,26 @@ class ObjectAssembler {
       const leftType = this.typeOf(instruction.left)?.kind;
       const rightType = this.typeOf(instruction.right)?.kind;
       if (target.type.kind === "string" && instruction.operator === "+") {
-        this.bytes.push(OP.STRING, ...lc(STRING.ADD), ...left, ...right, ...lv(target.offset));
+        const leftText = this.textParameter(instruction.left);
+        const rightText = this.textParameter(instruction.right);
+        if (!leftText || !rightText) return;
+        this.bytes.push(
+          OP.STRING,
+          ...lc(STRING.ADD),
+          ...leftText,
+          ...rightText,
+          ...this.location(target),
+        );
         return;
       }
       if (leftType === "string" && rightType === "string" && instruction.operator === "=") {
-        this.bytes.push(OP.STRING, ...lc(STRING.COMPARE), ...left, ...right, ...lv(target.offset));
+        this.bytes.push(
+          OP.STRING,
+          ...lc(STRING.COMPARE),
+          ...left,
+          ...right,
+          ...this.location(target),
+        );
         return;
       }
       const integerOperands =
@@ -835,14 +859,14 @@ class ObjectAssembler {
           const product = this.scratch(4);
           this.bytes.push(OP.DIV_32, ...left, ...right, ...lv(quotient));
           this.bytes.push(OP.MUL_32, ...lv(quotient), ...right, ...lv(product));
-          this.bytes.push(OP.SUB_32, ...left, ...lv(product), ...lv(target.offset));
+          this.bytes.push(OP.SUB_32, ...left, ...lv(product), ...this.location(target));
         } else {
           this.bytes.push(
             OP.MATH,
             ...lc(MATH.MOD),
             ...numericLeft,
             ...numericRight,
-            ...lv(target.offset),
+            ...this.location(target),
           );
         }
         return;
@@ -858,7 +882,7 @@ class ObjectAssembler {
         );
         return;
       }
-      this.bytes.push(opcode, ...numericLeft, ...numericRight, ...lv(target.offset));
+      this.bytes.push(opcode, ...numericLeft, ...numericRight, ...this.location(target));
       return;
     }
     if (instruction.op === "call") {
@@ -920,7 +944,7 @@ class ObjectAssembler {
           );
           return;
         }
-        callArguments.push(lv(target.offset));
+        callArguments.push(this.location(target));
       }
       this.bytes.push(OP.CALL, ...lc(callable.objectId), ...lc(callArguments.length));
       for (const argument of callArguments) this.bytes.push(...argument);
@@ -964,8 +988,13 @@ class ObjectAssembler {
       if (timer[1] === "Reset") {
         this.bytes.push(OP.TIMER_READ, ...lv(baseline));
       } else if (target) {
-        this.bytes.push(OP.TIMER_READ, ...lv(target.offset));
-        this.bytes.push(OP.SUB_32, ...lv(target.offset), ...lv(baseline), ...lv(target.offset));
+        this.bytes.push(OP.TIMER_READ, ...this.location(target));
+        this.bytes.push(
+          OP.SUB_32,
+          ...this.location(target),
+          ...lv(baseline),
+          ...this.location(target),
+        );
       }
       return;
     }
@@ -1013,12 +1042,12 @@ class ObjectAssembler {
       else if (method === "IsMedium" && Number.isInteger(port))
         this.bytes.push(OP.OUTPUT_SET_TYPE, ...lc(0), ...lc(port), ...lc(8));
       else if (method === "GetTacho" && target && Number.isInteger(port))
-        this.bytes.push(OP.OUTPUT_GET_COUNT, ...lc(0), ...lc(port), ...lv(target.offset));
+        this.bytes.push(OP.OUTPUT_GET_COUNT, ...lc(0), ...lc(port), ...this.location(target));
       else if (method === "GetSpeed" && target && Number.isInteger(port)) {
         const speed = this.scratch(1);
         const tacho = this.scratch(4);
         this.bytes.push(OP.OUTPUT_READ, ...lc(0), ...lc(port), ...lv(speed), ...lv(tacho));
-        this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...this.location(target));
       } else {
         this.diagnostics.push(
           diagnostic(
@@ -1117,7 +1146,7 @@ class ObjectAssembler {
           ...lc(0),
           ...lc(0),
         );
-        this.bytes.push(OP.MOVE_32_32, ...lc(id), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lc(id), ...this.location(target));
         return;
       }
       case "Mailbox.Send":
@@ -1149,7 +1178,7 @@ class ObjectAssembler {
         if (!target) break;
         const busy = this.scratch(1);
         this.bytes.push(OP.MAILBOX_TEST, ...arg(0), ...lv(busy));
-        this.bytes.push(OP.CP_EQ_8, ...lv(busy), ...lc(0), ...lv(target.offset));
+        this.bytes.push(OP.CP_EQ_8, ...lv(busy), ...lc(0), ...this.location(target));
         return;
       }
       case "Mailbox.Receive":
@@ -1160,13 +1189,13 @@ class ObjectAssembler {
           ...arg(0),
           ...lc(STRING_BYTES),
           ...lc(1),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       case "Mailbox.ReceiveNumber":
         if (!target) break;
         this.bytes.push(OP.MAILBOX_READY, ...arg(0));
-        this.bytes.push(OP.MAILBOX_READ, ...arg(0), ...lc(4), ...lc(1), ...lv(target.offset));
+        this.bytes.push(OP.MAILBOX_READ, ...arg(0), ...lc(4), ...lc(1), ...this.location(target));
         return;
       case "Mailbox.Connect":
         this.bytes.push(OP.COM_SET, ...lc(7), ...lc(2), ...arg(0), ...lc(1));
@@ -1178,7 +1207,7 @@ class ObjectAssembler {
         const handle = this.scratch(2);
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...arg(0), ...lv(handle));
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...value);
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Vector.Data": {
@@ -1292,7 +1321,7 @@ class ObjectAssembler {
         this.markLabel(empty);
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...lc(0), ...lv(handle));
         this.markLabel(done);
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Vector.Add": {
@@ -1308,7 +1337,7 @@ class ObjectAssembler {
           this.bytes.push(OP.ADD_F, ...lv(first), ...lv(second), ...lv(sum));
           this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(index), ...lv(sum));
         });
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Vector.Sort": {
@@ -1361,7 +1390,7 @@ class ObjectAssembler {
         this.bytes.push(OP.JR);
         this.addPatch(outerLoop);
         this.markLabel(outerDone);
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Vector.Multiply": {
@@ -1394,7 +1423,7 @@ class ObjectAssembler {
             this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lv(outputIndex), ...lv(sum));
           });
         });
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Row.Init": {
@@ -1409,7 +1438,7 @@ class ObjectAssembler {
         // which can exhaust the brick and freeze its VM.
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_F), ...length, ...lv(handle));
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.FILL), ...lv(handle), ...value);
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Row.Delete":
@@ -1425,7 +1454,7 @@ class ObjectAssembler {
         {
           const index = this.integerParameter(instruction.args[1]!);
           if (!index) break;
-          this.bytes.push(OP.ARRAY_READ, ...arg(0), ...index, ...lv(target.offset));
+          this.bytes.push(OP.ARRAY_READ, ...arg(0), ...index, ...this.location(target));
         }
         return;
       case "Row.Write": {
@@ -1447,7 +1476,7 @@ class ObjectAssembler {
         this.bytes.push(
           target.type.kind === "number" ? OP.MOVE_32_F : OP.MOVE_32_32,
           ...lv(size),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -1478,12 +1507,12 @@ class ObjectAssembler {
         if (!text) break;
         const length = this.scratch(2);
         this.bytes.push(OP.STRING, ...lc(STRING.GET_SIZE), ...text, ...lv(length));
-        this.bytes.push(OP.MOVE_16_32, ...lv(length), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(length), ...this.location(target));
         return;
       }
       case "Text.GetCharacter":
         if (!target) break;
-        this.bytes.push(OP.MOVE_32_8, ...arg(0), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_8, ...arg(0), ...this.location(target));
         this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(target.offset + 1));
         return;
       case "Text.GetCharacterCode":
@@ -1491,7 +1520,7 @@ class ObjectAssembler {
         {
           const text = this.textParameter(instruction.args[0]!);
           if (!text) break;
-          this.bytes.push(OP.MOVE_8_32, ...text, ...lv(target.offset));
+          this.bytes.push(OP.MOVE_8_32, ...text, ...this.location(target));
         }
         return;
       case "Text.IsSubText":
@@ -1563,15 +1592,15 @@ class ObjectAssembler {
         this.addPatch(loop);
         this.markLabel(found);
         if (instruction.operation === "Text.GetIndexOf")
-          this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(target.offset));
-        else this.bytes.push(OP.MOVE_8_8, ...lc(1), ...lv(target.offset));
+          this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...this.location(target));
+        else this.bytes.push(OP.MOVE_8_8, ...lc(1), ...this.location(target));
         this.bytes.push(OP.JR);
         this.addPatch(done);
         this.markLabel(missing);
         this.bytes.push(
           instruction.operation === "Text.GetIndexOf" ? OP.MOVE_32_32 : OP.MOVE_8_8,
           ...lc(0),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         this.markLabel(done);
         return;
@@ -1630,12 +1659,12 @@ class ObjectAssembler {
           ...lc(this.objectId),
           ...lv(offset),
           ...lv(size),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         this.bytes.push(OP.JR);
         this.addPatch(done);
         this.markLabel(empty);
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...lv(target.offset));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...this.location(target));
         this.markLabel(done);
         return;
       }
@@ -1654,7 +1683,7 @@ class ObjectAssembler {
         const done = this.newLabel("text-case-done");
         const skip = this.newLabel("text-case-skip");
         const lower = instruction.operation === "Text.ConvertToLowerCase";
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...lv(target.offset));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...source, ...this.location(target));
         this.bytes.push(OP.MOVE_32_32, ...lc(target.offset - 1), ...lv(index));
         this.markLabel(loop);
         this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
@@ -1709,7 +1738,7 @@ class ObjectAssembler {
         if (!filename) break;
         this.bytes.push(OP.FILE, ...lc(command), ...filename, ...lv(handle));
         if (instruction.operation === "EV3File.OpenRead") this.bytes.push(...lv(this.scratch(4)));
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "EV3File.Close":
@@ -1726,26 +1755,30 @@ class ObjectAssembler {
           ...arg(0),
           ...lc(6),
           ...lc(64),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       case "EV3File.WriteByte": {
-        const text = this.scratch(2);
-        this.bytes.push(OP.MOVE_32_8, ...arg(1), ...lv(text));
-        this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(text + 1));
-        this.bytes.push(OP.FILE, ...lc(FILE.WRITE_TEXT), ...arg(0), ...lc(0), ...lv(text));
+        const byte = this.byteParameter(instruction.args[1]!);
+        if (!byte) break;
+        this.bytes.push(OP.FILE, ...lc(FILE.WRITE_BYTES), ...arg(0), ...lc(1), ...byte);
         return;
       }
       case "EV3File.ReadByte": {
         if (!target) break;
         const text = this.scratch(2);
         this.bytes.push(OP.FILE, ...lc(FILE.READ_TEXT), ...arg(0), ...lc(0), ...lc(1), ...lv(text));
-        this.bytes.push(OP.MOVE_8_32, ...lv(text), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_8_32, ...lv(text), ...this.location(target));
         return;
       }
       case "EV3File.ConvertToNumber":
         if (!target) break;
-        this.bytes.push(OP.STRING, ...lc(STRING.STRING_TO_VALUE), ...arg(0), ...lv(target.offset));
+        this.bytes.push(
+          OP.STRING,
+          ...lc(STRING.STRING_TO_VALUE),
+          ...arg(0),
+          ...this.location(target),
+        );
         return;
       case "EV3File.ReadNumberArray": {
         if (!target) break;
@@ -1793,7 +1826,7 @@ class ObjectAssembler {
         this.bytes.push(OP.JR);
         this.addPatch(loop);
         this.markLabel(done);
-        this.bytes.push(OP.MOVE_16_32, ...lv(array), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(array), ...this.location(target));
         return;
       }
       case "EV3File.WriteNumberArray": {
@@ -1884,7 +1917,7 @@ class ObjectAssembler {
         this.addPatch(loop);
         this.markLabel(done);
         this.bytes.push(OP.FILE, ...lc(FILE.CLOSE), ...lv(handle));
-        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...this.location(target));
         return;
       }
       case "Byte.NOT": {
@@ -1961,7 +1994,7 @@ class ObjectAssembler {
         else this.bytes.push(OP.MATH, ...lc(MATH.MOD), ...lv(result), ...lcf(256), ...lv(result));
         const byte = this.scratch(1);
         this.bytes.push(OP.MOVE_F_8, ...lv(result), ...lv(byte));
-        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...this.location(target));
         return;
       }
       case "Byte.ToLogic": {
@@ -1969,8 +2002,8 @@ class ObjectAssembler {
         const value = this.parameter(instruction.args[0]!);
         if (!value) break;
         if (this.typeOf(instruction.args[0]!)?.kind === "number")
-          this.bytes.push(OP.CP_GT_F, ...value, ...lcf(0), ...lv(target.offset));
-        else this.bytes.push(OP.CP_GT_32, ...value, ...lc(0), ...lv(target.offset));
+          this.bytes.push(OP.CP_GT_F, ...value, ...lcf(0), ...this.location(target));
+        else this.bytes.push(OP.CP_GT_32, ...value, ...lc(0), ...this.location(target));
         return;
       }
       case "Byte.H":
@@ -2039,7 +2072,7 @@ class ObjectAssembler {
             ...lcs("TRUE"),
             ...lv(matched),
           );
-          this.bytes.push(OP.MOVE_8_32, ...lv(matched), ...lv(target.offset));
+          this.bytes.push(OP.MOVE_8_32, ...lv(matched), ...this.location(target));
           return;
         }
 
@@ -2113,7 +2146,7 @@ class ObjectAssembler {
         this.addPatch(loop);
         this.markLabel(done);
         this.bytes.push(OP.AND_32, ...lv(value), ...lc(255), ...lv(value));
-        this.bytes.push(OP.MOVE_32_32, ...lv(value), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lv(value), ...this.location(target));
         return;
       }
       case "Byte.ToHex": {
@@ -2128,7 +2161,7 @@ class ObjectAssembler {
           ...lv(number),
           ...lcs("%02X"),
           ...lc(3),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -2141,17 +2174,17 @@ class ObjectAssembler {
       }
       case "Math.Pi":
         if (!target) break;
-        this.bytes.push(OP.MOVE_F_F, ...lcf(Math.PI), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_F_F, ...lcf(Math.PI), ...this.location(target));
         return;
       case "Math.GetRandomNumber":
         if (!target) break;
-        this.bytes.push(OP.RANDOM, ...lc(1), ...arg(0), ...lv(target.offset));
+        this.bytes.push(OP.RANDOM, ...lc(1), ...arg(0), ...this.location(target));
         return;
       case "Math.DoubleToDecimal": {
         if (!target) break;
         const source = floatArg(0);
         if (!source) break;
-        this.bytes.push(OP.MOVE_F_F, ...source, ...lv(target.offset));
+        this.bytes.push(OP.MOVE_F_F, ...source, ...this.location(target));
         return;
       }
       case "Math.GetDegrees":
@@ -2163,7 +2196,7 @@ class ObjectAssembler {
           OP.MUL_F,
           ...source,
           ...lcf(instruction.operation === "Math.GetDegrees" ? 180 / Math.PI : Math.PI / 180),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -2183,9 +2216,9 @@ class ObjectAssembler {
           instruction.operation === "Math.Max" ? OP.ADD_F : OP.SUB_F,
           ...lv(sum),
           ...lv(absolute),
-          ...lv(target.offset),
+          ...this.location(target),
         );
-        this.bytes.push(OP.DIV_F, ...lv(target.offset), ...lcf(2), ...lv(target.offset));
+        this.bytes.push(OP.DIV_F, ...this.location(target), ...lcf(2), ...this.location(target));
         return;
       }
       case "Math.Abs":
@@ -2223,7 +2256,7 @@ class ObjectAssembler {
           OP.MATH,
           ...lc(command[instruction.operation]!),
           ...source,
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -2238,29 +2271,29 @@ class ObjectAssembler {
           ...lc(instruction.operation === "Math.Power" ? MATH.POW : MATH.MOD),
           ...left,
           ...right,
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
       case "EV3.Time":
         if (!target) break;
-        this.bytes.push(OP.TIMER_READ, ...lv(target.offset));
+        this.bytes.push(OP.TIMER_READ, ...this.location(target));
         return;
       case "EV3.BatteryLevel":
         if (!target) break;
-        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_LBATT), ...lv(target.offset));
+        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_LBATT), ...this.location(target));
         return;
       case "EV3.BatteryVoltage":
         if (!target) break;
-        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_VBATT), ...lv(target.offset));
+        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_VBATT), ...this.location(target));
         return;
       case "EV3.BatteryCurrent":
         if (!target) break;
-        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_IBATT), ...lv(target.offset));
+        this.bytes.push(OP.UI_READ, ...lc(UI_READ.GET_IBATT), ...this.location(target));
         return;
       case "EV3.BrickName":
         if (!target) break;
-        this.bytes.push(OP.COM_GET, ...lc(COM_GET.BRICK_NAME), ...lc(18), ...lv(target.offset));
+        this.bytes.push(OP.COM_GET, ...lc(COM_GET.BRICK_NAME), ...lc(18), ...this.location(target));
         return;
       case "EV3.SetLEDColor": {
         const pattern = ledPattern(instruction.args[0]!, instruction.args[1]!);
@@ -2279,7 +2312,7 @@ class ObjectAssembler {
       }
       case "EV3.SystemCall":
         if (!target) break;
-        this.bytes.push(OP.SYSTEM, ...arg(0), ...lv(target.offset));
+        this.bytes.push(OP.SYSTEM, ...arg(0), ...this.location(target));
         return;
       case "EV3.QueueNextCommand":
         // Queuing only affects the desktop-to-brick transport path. RBF programs already execute locally.
@@ -2375,14 +2408,18 @@ class ObjectAssembler {
         this.lcdAutoUpdate();
         return;
       case "LCD.BmpFile":
-        this.bytes.push(
-          OP.UI_DRAW,
-          ...lc(UI_DRAW.BMPFILE),
-          ...arg(0),
-          ...arg(1),
-          ...arg(2),
-          ...arg(3),
-        );
+        {
+          const file = this.mediaFileName(instruction.args[3]!, ".rgf");
+          if (!file) break;
+          this.bytes.push(
+            OP.UI_DRAW,
+            ...lc(UI_DRAW.BMPFILE),
+            ...arg(0),
+            ...arg(1),
+            ...arg(2),
+            ...file,
+          );
+        }
         this.lcdAutoUpdate();
         return;
       case "LCD.Value":
@@ -2439,7 +2476,11 @@ class ObjectAssembler {
         return;
       }
       case "Speaker.Play":
-        this.bytes.push(OP.SOUND, ...lc(SOUND.PLAY), ...arg(0), ...arg(1));
+        {
+          const file = this.mediaFileName(instruction.args[1]!, ".rsf");
+          if (!file) break;
+          this.bytes.push(OP.SOUND, ...lc(SOUND.PLAY), ...arg(0), ...file);
+        }
         return;
       case "Speaker.Stop":
         this.bytes.push(OP.SOUND, ...lc(SOUND.BREAK));
@@ -2456,7 +2497,7 @@ class ObjectAssembler {
       }
       case "Speaker.IsBusy":
         if (!target) break;
-        this.bytes.push(OP.SOUND_TEST, ...lv(target.offset));
+        this.bytes.push(OP.SOUND_TEST, ...this.location(target));
         return;
       case "Speaker.Wait":
         this.bytes.push(OP.SOUND_READY);
@@ -2492,7 +2533,7 @@ class ObjectAssembler {
           OP.UI_BUTTON,
           ...lc(UI_BUTTON.PRESSED),
           ...lc(button),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -2502,11 +2543,11 @@ class ObjectAssembler {
       case "Program.ArgumentCount":
         if (!target) break;
         // Native RBF launch does not carry a command-line argument vector.
-        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...this.location(target));
         return;
       case "Program.GetArgument":
         if (!target) break;
-        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...lv(target.offset));
+        this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...lcs(""), ...this.location(target));
         return;
       case "Program.Directory":
         if (!target) break;
@@ -2514,7 +2555,7 @@ class ObjectAssembler {
           OP.FILENAME,
           ...lc(FILENAME.GET_FOLDERNAME),
           ...lc(127),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       case "Thread.Yield": {
@@ -2526,7 +2567,7 @@ class ObjectAssembler {
         const index = this.scratch(4);
         this.bytes.push(OP.ARRAY, ...lc(ARRAY.SIZE), ...gv(0), ...lv(index));
         this.bytes.push(OP.ARRAY_APPEND, ...gv(0), ...lc(0));
-        this.bytes.push(OP.MOVE_32_32, ...lv(index), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lv(index), ...this.location(target));
         return;
       }
       case "Thread.Lock": {
@@ -2719,7 +2760,7 @@ class ObjectAssembler {
       case "Motor.IsBusy": {
         const motor = this.motorAddress(instruction.args[0]!);
         if (!motor || !target) break;
-        this.bytes.push(OP.OUTPUT_TEST, ...motor.layer, ...motor.mask, ...lv(target.offset));
+        this.bytes.push(OP.OUTPUT_TEST, ...motor.layer, ...motor.mask, ...this.location(target));
         return;
       }
       case "Motor.Wait": {
@@ -2737,7 +2778,12 @@ class ObjectAssembler {
       case "Motor.GetCount": {
         const motor = this.motorAddress(instruction.args[0]!);
         if (!motor || !target) break;
-        this.bytes.push(OP.OUTPUT_GET_COUNT, ...motor.layer, ...motor.port, ...lv(target.offset));
+        this.bytes.push(
+          OP.OUTPUT_GET_COUNT,
+          ...motor.layer,
+          ...motor.port,
+          ...this.location(target),
+        );
         return;
       }
       case "Motor.GetSpeed": {
@@ -2746,7 +2792,7 @@ class ObjectAssembler {
         const speed = this.scratch(1);
         const tacho = this.scratch(4);
         this.bytes.push(OP.OUTPUT_READ, ...motor.layer, ...motor.port, ...lv(speed), ...lv(tacho));
-        this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_8_32, ...lv(speed), ...this.location(target));
         return;
       }
       case "Sensor.GetName": {
@@ -2759,9 +2805,14 @@ class ObjectAssembler {
           ...sensor.layer,
           ...sensor.port,
           ...lc(32),
-          ...lv(target.offset),
+          ...this.location(target),
         );
-        this.bytes.push(OP.STRING, ...lc(STRING.STRIP), ...lv(target.offset), ...lv(target.offset));
+        this.bytes.push(
+          OP.STRING,
+          ...lc(STRING.STRIP),
+          ...this.location(target),
+          ...this.location(target),
+        );
         return;
       }
       case "Sensor.GetType":
@@ -2782,7 +2833,7 @@ class ObjectAssembler {
         this.bytes.push(
           OP.MOVE_8_32,
           ...lv(instruction.operation === "Sensor.GetType" ? type : mode),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -2816,14 +2867,14 @@ class ObjectAssembler {
           ...lc(-1),
           ...lv(percent),
         );
-        this.bytes.push(OP.MOVE_8_32, ...lv(percent), ...lv(target.offset));
-        this.bytes.push(OP.CP_GTEQ_32, ...lv(target.offset), ...lc(0), ...lv(nonnegative));
+        this.bytes.push(OP.MOVE_8_32, ...lv(percent), ...this.location(target));
+        this.bytes.push(OP.CP_GTEQ_32, ...this.location(target), ...lc(0), ...lv(nonnegative));
         this.bytes.push(OP.JR_FALSE, ...lv(nonnegative));
         this.addPatch(negative);
         this.bytes.push(OP.JR);
         this.addPatch(done);
         this.markLabel(negative);
-        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...this.location(target));
         this.markLabel(done);
         return;
       }
@@ -2895,7 +2946,7 @@ class ObjectAssembler {
         this.bytes.push(OP.JR);
         this.addPatch(loop);
         this.markLabel(done);
-        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_16_32, ...lv(handle), ...this.location(target));
         return;
       }
       case "Sensor.ReadRawValue": {
@@ -2932,7 +2983,7 @@ class ObjectAssembler {
         );
         const requested = this.parameter(index);
         if (!requested) break;
-        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lc(0), ...this.location(target));
         this.bytes.push(OP.CP_GTEQ_32, ...requested, ...lc(0), ...lv(valid));
         this.bytes.push(OP.JR_FALSE, ...lv(valid));
         this.addPatch(done);
@@ -2949,7 +3000,7 @@ class ObjectAssembler {
           ...lc(4),
           ...lv(result),
         );
-        this.bytes.push(OP.MOVE_32_32, ...lv(result), ...lv(target.offset));
+        this.bytes.push(OP.MOVE_32_32, ...lv(result), ...this.location(target));
         this.markLabel(done);
         return;
       }
@@ -2967,7 +3018,7 @@ class ObjectAssembler {
           ...lc(0),
           ...lc(-1),
           ...lc(1),
-          ...lv(target.offset),
+          ...this.location(target),
         );
         return;
       }
@@ -3112,7 +3163,7 @@ class ObjectAssembler {
         if (instruction.operation === "Sensor.ReadI2CRegister") {
           const value = this.scratch(1);
           this.bytes.push(OP.ARRAY_READ, ...lv(readHandle), ...lc(0), ...lv(value));
-          this.bytes.push(OP.MOVE_8_32, ...lv(value), ...lv(target.offset));
+          this.bytes.push(OP.MOVE_8_32, ...lv(value), ...this.location(target));
         } else this.i2cResultArray(readHandle, readBytes, target);
         return;
       }
@@ -3203,14 +3254,31 @@ class ObjectAssembler {
     if (terminator.op === "return") {
       if (terminator.value) {
         const result = this.allocations.get("$return");
-        const value = this.floatParameter(terminator.value);
-        if (!result || !value) {
+        if (!result) {
           this.diagnostics.push(
             diagnostic("EV32004", "Unable to encode the function return value.", terminator.span),
           );
           return;
         }
-        this.bytes.push(OP.MOVE_F_F, ...value, ...lv(result.offset));
+        if (result.type.kind === "string") {
+          const value = this.parameter(terminator.value);
+          if (!value) {
+            this.diagnostics.push(
+              diagnostic("EV32004", "Unable to encode the function return value.", terminator.span),
+            );
+            return;
+          }
+          this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...value, ...lv(result.offset));
+        } else {
+          const value = this.floatParameter(terminator.value);
+          if (!value) {
+            this.diagnostics.push(
+              diagnostic("EV32004", "Unable to encode the function return value.", terminator.span),
+            );
+            return;
+          }
+          this.bytes.push(OP.MOVE_F_F, ...value, ...lv(result.offset));
+        }
       }
       this.bytes.push(OP.JR);
       this.addPatch(OBJECT_EPILOGUE);

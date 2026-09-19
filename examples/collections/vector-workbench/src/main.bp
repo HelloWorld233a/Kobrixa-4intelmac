@@ -1,0 +1,7 @@
+number[] values
+values = Vector.Init(4, 3)
+sorted = Vector.Sort(4, values)
+doubled = Vector.Multiply(4, 2, 0, sorted, values)
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Vector prepared")
+LCD.Update()

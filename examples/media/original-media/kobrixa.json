@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "name": "original-media",
+  "language": "bp",
+  "entry": "src/main.bp",
+  "target": "ev3-native",
+  "assets": ["assets/deploy/**/*"],
+  "outputDir": "build"
+}

@@ -1,0 +1,19 @@
+' Independently authored Kobrixa example
+' A background Sub and main coordinate display access with a mutex.
+mutex = Thread.CreateMutex()
+Thread.Run = Blink
+
+Thread.Lock(mutex)
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, "Main is running")
+LCD.Update()
+Thread.Unlock(mutex)
+Program.Delay(300)
+Program.End()
+
+Sub Blink()
+  Thread.Lock(mutex)
+  EV3.SetLEDColor("GREEN", "PULSE")
+  Thread.Unlock(mutex)
+  Thread.Yield()
+EndSub

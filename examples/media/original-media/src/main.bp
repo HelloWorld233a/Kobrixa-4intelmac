@@ -1,0 +1,6 @@
+' Original Kobrixa media lesson. Deploy copies assets before this program.
+LCD.Clear()
+LCD.BmpFile(1, 0, 0, "assets/deploy/kobrixa-mascot")
+LCD.Update()
+Speaker.Play(35, "assets/deploy/kobrixa-chime")
+Speaker.Wait()

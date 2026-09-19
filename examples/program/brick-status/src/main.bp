@@ -1,0 +1,13 @@
+' Independently authored Kobrixa example
+' Read brick identity, battery percentage, and elapsed program time.
+name = EV3.BrickName()
+battery = EV3.BatteryLevel()
+elapsed = EV3.Time()
+EV3.SetLEDColor("GREEN", "NORMAL")
+
+LCD.Clear()
+LCD.Text(1, 8, 18, 1, name) ' 沒有值
+LCD.Text(1, 8, 38, 1, "Battery: " + battery) ' 沒有值
+LCD.Text(1, 8, 58, 1, "Time: " + elapsed) ' 沒有值
+LCD.Update()
+Program.Delay(1000)

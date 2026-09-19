@@ -40,6 +40,40 @@ describe("EV3Backend", () => {
     expect([...code].filter((byte) => byte === OP.OBJECT_END)).toHaveLength(1);
   });
 
+  it("formats numeric operands before concatenating them with text", async () => {
+    const program: KobrixaIR = {
+      ...ir,
+      globals: [
+        { name: "count", type: { kind: "integer" }, scope: "global" },
+        { name: "message", type: { kind: "string" }, scope: "global" },
+      ],
+      functions: [
+        {
+          ...ir.functions[0]!,
+          blocks: [
+            {
+              id: "entry",
+              instructions: [
+                { op: "assign", target: "count", value: { kind: "integer", value: 3 } },
+                {
+                  op: "binary",
+                  target: "message",
+                  operator: "+",
+                  left: { kind: "string", value: "Count: " },
+                  right: { kind: "variable", name: "count" },
+                },
+              ],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(program, new AbortController().signal);
+    expect(result.diagnostics).toEqual([]);
+    expect([...result.rbf!]).toContain(STRING.VALUE_FORMATTED);
+  });
+
   it("allocates IR globals in EV3 global memory", async () => {
     const withGlobal: KobrixaIR = {
       ...ir,
@@ -208,7 +242,11 @@ describe("EV3Backend", () => {
 
     expect(result.diagnostics).toEqual([]);
     const info = inspectRbf(result.rbf!);
-    const headers = new DataView(result.rbf!.buffer, result.rbf!.byteOffset, result.rbf!.byteLength);
+    const headers = new DataView(
+      result.rbf!.buffer,
+      result.rbf!.byteOffset,
+      result.rbf!.byteLength,
+    );
     expect(info.objectCount).toBe(3);
     expect(headers.getUint16(28 + 4, true)).toBe(0);
     expect(headers.getUint16(28 + 6, true)).toBe(1);

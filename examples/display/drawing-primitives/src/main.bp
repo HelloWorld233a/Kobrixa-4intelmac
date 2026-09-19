@@ -1,0 +1,7 @@
+LCD.Clear()
+LCD.Pixel(1, 8, 8)
+LCD.Rect(1, 16, 16, 58, 36)
+LCD.FillRect(1, 66, 16, 42, 20)
+LCD.InverseRect(16, 48, 42, 20)
+LCD.FillCircle(1, 132, 30, 12)
+LCD.Update()

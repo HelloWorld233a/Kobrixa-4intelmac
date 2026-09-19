@@ -1,0 +1,4 @@
+' Lift the robot first. Schedule a controlled A+D movement and wait for it.
+Motor.Schedule("AD", 25, 60, 360, 60, true)
+Motor.Wait("AD")
+Motor.Stop("AD", true)
