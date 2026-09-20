@@ -1,0 +1,29 @@
+' Independently authored Kobrixa curriculum.
+Assert.Equal(Text.GetCharacter(65), "A", "ASCII character")
+Assert.Equal(Text.GetCharacterCode("A"), 65, "ASCII code")
+number high
+high = 128
+Assert.Equal(Byte.OR_(high, 0), 128, "unsigned 128")
+Assert.Equal(Byte.NOT(0), 255, "unsigned 255")
+Assert.Equal(Byte.ToHex(high), "80", "unsigned hex")
+Assert.Equal(Byte.SHL(1, 7), 128, "high shift bit")
+a = Byte.H("A5")
+b = Byte.B("00001111")
+Assert.Equal(Byte.AND_(a, b), 5, "and")
+Assert.Equal(Byte.OR_(a, b), 175, "or")
+Assert.Equal(Byte.XOR(a, b), 170, "xor")
+Assert.Equal(Byte.NOT(a), 90, "not")
+Assert.Equal(Byte.BIT(a, 7), 1, "bit")
+Assert.Equal(Byte.BIT(128, 7), 1, "high bit")
+Assert.Equal(Byte.BIT(1, 0), 1, "low bit")
+Assert.Equal(Byte.BIT(a, 1), 0, "clear bit")
+Assert.Equal(Byte.OR_(128, 0), 128, "literal unsigned 128")
+Assert.Equal(Byte.SHL(129, 1), 2, "shift left")
+Assert.Equal(Byte.SHR(128, 1), 64, "shift right")
+Assert.Equal(Byte.L("TrUe"), 1, "logic parse")
+If Byte.ToLogic(2) And Not Byte.ToLogic(-1) Then
+  LCD.Text(1, 4, 12, 1, "Byte checks passed")
+EndIf
+LCD.Text(1, 4, 32, 1, Byte.ToHex(a))
+LCD.Text(1, 4, 52, 1, Byte.ToBinary(a))
+Program.Delay(1000)

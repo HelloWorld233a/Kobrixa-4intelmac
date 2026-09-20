@@ -1,0 +1,18 @@
+' Independently authored Kobrixa lesson.
+LCD.Clear()
+a = Gcd(84, 30)
+b = Gcd(25, 0)
+c = Gcd(-18, 48)
+LCD.Text(1, 4, 12, 1, "GCD: " + a + "," + b + "," + c)
+Program.Delay(1500)
+
+Function Gcd(in number left, in number right)
+  left = Math.Abs(left)
+  right = Math.Abs(right)
+  While right <> 0
+    remainder = Math.Remainder(left, right)
+    left = right
+    right = remainder
+  EndWhile
+  Return left
+EndFunction

@@ -1,0 +1,14 @@
+' Independently authored Kobrixa curriculum.
+For sample = 1 To 3
+  pressed = Buttons.Current()
+  If Text.IsSubText(pressed, "U") Then
+    Motor.StartPower("A", 20)
+  ElseIf Text.IsSubText(pressed, "D") Then
+    Motor.StartPower("A", -20)
+  Else
+    Motor.Stop("A", true)
+  EndIf
+  Program.Delay(50)
+EndFor
+Motor.Stop("A", true)
+LCD.Text(1, 4, 16, 1, "Drive complete")

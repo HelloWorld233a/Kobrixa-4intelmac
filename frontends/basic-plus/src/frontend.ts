@@ -113,6 +113,7 @@ export class BasicPlusFrontend implements LanguageFrontend {
     visit(rootFile);
     if (diagnostics.some((item) => item.severity === "error")) return { diagnostics };
     const lowered = lowerProgram(input.manifest.name, body, functions, [...visited]);
+    if (rootFile.runtimeDirectory) lowered.ir.program.runtimeDirectory = rootFile.runtimeDirectory;
     diagnostics.push(...lowered.diagnostics);
     return diagnostics.some((item) => item.severity === "error")
       ? { diagnostics }

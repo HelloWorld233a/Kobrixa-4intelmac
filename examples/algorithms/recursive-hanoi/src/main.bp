@@ -1,0 +1,19 @@
+' Independently authored Kobrixa curriculum.
+moves = 0
+Solve(3, 0, 2, 1)
+LCD.Text(1, 4, 100, 1, "Moves: " + moves)
+Program.Delay(1000)
+Function Solve(in number disks, in number source, in number destination, in number spare)
+  If disks > 0 Then
+    Solve(disks - 1, source, spare, destination)
+    moves++
+    LCD.StopUpdate()
+    LCD.Clear()
+    LCD.Rect(1, 4, 60, 168, 20)
+    LCD.FillRect(1, 12 + destination * 52, 64, disks * 8, 8)
+    LCD.Text(1, 4, 12, 1, source + ">" + destination)
+    LCD.Update()
+    Program.Delay(20)
+    Solve(disks - 1, spare, destination, source)
+  EndIf
+EndFunction

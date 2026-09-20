@@ -16,3 +16,12 @@ Explore finite loops, branches, Boolean logic, comparisons, nesting, labels, and
 - [comparison-operators](./comparison-operators/) — Use parentheses, `>=`, and `<>`.／使用括號、`>=` 與 `<>`。
 - [nested-control](./nested-control/) — Place an `If` inside a `For` loop.／在 `For` 迴圈中使用 `If`。
 - [labels-and-goto](./labels-and-goto/) — Jump forward to a named label.／向前跳至具名 Label。
+
+## New lessons / 新課程
+
+- [for-step-boundaries](./for-step-boundaries/) — For loop boundaries／For 迴圈邊界。
+- [nested-loop-exits](./nested-loop-exits/) — Nested loop exits／巢狀迴圈跳出。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [loop-exit-matrix](./loop-exit-matrix/) — Loop exit matrix／迴圈跳出矩陣

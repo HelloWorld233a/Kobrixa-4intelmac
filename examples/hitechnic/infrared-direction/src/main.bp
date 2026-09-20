@@ -1,0 +1,15 @@
+' Independently authored Kobrixa curriculum.
+readings = Sensor.ReadI2CRegisters(2, 8, 73, 6)
+direction = readings[0]
+number strength
+strength = 0
+If direction > 0 And direction <= 9 Then
+  channel = Math.Floor((direction + 1) / 2)
+  strength = readings[channel]
+  If Math.Remainder(direction, 2) = 0 Then
+    strength = (strength + readings[channel + 1]) / 2
+  EndIf
+EndIf
+LCD.Text(1, 4, 12, 1, "Direction: " + direction)
+LCD.Text(1, 4, 32, 1, "Strength: " + strength)
+Program.Delay(1000)

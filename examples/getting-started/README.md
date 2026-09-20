@@ -9,3 +9,7 @@ Start here to verify the complete Kobrixa build flow using only the EV3 display 
 ## Projects / 專案
 
 - [hello-ev3](./hello-ev3/) — Display text and a line, play a tone, and wait.／顯示文字與線條、播放音調並等待。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [brick-greeting](./brick-greeting/) — Brick greeting／本體問候

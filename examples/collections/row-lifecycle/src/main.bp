@@ -1,0 +1,10 @@
+' Independently authored Kobrixa curriculum.
+row = Row.Init(2, 6)
+Row.Write(row, 1, 9)
+Row.Resize(row, 4)
+Row.Write(row, 2, -3)
+Row.Write(row, 3, 12)
+LCD.Text(1, 4, 12, 1, "Size: " + Row.Size(row))
+LCD.Text(1, 4, 32, 1, Row.Read(row, 0) + "," + Row.Read(row, 1) + "," + Row.Read(row, 2) + "," + Row.Read(row, 3))
+Row.Delete(row)
+Program.Delay(1000)

@@ -1,0 +1,7 @@
+' Independently authored Kobrixa lesson.
+For multiplier = 1 To 3
+  frequency = 220 * multiplier
+  Speaker.Tone(15, frequency, 100)
+  Speaker.Wait()
+EndFor
+Speaker.Stop()

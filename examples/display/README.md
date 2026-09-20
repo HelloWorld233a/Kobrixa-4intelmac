@@ -13,3 +13,11 @@ Learn the documented LCD text, font, coordinate, line, and circle operations wit
 - [display-shapes](./display-shapes/) — Draw lines and concentric circles.／繪製線條與同心圓。
 - [drawing-primitives](./drawing-primitives/) — Pixels, rectangles, inversion, and filled circles.／像素、矩形、反相與實心圓。
 - [double-buffer-animation](./double-buffer-animation/) — Draw complete frames before updating the LCD.／完成一個畫面後才更新 LCD。
+
+## New lessons / 新課程
+
+- [fractional-coordinates](./fractional-coordinates/) — Fractional coordinates／小數座標。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [button-cursor](./button-cursor/) — Button-controlled cursor／按鍵控制游標

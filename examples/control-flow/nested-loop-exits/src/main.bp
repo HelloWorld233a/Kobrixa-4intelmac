@@ -1,0 +1,19 @@
+' Independently authored Kobrixa lesson.
+total = 0
+visits = 0
+For outer = 1 To 3
+  For inner = 1 To 5
+    If inner = 2 Then
+      Continue
+    EndIf
+    If inner = 4 Then
+      Break
+    EndIf
+    visits++
+    total += outer * 10 + inner
+  EndFor
+EndFor
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Visits: " + visits)
+LCD.Text(1, 4, 32, 1, "Total: " + total)
+Program.Delay(1500)

@@ -1,0 +1,9 @@
+' Independently authored Kobrixa curriculum.
+For phase = 1 To 2
+  degrees = Math.Round(45 + 15 * Math.Sin(phase * Math.PI / 2))
+  Motor.SchedulePower("A", 20, 0, degrees, 0, true)
+  Motor.SchedulePower("D", 25, 0, degrees * 2, 0, true)
+  Motor.Wait("AD")
+EndFor
+Motor.Stop("AD", true)
+LCD.Text(1, 4, 16, 1, "Path complete")

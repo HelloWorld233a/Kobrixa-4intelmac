@@ -1,0 +1,15 @@
+' Independently authored Kobrixa curriculum.
+textBox = Mailbox.Create("KobrixaText")
+numberBox = Mailbox.CreateForNumber("KobrixaNumber")
+For attempt = 1 To 100
+  If Mailbox.IsAvailable(textBox) And Mailbox.IsAvailable(numberBox) Then
+    message = Mailbox.Receive(textBox)
+    value = Mailbox.ReceiveNumber(numberBox)
+    LCD.Text(1, 4, 12, 1, message)
+    LCD.Text(1, 4, 32, 1, "Number: " + value)
+    Program.Delay(1000)
+    Program.End()
+  EndIf
+  Program.Delay(50)
+EndFor
+LCD.Text(1, 4, 12, 1, "Receive timeout")

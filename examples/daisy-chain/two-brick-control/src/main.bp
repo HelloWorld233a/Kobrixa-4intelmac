@@ -1,0 +1,9 @@
+' Independently authored Kobrixa curriculum.
+remoteMotor = "A2"
+value = Sensor.ReadPercent(5)
+LCD.Text(1, 4, 16, 1, "Remote: " + value)
+If value > 50 Then
+  Motor.Start(remoteMotor, 20)
+  Program.Delay(100)
+EndIf
+Motor.Stop(remoteMotor, true)

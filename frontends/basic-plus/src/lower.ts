@@ -43,26 +43,26 @@ function inferredExpressionType(expression: Expression): IRType {
 }
 
 function inferredFunctionReturnType(declaration: FunctionDeclaration): IRType {
-  const visit = (statements: Statement[]): IRType | undefined => {
+  const types: IRType[] = [];
+  const visit = (statements: Statement[]): void => {
     for (const statement of statements) {
       if (statement.kind === "return" && statement.value)
-        return inferredExpressionType(statement.value);
+        types.push(inferredExpressionType(statement.value));
       if (statement.kind === "if") {
-        for (const branch of statement.branches) {
-          const result = visit(branch.body);
-          if (result) return result;
-        }
-        const result = visit(statement.otherwise);
-        if (result) return result;
+        for (const branch of statement.branches) visit(branch.body);
+        visit(statement.otherwise);
       }
-      if (statement.kind === "while" || statement.kind === "for") {
-        const result = visit(statement.body);
-        if (result) return result;
-      }
+      if (statement.kind === "while" || statement.kind === "for") visit(statement.body);
     }
-    return undefined;
   };
-  return visit(declaration.body) ?? { kind: "number" };
+  visit(declaration.body);
+  // Every return uses one shared call ABI, including early-return branches.
+  if (types.every((type) => type.kind === "integer" || type.kind === "number"))
+    return {
+      kind:
+        types.length > 0 && types.every((type) => type.kind === "integer") ? "integer" : "number",
+    };
+  return types[0] ?? { kind: "number" };
 }
 
 function canonical(name: string): string {
@@ -265,7 +265,21 @@ class FunctionBuilder {
           this.ensureVariable(statement.name, { kind: "number" }, statement.span);
           break;
         case "return": {
-          const value = statement.value ? this.lowerExpression(statement.value).value : undefined;
+          const lowered = statement.value ? this.lowerExpression(statement.value) : undefined;
+          if (
+            lowered &&
+            lowered.type.kind !== this.returnType.kind &&
+            !(this.returnType.kind === "number" && lowered.type.kind === "integer")
+          ) {
+            this.diagnostics.push(
+              toDiagnostic(
+                "BP2010",
+                `Return value has type ${lowered.type.kind}, expected ${this.returnType.kind}.`,
+                statement.span,
+              ),
+            );
+          }
+          const value = lowered?.value;
           this.terminate(
             value
               ? { op: "return", value, span: statement.span }

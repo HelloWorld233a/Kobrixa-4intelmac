@@ -1,14 +1,23 @@
 import { readFile, readdir } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { EV3Backend, inspectRbf } from "@kobrixa/backend-ev3";
 import { BasicPlusFrontend } from "@kobrixa/basic-plus";
-import { loadProject } from "@kobrixa/compiler";
+import { BuildSession, loadProject } from "@kobrixa/compiler";
 import { validateIR } from "@kobrixa/ir";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
+const newExamples = JSON.parse(
+  readFileSync(path.join(repositoryRoot, "examples/new-examples.json"), "utf8"),
+) as Array<{ project: string; checks: unknown[] }>;
+const parityExamples = JSON.parse(
+  readFileSync(path.join(repositoryRoot, "examples/clev3r-parity.json"), "utf8"),
+) as Array<{ project: string; checks: unknown[]; reference: string }>;
 const documentedExamples = [
+  ...parityExamples.map((example) => example.project),
+  ...newExamples.map((example) => example.project),
   "buttons/button-feedback",
   "capstones/button-car",
   "capstones/obstacle-rover",
@@ -64,6 +73,10 @@ const documentedExamples = [
   "time/timer-slots",
 ].sort();
 const documentedCategories = [
+  "benchmarks",
+  "daisy-chain",
+  "hitechnic",
+  "algorithms",
   "getting-started",
   "capstones",
   "buttons",
@@ -96,6 +109,63 @@ async function findExampleProjects(root: string, relative = ""): Promise<string[
 }
 
 describe("shipped examples", () => {
+  it("compiles newly added examples and checks their lesson documentation", async () => {
+    expect(newExamples).toHaveLength(20);
+    const index = await readFile(path.join(repositoryRoot, "examples/NEW-EXAMPLES.md"), "utf8");
+    for (const example of newExamples) {
+      const projectPath = path.join(repositoryRoot, "examples", example.project);
+      expect(index, example.project).toContain(`](${example.project}/)`);
+      const readme = await readFile(path.join(projectPath, "README.md"), "utf8");
+      expect(readme).toContain("Expected result / 預期結果");
+      expect(example.checks.length).toBeGreaterThan(0);
+      const loaded = await loadProject(projectPath);
+      expect(loaded.diagnostics, example.project).toEqual([]);
+      const front = await new BasicPlusFrontend().compile(
+        loaded.project!,
+        new AbortController().signal,
+      );
+      expect(front.diagnostics, example.project).toEqual([]);
+      expect(validateIR(front.ir!), example.project).toEqual([]);
+      const back = await new EV3Backend().compile(front.ir!, new AbortController().signal);
+      expect(back.diagnostics, example.project).toEqual([]);
+      expect(inspectRbf(back.rbf!).objectCount, example.project).toBeGreaterThan(0);
+    }
+  });
+
+  it("builds the 41 Clev3r topic counterparts with lesson notes and Folder deployment metadata", async () => {
+    expect(parityExamples).toHaveLength(41);
+    const index = await readFile(path.join(repositoryRoot, "examples/CLEV3R-PARITY.md"), "utf8");
+    for (const lesson of parityExamples) {
+      const projectPath = path.join(repositoryRoot, "examples", lesson.project);
+      expect(index).toContain(`](${lesson.project}/)`);
+      expect(await readFile(path.join(projectPath, "README.md"), "utf8")).toContain(
+        "Expected result / 預期結果",
+      );
+      const loaded = await loadProject(projectPath);
+      expect(loaded.diagnostics).toEqual([]);
+      const result = await new BuildSession(new BasicPlusFrontend(), new EV3Backend()).compile(
+        loaded.project!,
+      );
+      expect(result.diagnostics, lesson.project).toEqual([]);
+      expect(result.success, lesson.project).toBe(true);
+      const image = result.artifacts.find((artifact) => artifact.kind === "rbf")!;
+      expect(inspectRbf(await readFile(image.path)).objectCount).toBeGreaterThan(0);
+      if (lesson.project.endsWith("media-folder")) {
+        expect(result.runtimeDirectory).toBe(
+          lesson.project.includes("sd-")
+            ? "/home/root/lms2012/prjs/SD_Card/KobrixaSDCard"
+            : "/home/root/lms2012/prjs/KobrixaCard",
+        );
+        expect(
+          result.artifacts
+            .filter((artifact) => artifact.kind === "asset")
+            .map((artifact) => artifact.remotePath)
+            .sort(),
+        ).toEqual(["assets/card.rgf", "assets/ping.rsf"]);
+      }
+    }
+  });
+
   it("compiles every example to a valid native RBF image", async () => {
     const examplesRoot = path.join(repositoryRoot, "examples");
     const examples = (await findExampleProjects(examplesRoot)).sort();

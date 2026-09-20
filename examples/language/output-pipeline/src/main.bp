@@ -1,0 +1,11 @@
+' Independently authored Kobrixa curriculum.
+number answer
+Combine(12, 7, answer)
+PrintValue(answer)
+Program.Delay(1000)
+Function Combine(in number a, in number b, out number result)
+  result = a * 2 + b
+EndFunction
+Function PrintValue(in number value)
+  LCD.Text(1, 4, 16, 1, "Result: " + value)
+EndFunction

@@ -1,0 +1,11 @@
+' Independently authored Kobrixa curriculum.
+Motor.Start("A", 15)
+Program.Delay(100)
+LCD.StopUpdate()
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Level: " + EV3.BatteryLevel)
+LCD.Text(1, 4, 32, 1, "Volts: " + EV3.BatteryVoltage)
+LCD.Text(1, 4, 52, 1, "Amps: " + EV3.BatteryCurrent)
+LCD.Update()
+Motor.Stop("A", true)
+Program.Delay(1000)

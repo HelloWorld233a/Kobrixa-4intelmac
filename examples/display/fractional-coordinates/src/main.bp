@@ -1,0 +1,12 @@
+' Independently authored Kobrixa lesson.
+number x
+x = 12.75
+number y
+y = 20.5
+LCD.StopUpdate()
+LCD.Clear()
+LCD.Line(1, x, y, x + 40, y + 20)
+LCD.Rect(1, x, y + 30, 40.75, 12.25)
+LCD.Circle(1, x + 80, y + 20, 10.75)
+LCD.Update()
+Program.Delay(1500)

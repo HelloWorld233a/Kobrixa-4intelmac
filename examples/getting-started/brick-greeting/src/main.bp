@@ -1,0 +1,4 @@
+' Independently authored Kobrixa curriculum.
+LCD.Clear()
+LCD.Write(4, 16, "Welcome " + EV3.BrickName)
+Program.Delay(1000)

@@ -44,6 +44,7 @@ class Parser {
     const includes: ParsedFile["includes"] = [];
     const body: Statement[] = [];
     const functions: FunctionDeclaration[] = [];
+    let runtimeDirectory: string | undefined;
     while (!this.is("eof")) {
       this.skipNewlines();
       if (this.is("eof")) break;
@@ -63,7 +64,34 @@ class Parser {
         this.skipLine();
         continue;
       }
-      if (this.keyword("folder") || this.keyword("private")) {
+      if (this.keyword("folder")) {
+        const start = this.take();
+        const storage = this.takeKind("string", "BP1050", 'Folder expects "prjs" or "sd".');
+        const directory = this.takeKind("string", "BP1050", "Folder expects a directory name.");
+        const area = String(storage?.value).toLocaleLowerCase("en-US");
+        const name = String(directory?.value ?? "");
+        if (
+          runtimeDirectory ||
+          !["prjs", "sd"].includes(area) ||
+          !name ||
+          new TextEncoder().encode(name).length > 48 ||
+          name === "." ||
+          name === ".." ||
+          name.includes("/") ||
+          name.includes("\\") ||
+          [...name].some((character) => character.charCodeAt(0) < 32)
+        ) {
+          this.error(
+            "BP1051",
+            "Use one Folder directive with storage prjs/sd and a single directory name of at most 48 UTF-8 bytes.",
+            start.span,
+          );
+        } else
+          runtimeDirectory = `/home/root/lms2012/prjs/${area === "sd" ? "SD_Card/" : ""}${name}`;
+        this.skipLine();
+        continue;
+      }
+      if (this.keyword("private")) {
         this.skipLine();
         continue;
       }
@@ -85,7 +113,7 @@ class Parser {
       if (statement) body.push(statement);
       else this.skipLine();
     }
-    return { file, includes, body, functions };
+    return { file, includes, body, functions, ...(runtimeDirectory ? { runtimeDirectory } : {}) };
   }
 
   private parseFunction(): FunctionDeclaration | undefined {

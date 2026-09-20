@@ -1,0 +1,9 @@
+' Independently authored Kobrixa curriculum.
+Speaker.Note(15, "D4", 120)
+While Speaker.IsBusy()
+  Thread.Yield()
+EndWhile
+Speaker.Tone(15, 440, 120)
+Speaker.Wait()
+LCD.Text(1, 4, 16, 1, "Melody complete")
+Program.Delay(1000)

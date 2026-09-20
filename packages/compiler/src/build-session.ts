@@ -118,7 +118,14 @@ export class BuildSession {
         });
       }
       this.#progress("complete", "Build complete");
-      return { success: true, diagnostics, artifacts };
+      return {
+        success: true,
+        diagnostics,
+        artifacts,
+        ...(frontend.ir.program.runtimeDirectory
+          ? { runtimeDirectory: frontend.ir.program.runtimeDirectory }
+          : {}),
+      };
     } catch (error) {
       const cancelled =
         this.#controller.signal.aborted || (error instanceof Error && error.name === "AbortError");

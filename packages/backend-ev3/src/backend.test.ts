@@ -27,6 +27,39 @@ const ir: KobrixaIR = {
 };
 
 describe("EV3Backend", () => {
+  it("emits floating-point division for integer operands with a number result", async () => {
+    const program: KobrixaIR = {
+      ...ir,
+      globals: [{ name: "fraction", type: { kind: "number" }, scope: "global" }],
+      functions: [
+        {
+          ...ir.functions[0]!,
+          blocks: [
+            {
+              id: "entry",
+              instructions: [
+                {
+                  op: "binary",
+                  target: "fraction",
+                  operator: "/",
+                  left: { kind: "integer", value: 7 },
+                  right: { kind: "integer", value: 2 },
+                },
+              ],
+              terminator: { op: "return" },
+            },
+          ],
+        },
+      ],
+    };
+    const result = await new EV3Backend().compile(program, new AbortController().signal);
+    expect(result.diagnostics).toEqual([]);
+    const code = Buffer.from(result.rbf!).subarray(inspectRbf(result.rbf!).offsets[0]);
+    expect(code[0]).toBe(OP.DIV_F);
+    expect(code.readFloatLE(2)).toBe(7);
+    expect(code.readFloatLE(7)).toBe(2);
+  });
+
   it("emits a deterministic, self-consistent RBF image", async () => {
     const backend = new EV3Backend();
     const first = await backend.compile(ir, new AbortController().signal);
@@ -582,23 +615,31 @@ describe("LCD numeric operands", () => {
 });
 
 describe("native sound resources", () => {
-  it("lets the firmware resolve the resource directory and RSF extension", async () => {
-    const program = structuredClone(ir);
-    program.functions[0]!.blocks[0]!.instructions = [
-      {
-        op: "ev3-call",
-        operation: "Speaker.Play",
-        args: [
-          { kind: "integer", value: 20 },
-          { kind: "string", value: "assets/chime" },
-        ],
-      },
-    ];
-    const result = await new EV3Backend().compile(program, new AbortController().signal);
-    expect(result.diagnostics).toEqual([]);
-    const start = inspectRbf(result.rbf!).offsets[0]!;
-    expect([...result.rbf!.slice(start, start + 4)]).toEqual([OP.SOUND, 2, 20, 0x84]);
-    expect(new TextDecoder().decode(result.rbf)).toContain("assets/chime\0");
-    expect(new TextDecoder().decode(result.rbf)).not.toContain(".rsf");
-  });
+  it.each([
+    undefined,
+    "/home/root/lms2012/prjs/KobrixaCard",
+    "/home/root/lms2012/prjs/SD_Card/KobrixaSDCard",
+  ])(
+    "lets firmware resolve sound resources with runtime directory %s",
+    async (runtimeDirectory) => {
+      const program = structuredClone(ir);
+      if (runtimeDirectory) program.program.runtimeDirectory = runtimeDirectory;
+      program.functions[0]!.blocks[0]!.instructions = [
+        {
+          op: "ev3-call",
+          operation: "Speaker.Play",
+          args: [
+            { kind: "integer", value: 20 },
+            { kind: "string", value: "assets/chime" },
+          ],
+        },
+      ];
+      const result = await new EV3Backend().compile(program, new AbortController().signal);
+      expect(result.diagnostics).toEqual([]);
+      const start = inspectRbf(result.rbf!).offsets[0]!;
+      expect([...result.rbf!.slice(start, start + 4)]).toEqual([OP.SOUND, 2, 20, 0x84]);
+      expect(new TextDecoder().decode(result.rbf)).toContain("assets/chime\0");
+      expect(new TextDecoder().decode(result.rbf)).not.toContain(".rsf");
+    },
+  );
 });

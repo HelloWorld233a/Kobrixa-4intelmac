@@ -11,3 +11,11 @@ Use integer frequency, volume, duration, delay, and stop operations with the bui
 - [speaker-scale](./speaker-scale/) — Raise the pitch with a finite loop.／以有限迴圈逐步提高音調。
 - [speaker-interrupt](./speaker-interrupt/) — Stop a long tone before its requested duration.／在長音調結束前將它停止。
 - [speaker-melody](./speaker-melody/) — Play a short sequence of named notes.／播放一段簡短的具名音符序列。
+
+## New lessons / 新課程
+
+- [computed-arpeggio](./computed-arpeggio/) — Computed arpeggio／計算琶音。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [note-busy-sequence](./note-busy-sequence/) — Note and busy sequence／音符與忙碌狀態序列

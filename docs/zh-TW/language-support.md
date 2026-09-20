@@ -54,3 +54,13 @@ Clean-room 前端的目標是與支援的舊版程式行為相容，包括：
 - 每個回歸都使用能重現問題的最小獨立撰寫 fixture。
 - 模擬不足時，以參考 EV3 實機測試定義行為。
 - 確定性編譯測試可以比較不同 Kobrixa 建置的輸出，但不要求與第三方編譯器位元組相同。
+
+## 數值回傳與文字邊界
+
+除法（`/`）即使使用整數運算元也會產生浮點結果，例如 `7 / 2` 為 `3.5`。同一函式的數值回傳分支共用推論出的表示方式；含浮點回傳分支時，整數分支會提升為浮點。整數與布林回傳值使用對應的 EV3 呼叫參數寬度；不相容的回傳型別會回報 `BP2010`。
+
+文字搜尋與擷取的位置從 1 起算。`Text.GetIndexOf` 找不到時回傳 0；`Text.GetSubText` 會將過長的擷取範圍限制於來源尾端，起點無效或長度不為正數時回傳空字串。搜尋成功的分支依照韌體的字串相等結果判斷。可執行案例與字節碼預期值請見[新增範例課程](../../examples/NEW-EXAMPLES.md)。
+
+## Example-driven runtime support / 範例驗證的執行支援
+
+See the [expanded curriculum](../../examples/CLEV3R-PARITY.md) and its bytecode audit. Recursive call groups support 32 simultaneous frames with an explicit overflow stop; native function objects are not reentrant. Mutex acquisition is serialized through a shared native subcall. Basic Plus trigonometric APIs use radians and convert to/from EV3 native degrees. Byte and I²C/file byte values preserve 0–255. Folder in the entry source selects internal or SD deployment and runtime paths.／請見擴充課程與字節碼稽核。遞迴群組支援同時 32 層，超限明確停止；原生函式物件不可重入。互斥鎖取得透過共用原生子呼叫序列化。三角函數使用弧度並轉換 EV3 的度數；Byte、I²C 與檔案位元組保留 0–255。入口 Folder 設定內建或 SD 部署與執行路徑。

@@ -1,0 +1,20 @@
+' Independently authored Kobrixa lesson.
+descending = 0
+For value = 5 To 1 Step -2
+  descending += value
+EndFor
+ascending = 0
+For value = 1 To 5 Step 2
+  ascending += value
+EndFor
+skipped = 0
+For value = 3 To 1
+  skipped++
+EndFor
+For value = 1 To 3 Step -1
+  skipped++
+EndFor
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Down/up: " + descending + "/" + ascending)
+LCD.Text(1, 4, 32, 1, "Skipped: " + skipped)
+Program.Delay(1500)

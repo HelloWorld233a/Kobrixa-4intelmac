@@ -1,0 +1,6 @@
+' Independently authored Kobrixa lesson.
+For power = 10 To 30 Step 10
+  Motor.StartPower("A", power)
+  Program.Delay(100)
+EndFor
+Motor.Stop("A", true)

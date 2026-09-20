@@ -1,0 +1,17 @@
+' Independently authored Kobrixa curriculum.
+started = EV3.Time
+For tick = 0 To 3
+  If Sensor.ReadPercent(1) >= 50 Then
+    Motor.Start("A", 18)
+  Else
+    Motor.Stop("A", true)
+  EndIf
+  If Math.Remainder(tick, 2) = 0 Then
+    EV3.SetLEDColor("GREEN", "NORMAL")
+  Else
+    EV3.SetLEDColor("ORANGE", "NORMAL")
+  EndIf
+  Program.Delay(25)
+EndFor
+Motor.Stop("A", true)
+LCD.Text(1, 4, 16, 1, "Elapsed: " + (EV3.Time - started))

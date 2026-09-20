@@ -1,0 +1,17 @@
+' Independently authored Kobrixa lesson.
+source = "EV3:ready"
+position = Text.GetIndexOf(source, ":")
+state = Text.GetSubTextToEnd(source, position + 1)
+prefix = Text.GetSubText(source, 1, 3)
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, prefix + " " + state)
+LCD.Text(1, 4, 32, 1, "Colon: " + position)
+LCD.Text(1, 4, 52, 1, "Missing: " + Text.GetIndexOf(source, "!"))
+If Text.StartsWith(source, "EV3") And Text.EndsWith(source, "ready") Then
+  LCD.Text(1, 4, 72, 1, "Pattern matched")
+EndIf
+tail = Text.GetSubText(source, 8, 99)
+empty = Text.GetSubText(source, 10, 2)
+LCD.Text(1, 4, 92, 1, "Edge: " + tail + "/" + Text.GetLength(empty))
+LCD.Text(1, 4, 112, 1, "Zero: " + Text.GetLength(Text.GetSubText(source, 0, 2)))
+Program.Delay(1500)

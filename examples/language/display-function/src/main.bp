@@ -1,0 +1,8 @@
+' Independently authored Kobrixa curriculum.
+ShowLine(8, 16, "Typed inputs")
+Program.Delay(1000)
+Function ShowLine(in number x, in number y, in string message)
+  LCD.Clear()
+  LCD.Text(1, x, y, 1, message)
+  LCD.Update()
+EndFunction

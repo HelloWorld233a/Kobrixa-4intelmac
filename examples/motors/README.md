@@ -15,3 +15,15 @@
 - [motor-counter](./motor-counter/) — Read and branch on motor A's encoder count.／讀取 A 馬達編碼器並據此分支。
 - [motor-steer-sync](./motor-steer-sync/) — Make coordinated A and D steering and synchronized moves.／協調 A、D 馬達的轉向與同步移動。
 - [motor-schedule](./motor-schedule/) — Schedule a ramped motor movement and wait for completion.／排程帶有加減速的馬達移動並等待完成。
+
+## New lessons / 新課程
+
+- [power-ramp](./power-ramp/) — Power ramp／功率漸增。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [encoder-profile](./encoder-profile/) — Encoder profile／編碼器曲線
+- [polarity-feedback](./polarity-feedback/) — Motor polarity and feedback／馬達極性與回饋
+- [steering-lifecycle](./steering-lifecycle/) — Steering lifecycle／轉向控制週期
+- [sync-lifecycle](./sync-lifecycle/) — Synchronization lifecycle／同步控制週期
+- [paired-trajectories](./paired-trajectories/) — Paired trajectories／雙馬達軌跡

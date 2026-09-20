@@ -1,0 +1,3 @@
+Function Twice(in number input)
+  Return input * 2
+EndFunction

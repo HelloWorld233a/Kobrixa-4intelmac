@@ -27,6 +27,8 @@ import {
 } from "./opcodes.js";
 import { createRbf, inspectRbf, type RbfObject } from "./rbf.js";
 
+import { expandRecursiveCalls } from "./recursion.js";
+
 const OBJECT_EPILOGUE = Symbol("object-epilogue");
 type Label = string | symbol;
 
@@ -167,6 +169,8 @@ class ObjectAssembler {
     readonly mailboxAllocator: { next: number },
     readonly globalAllocations: ReadonlyMap<string, Allocation>,
     readonly threadObjects: ReadonlyMap<string, number>,
+    readonly mutexObjectId: number,
+    readonly runtimeDirectory?: string,
   ) {
     const parameters = orderedParameters(fn);
     const variables =
@@ -392,18 +396,25 @@ class ObjectAssembler {
   }
 
   private byteParameter(value: IRValue): number[] | undefined {
-    if (value.kind === "integer") return lc(value.value);
-    if (value.kind === "number") {
-      const scratch = this.scratch(1);
-      this.bytes.push(OP.MOVE_F_8, ...lcf(value.value), ...lv(scratch));
+    // Byte APIs retain the low eight bits. EV3 MOVE32_8 / MOVEF_8 saturate,
+    // so take the raw low byte of a DATA32 instead of narrowing numerically.
+    // Materialize high-bit constants before MOVE8_8: the stock VM rejects
+    // narrowing literal values and reserves -128 as the DATA8 NaN sentinel.
+    if (value.kind === "integer") {
+      const byte = value.value & 255;
+      if (byte < 128) return lc(byte);
+      const scratch = this.scratch(4);
+      this.bytes.push(OP.MOVE_32_32, ...lc(byte), ...lv(scratch));
       return lv(scratch);
     }
-    const parameter = this.parameter(value);
-    if (!parameter) return undefined;
-    if (this.typeOf(value)?.kind !== "number") return parameter;
-    const scratch = this.scratch(1);
-    this.bytes.push(OP.MOVE_F_8, ...parameter, ...lv(scratch));
-    return lv(scratch);
+    return this.integerParameter(value);
+  }
+
+  private unsignedByte(source: number[], destination: number[]): void {
+    // MOVE8_32 sign-extends, including the -128 NaN sentinel. Zero-fill a
+    // DATA32 and copy its low byte to represent the entire unsigned range.
+    this.bytes.push(OP.MOVE_32_32, ...lc(0), ...destination);
+    this.bytes.push(OP.MOVE_8_8, ...source, ...destination);
   }
 
   private wordParameter(value: IRValue): number[] | undefined {
@@ -419,9 +430,13 @@ class ObjectAssembler {
   }
 
   private byteResult(target: Allocation, emit: (destination: number[]) => void): void {
+    if (target.type.kind === "boolean") {
+      emit(this.location(target));
+      return;
+    }
     const scratch = this.scratch(1);
     emit(lv(scratch));
-    this.bytes.push(OP.MOVE_8_32, ...lv(scratch), ...this.location(target));
+    this.unsignedByte(lv(scratch), this.location(target));
   }
 
   private motorSyncParameters(
@@ -654,9 +669,9 @@ class ObjectAssembler {
     this.bytes.push(OP.ARRAY, ...lc(ARRAY.CREATE_8), ...lc(bytes), ...lv(handle));
     for (let index = 0; index < bytes; index += 1) {
       const value = this.scratch(4);
-      const byte = this.scratch(1);
+      const byte = this.scratch(4);
       this.bytes.push(OP.ARRAY_READ, ...sourceParameter, ...lc(index), ...lv(value));
-      this.bytes.push(OP.MOVE_F_8, ...lv(value), ...lv(byte));
+      this.bytes.push(OP.MOVE_F_32, ...lv(value), ...lv(byte));
       this.bytes.push(OP.ARRAY_WRITE, ...lv(handle), ...lc(index), ...lv(byte));
     }
     return handle;
@@ -669,7 +684,8 @@ class ObjectAssembler {
       const byte = this.scratch(1);
       const value = this.scratch(4);
       this.bytes.push(OP.ARRAY_READ, ...lv(readHandle), ...lc(index), ...lv(byte));
-      this.bytes.push(OP.MOVE_8_F, ...lv(byte), ...lv(value));
+      this.unsignedByte(lv(byte), lv(value));
+      this.bytes.push(OP.MOVE_32_F, ...lv(value), ...lv(value));
       this.bytes.push(OP.ARRAY_WRITE, ...lv(result), ...lc(index), ...lv(value));
     }
     this.bytes.push(OP.MOVE_16_32, ...lv(result), ...this.location(target));
@@ -678,7 +694,7 @@ class ObjectAssembler {
   private fileName(value: IRValue): number[] | undefined {
     const source = this.parameter(value);
     if (!source) return undefined;
-    const fullName = this.scratch(300);
+    const fullName = this.scratch(512);
     const firstCharacter = this.scratch(1);
     const absolute = this.scratch(1);
     const relativePath = this.newLabel("relative-file-path");
@@ -694,7 +710,7 @@ class ObjectAssembler {
     this.bytes.push(
       OP.STRING,
       ...lc(STRING.ADD),
-      ...lcs("/home/root/lms2012/prjs/"),
+      ...lcs((this.runtimeDirectory ?? "/home/root/lms2012/prjs") + "/"),
       ...source,
       ...lv(fullName),
     );
@@ -706,7 +722,7 @@ class ObjectAssembler {
   private mediaFileName(value: IRValue, extension: string): number[] | undefined {
     const name = this.fileName(value);
     if (!name) return undefined;
-    const fullName = this.scratch(300);
+    const fullName = this.scratch(512);
     this.bytes.push(OP.STRING, ...lc(STRING.ADD), ...name, ...lcs(extension), ...lv(fullName));
     return lv(fullName);
   }
@@ -819,6 +835,7 @@ class ObjectAssembler {
         return;
       }
       const integerOperands =
+        target.type.kind !== "number" &&
         this.typeOf(instruction.left)?.kind === "integer" &&
         this.typeOf(instruction.right)?.kind === "integer";
       const numericLeft = integerOperands ? left : this.floatParameter(instruction.left);
@@ -997,6 +1014,13 @@ class ObjectAssembler {
       for (let index = 0; index < args.length; index += 1) {
         if (index !== nonInteger) args[index] = this.integerParameter(instruction.args[index]!);
       }
+    }
+    // Native timing and motor operands are integer fields, including computed
+    // expressions stored as DATAF. Convert before encoding the instruction.
+    if (instruction.operation.startsWith("Motor") || instruction.operation === "Program.Delay") {
+      instruction.args.forEach((value, index) => {
+        if (this.typeOf(value)?.kind === "number") args[index] = this.integerParameter(value);
+      });
     }
     const arg = (index: number): number[] => args[index]!;
     const floatArg = (index: number): number[] | undefined =>
@@ -1602,7 +1626,7 @@ class ObjectAssembler {
           ...lv(candidate),
           ...lv(match),
         );
-        this.bytes.push(OP.JR_FALSE, ...lv(match));
+        this.bytes.push(OP.JR_TRUE, ...lv(match));
         this.addPatch(found);
         this.bytes.push(OP.ADD_32, ...lv(index), ...lc(1), ...lv(index));
         this.bytes.push(OP.CP_LTEQ_32, ...lv(index), ...lv(limit), ...lv(valid));
@@ -1672,7 +1696,7 @@ class ObjectAssembler {
         }
         this.markLabel(copy);
         this.bytes.push(OP.ADD_32, ...lc(buffer), ...lv(start), ...lv(offset));
-        this.bytes.push(OP.ADD_32, ...lv(requested), ...lc(1), ...lv(size));
+        this.bytes.push(OP.MOVE_32_32, ...lv(requested), ...lv(size));
         this.bytes.push(
           OP.MEMORY_READ,
           ...lc(1),
@@ -1680,6 +1704,19 @@ class ObjectAssembler {
           ...lv(offset),
           ...lv(size),
           ...this.location(target),
+        );
+        // Copy only the requested characters, then terminate the slice. The
+        // next source character need not be NUL when taking a short prefix.
+        this.bytes.push(OP.ADD_32, ...lc(target.offset), ...lv(size), ...lv(offset));
+        const terminator = this.scratch(1);
+        this.bytes.push(OP.MOVE_8_8, ...lc(0), ...lv(terminator));
+        this.bytes.push(
+          OP.MEMORY_WRITE,
+          ...lc(1),
+          ...lc(target.scope === "global" ? 0 : this.objectId),
+          ...lv(offset),
+          ...lc(1),
+          ...lv(terminator),
         );
         this.bytes.push(OP.JR);
         this.addPatch(done);
@@ -1788,7 +1825,7 @@ class ObjectAssembler {
         if (!target) break;
         const text = this.scratch(2);
         this.bytes.push(OP.FILE, ...lc(FILE.READ_TEXT), ...arg(0), ...lc(0), ...lc(1), ...lv(text));
-        this.bytes.push(OP.MOVE_8_32, ...lv(text), ...this.location(target));
+        this.unsignedByte(lv(text), this.location(target));
         return;
       }
       case "EV3File.ConvertToNumber":
@@ -1937,7 +1974,7 @@ class ObjectAssembler {
         this.addPatch(loop);
         this.markLabel(done);
         this.bytes.push(OP.FILE, ...lc(FILE.CLOSE), ...lv(handle));
-        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...this.location(target));
+        this.unsignedByte(lv(byte), this.location(target));
         return;
       }
       case "Byte.NOT": {
@@ -1978,15 +2015,16 @@ class ObjectAssembler {
         if (this.typeOf(index)?.kind === "number")
           this.bytes.push(OP.MOVE_F_32, ...indexValue, ...lv(indexInteger));
         else this.bytes.push(OP.MOVE_32_32, ...indexValue, ...lv(indexInteger));
-        const rotationInteger = this.scratch(4);
-        const rotation = this.scratch(1);
-        const rotated = this.scratch(1);
-        this.bytes.push(OP.SUB_32, ...lc(8), ...lv(indexInteger), ...lv(rotationInteger));
-        this.bytes.push(OP.AND_32, ...lv(rotationInteger), ...lc(7), ...lv(rotationInteger));
-        this.bytes.push(OP.MOVE_32_8, ...lv(rotationInteger), ...lv(rotation));
-        this.bytes.push(OP.RL_8, ...value, ...lv(rotation), ...lv(rotated));
+        const shift = this.scratch(1);
+        const mask = this.scratch(1);
+        const masked = this.scratch(1);
+        this.bytes.push(OP.AND_32, ...lv(indexInteger), ...lc(7), ...lv(indexInteger));
+        this.bytes.push(OP.MOVE_32_8, ...lv(indexInteger), ...lv(shift));
+        // Firmware RL8 is a left shift, despite its "rotate" name.
+        this.bytes.push(OP.RL_8, ...lc(1), ...lv(shift), ...lv(mask));
+        this.bytes.push(OP.AND_8, ...value, ...lv(mask), ...lv(masked));
         this.byteResult(target, (destination) => {
-          this.bytes.push(OP.AND_8, ...lv(rotated), ...lc(1), ...destination);
+          this.bytes.push(OP.CP_NEQ_8, ...lv(masked), ...lc(0), ...destination);
         });
         return;
       }
@@ -2000,7 +2038,7 @@ class ObjectAssembler {
         const valueFloat = this.scratch(4);
         const multiplier = this.scratch(4);
         const result = this.scratch(4);
-        this.bytes.push(OP.MOVE_8_32, ...value, ...lv(valueInteger));
+        this.unsignedByte(value, lv(valueInteger));
         this.bytes.push(OP.MOVE_32_F, ...lv(valueInteger), ...lv(valueFloat));
         this.bytes.push(OP.MATH, ...lc(MATH.POW), ...lcf(2), ...distance, ...lv(multiplier));
         this.bytes.push(
@@ -2012,9 +2050,7 @@ class ObjectAssembler {
         if (instruction.operation === "Byte.SHR")
           this.bytes.push(OP.MATH, ...lc(MATH.FLOOR), ...lv(result), ...lv(result));
         else this.bytes.push(OP.MATH, ...lc(MATH.MOD), ...lv(result), ...lcf(256), ...lv(result));
-        const byte = this.scratch(1);
-        this.bytes.push(OP.MOVE_F_8, ...lv(result), ...lv(byte));
-        this.bytes.push(OP.MOVE_8_32, ...lv(byte), ...this.location(target));
+        this.bytes.push(OP.MOVE_F_32, ...lv(result), ...this.location(target));
         return;
       }
       case "Byte.ToLogic": {
@@ -2109,7 +2145,7 @@ class ObjectAssembler {
           ...lv(character),
         );
         this.bytes.push(OP.CP_EQ_8, ...lv(character), ...lc(0), ...lv(inRange));
-        this.bytes.push(OP.JR_FALSE, ...lv(inRange));
+        this.bytes.push(OP.JR_TRUE, ...lv(inRange));
         this.addPatch(done);
         this.bytes.push(OP.MOVE_8_32, ...lv(character), ...lv(characterNumber));
         this.bytes.push(OP.CP_GTEQ_32, ...lv(characterNumber), ...lc(48), ...lv(inRange));
@@ -2161,7 +2197,12 @@ class ObjectAssembler {
         );
         this.bytes.push(OP.ADD_32, ...lv(value), ...lv(digit), ...lv(value));
         this.markLabel(next);
-        this.bytes.push(OP.CP_GT_32, ...lv(index), ...lc(126), ...lv(inRange));
+        this.bytes.push(
+          OP.CP_GT_32,
+          ...lv(index),
+          ...lc(buffer + STRING_BYTES - 2),
+          ...lv(inRange),
+        );
         this.bytes.push(OP.JR_FALSE, ...lv(inRange));
         this.addPatch(loop);
         this.markLabel(done);
@@ -2174,7 +2215,7 @@ class ObjectAssembler {
         const value = this.byteParameter(instruction.args[0]!);
         if (!value) break;
         const number = this.scratch(4);
-        this.bytes.push(OP.MOVE_8_32, ...value, ...lv(number));
+        this.unsignedByte(value, lv(number));
         this.bytes.push(
           OP.STRING,
           ...lc(STRING.NUMBER_FORMATTED),
@@ -2196,10 +2237,15 @@ class ObjectAssembler {
         if (!target) break;
         this.bytes.push(OP.MOVE_F_F, ...lcf(Math.PI), ...this.location(target));
         return;
-      case "Math.GetRandomNumber":
+      case "Math.GetRandomNumber": {
         if (!target) break;
-        this.bytes.push(OP.RANDOM, ...lc(1), ...arg(0), ...this.location(target));
+        const bound = this.wordParameter(instruction.args[0]!);
+        if (!bound) break;
+        const result = this.scratch(2);
+        this.bytes.push(OP.RANDOM, ...lc(1), ...bound, ...lv(result));
+        this.bytes.push(OP.MOVE_16_32, ...lv(result), ...this.location(target));
         return;
+      }
       case "Math.DoubleToDecimal": {
         if (!target) break;
         const source = floatArg(0);
@@ -2255,8 +2301,13 @@ class ObjectAssembler {
       case "Math.SquareRoot":
       case "Math.Round": {
         if (!target) break;
-        const source = floatArg(0);
+        let source = floatArg(0);
         if (!source) break;
+        if (["Math.Sin", "Math.Cos", "Math.Tan"].includes(instruction.operation)) {
+          const degrees = this.scratch(4);
+          this.bytes.push(OP.MUL_F, ...source, ...lcf(180 / Math.PI), ...lv(degrees));
+          source = lv(degrees);
+        }
         const command: Partial<Record<typeof instruction.operation, number>> = {
           "Math.Abs": MATH.ABS,
           "Math.Ceiling": MATH.CEIL,
@@ -2278,6 +2329,13 @@ class ObjectAssembler {
           ...source,
           ...this.location(target),
         );
+        if (["Math.ArcSin", "Math.ArcCos", "Math.ArcTan"].includes(instruction.operation))
+          this.bytes.push(
+            OP.MUL_F,
+            ...this.location(target),
+            ...lcf(Math.PI / 180),
+            ...this.location(target),
+          );
         return;
       }
       case "Math.Power":
@@ -2592,22 +2650,16 @@ class ObjectAssembler {
         return;
       }
       case "Thread.Lock": {
-        const previous = this.scratch(1);
         const acquired = this.scratch(1);
         const loop = this.newLabel("thread-lock");
-        const busy = this.newLabel("thread-lock-busy");
         const done = this.newLabel("thread-lock-done");
         this.markLabel(loop);
-        this.bytes.push(OP.ARRAY_READ, ...gv(0), ...arg(0), ...lv(previous));
-        this.bytes.push(OP.CP_EQ_8, ...lv(previous), ...lc(0), ...lv(acquired));
-        this.bytes.push(OP.JR_FALSE, ...lv(acquired));
-        this.addPatch(busy);
-        this.bytes.push(OP.ARRAY_WRITE, ...gv(0), ...arg(0), ...lc(1));
-        this.bytes.push(OP.JR);
+        // A shared SUBCALL serializes the read/test/write even when the VM
+        // preempts between instructions. Busy callers retry in the firmware.
+        this.bytes.push(OP.CALL, ...lc(this.mutexObjectId), ...lc(2), ...arg(0), ...lv(acquired));
+        this.bytes.push(OP.JR_TRUE, ...lv(acquired));
         this.addPatch(done);
-        this.markLabel(busy);
-        this.bytes.push(OP.SLEEP);
-        this.bytes.push(OP.JR);
+        this.bytes.push(OP.SLEEP, OP.JR);
         this.addPatch(loop);
         this.markLabel(done);
         return;
@@ -3184,7 +3236,7 @@ class ObjectAssembler {
         if (instruction.operation === "Sensor.ReadI2CRegister") {
           const value = this.scratch(1);
           this.bytes.push(OP.ARRAY_READ, ...lv(readHandle), ...lc(0), ...lv(value));
-          this.bytes.push(OP.MOVE_8_32, ...lv(value), ...this.location(target));
+          this.unsignedByte(lv(value), this.location(target));
         } else this.i2cResultArray(readHandle, readBytes, target);
         return;
       }
@@ -3291,14 +3343,25 @@ class ObjectAssembler {
           }
           this.bytes.push(OP.STRING, ...lc(STRING.DUPLICATE), ...value, ...lv(result.offset));
         } else {
-          const value = this.floatParameter(terminator.value);
+          const value =
+            result.type.kind === "integer"
+              ? this.integerParameter(terminator.value)
+              : result.type.kind === "boolean"
+                ? this.parameter(terminator.value)
+                : this.floatParameter(terminator.value);
           if (!value) {
             this.diagnostics.push(
               diagnostic("EV32004", "Unable to encode the function return value.", terminator.span),
             );
             return;
           }
-          this.bytes.push(OP.MOVE_F_F, ...value, ...lv(result.offset));
+          const opcode =
+            result.type.kind === "integer"
+              ? OP.MOVE_32_32
+              : result.type.kind === "boolean"
+                ? OP.MOVE_8_8
+                : OP.MOVE_F_F;
+          this.bytes.push(opcode, ...value, ...lv(result.offset));
         }
       }
       this.bytes.push(OP.JR);
@@ -3335,6 +3398,7 @@ export class EV3Backend implements CompilerBackend {
   readonly id = "ev3-native" as const;
 
   async compile(ir: KobrixaIR, signal: AbortSignal): Promise<BackendResult> {
+    ir = expandRecursiveCalls(ir);
     const diagnostics: Diagnostic[] = [];
     const objects: RbfObject[] = [];
     const listing: string[] = [];
@@ -3386,6 +3450,7 @@ export class EV3Backend implements CompilerBackend {
     const threadObjects = new Map(
       [...threadTargets].map((name, index) => [name, ir.functions.length + index + 1]),
     );
+    const mutexObjectId = ir.functions.length + threadObjects.size + 1;
     for (const [index, fn] of ir.functions.entries()) {
       const assembler = new ObjectAssembler(
         fn,
@@ -3396,6 +3461,8 @@ export class EV3Backend implements CompilerBackend {
         mailboxAllocator,
         globalAllocations,
         threadObjects,
+        mutexObjectId,
+        ir.program.runtimeDirectory,
       );
       const code = assembler.assemble(signal);
       diagnostics.push(...assembler.diagnostics);
@@ -3422,6 +3489,32 @@ export class EV3Backend implements CompilerBackend {
       objects.push({ ownerObjectId: 0, triggerCount: 0, localBytes: 0, code });
       listing.push(
         `${objectId}\tthread:${functionName}\tlocals=0\t${[...code].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}`,
+      );
+    }
+    if (hasMutexes) {
+      const write = [OP.ARRAY_WRITE, ...gv(0), ...lv(0), ...lc(1)];
+      const code = Uint8Array.from([
+        2,
+        0x82,
+        0x40, // DATA32 index input, DATA8 acquired output
+        OP.ARRAY_READ,
+        ...gv(0),
+        ...lv(0),
+        ...lv(5),
+        OP.CP_EQ_8,
+        ...lv(5),
+        ...lc(0),
+        ...lv(4),
+        OP.JR_FALSE,
+        ...lv(4),
+        ...relativeOffset(write.length),
+        ...write,
+        OP.RETURN,
+        OP.OBJECT_END,
+      ]);
+      objects.push({ ownerObjectId: 0, triggerCount: 1, localBytes: 6, code });
+      listing.push(
+        `${mutexObjectId}\tmutex:try-acquire\tlocals=6\t${[...code].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}`,
       );
     }
     if (diagnostics.some((item) => item.severity === "error")) return { diagnostics };

@@ -1,0 +1,12 @@
+' Independently authored Kobrixa curriculum.
+Sensor.SetMode(1, 4)
+number red
+number green
+number blue
+Sensor1.Raw3(red, green, blue)
+LCD.Text(1, 4, 12, 1, red + "," + green + "," + blue)
+LCD.Text(1, 4, 32, 1, "One: " + Sensor1.Raw1)
+LCD.Text(1, 4, 52, 1, "Two: " + Sensor2.Raw1)
+LCD.Text(1, 4, 72, 1, "Three: " + Sensor3.Raw1)
+LCD.Text(1, 4, 92, 1, "Four: " + Sensor4.Raw1)
+Program.Delay(1000)

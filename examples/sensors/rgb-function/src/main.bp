@@ -1,0 +1,13 @@
+' Independently authored Kobrixa curriculum.
+number red
+number green
+number blue
+Sensor.SetMode(1, 4)
+Sensor1.Raw3(red, green, blue)
+ShowRgb(red, green, blue)
+Program.Delay(1000)
+Function ShowRgb(in number r, in number g, in number b)
+  LCD.Text(1, 4, 12, 1, "R: " + r)
+  LCD.Text(1, 4, 32, 1, "G: " + g)
+  LCD.Text(1, 4, 52, 1, "B: " + b)
+EndFunction

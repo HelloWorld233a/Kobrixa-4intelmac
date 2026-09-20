@@ -1,0 +1,31 @@
+' Independently authored Kobrixa lesson.
+number doubled
+string label
+Describe(6, doubled, label)
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, label + doubled)
+Describe(-3, doubled, label)
+LCD.Text(1, 4, 32, 1, label + doubled)
+LCD.Text(1, 4, 52, 1, "Marker: " + Marker())
+If Enabled() Then
+  LCD.Text(1, 4, 72, 1, "Enabled")
+EndIf
+Program.Delay(1500)
+
+Function Describe(in number value, out number result, out string caption)
+  result = value * 2
+  If value >= 0 Then
+    caption = "Positive: "
+  Else
+    caption = "Negative: "
+  EndIf
+  Return
+EndFunction
+
+Function Marker()
+  Return 7
+EndFunction
+
+Function Enabled()
+  Return true
+EndFunction

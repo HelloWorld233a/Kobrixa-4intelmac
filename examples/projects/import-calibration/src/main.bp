@@ -1,0 +1,10 @@
+' Independently authored Kobrixa lesson.
+Import "lib/calibration"
+low = ClampPercent(-10)
+mid = ClampPercent(42.5)
+high = ClampPercent(120)
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Clamp: " + low)
+LCD.Text(1, 4, 32, 1, "Clamp: " + mid)
+LCD.Text(1, 4, 52, 1, "Clamp: " + high)
+Program.Delay(1500)

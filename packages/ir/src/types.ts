@@ -82,6 +82,7 @@ export interface KobrixaIR {
   program: {
     name: string;
     entryFunction: string;
+    runtimeDirectory?: string;
   };
   globals: IRVariable[];
   functions: IRFunction[];

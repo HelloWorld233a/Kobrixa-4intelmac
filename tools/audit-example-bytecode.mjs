@@ -1,7 +1,8 @@
 // Audit-only EV3 bytecode interpreter. Device operations use deterministic stubs.
 // This is not a complete EV3 VM or a hardware certification tool.
-// Usage: node tools/audit-example-bytecode.mjs bytecodes.h bytecodes.c output-directory
+// Usage: node tools/audit-example-bytecode.mjs bytecodes.h bytecodes.c output-directory [selection.json]
 import assert from "node:assert/strict";
+import { auditCompilerRegressions } from "./audit-compiler-regressions.mjs";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -9,8 +10,9 @@ import { createHash } from "node:crypto";
 import { EV3Backend, inspectRbf } from "../packages/backend-ev3/dist/index.js";
 import { BasicPlusFrontend } from "../frontends/basic-plus/dist/index.js";
 import { loadProject } from "../packages/compiler/dist/index.js";
+import { validateIR } from "../packages/ir/dist/index.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
-const [headerPath, tablePath, outputPath] = process.argv.slice(2);
+const [headerPath, tablePath, outputPath, selectionPath] = process.argv.slice(2);
 if (!headerPath || !tablePath || !outputPath)
   throw Error("Expected bytecodes.h, bytecodes.c, and output directory arguments");
 const h = await fs.readFile(headerPath, "utf8"),
@@ -120,6 +122,13 @@ function decode(b) {
     }
     objects.push({ start, end, params, ins, local: b.readUInt32LE(24 + k * 12) });
   }
+  for (const object of objects)
+    for (const instruction of object.ins)
+      if (instruction.name === "CALL") {
+        const callee = objects[instruction.args[0].n - 1];
+        assert(callee, "CALL target is not an object");
+        assert.equal(instruction.args[1].n, callee.params.length, "CALL parameter count");
+      }
   return { info, objects };
 }
 class VM {
@@ -134,15 +143,27 @@ class VM {
     this.trace = [];
     this.time = 1000;
     this.frames = [];
+    this.tasks = [{ frames: this.frames, wake: 0 }];
+    this.taskIndex = 0;
+    this.objectMemory = d.objects.map((o) => Buffer.alloc(o.local));
+    this.activeObjects = new Map();
+    this.scheduler = { threadsStarted: 0, contextSwitches: 0, contendedCalls: 0 };
     this.steps = 0;
     this.covered = new Set();
     this.modes = {};
     this.finished = false;
+    this.sensorReads = 0;
+    this.motorReads = 0;
+    this.randomReads = 0;
+    this.i2cReads = 0;
+    this.mailboxes = new Map();
+    this.i2cMemory = new Map();
     this.start(0);
   }
   start(i, ret) {
     const o = this.d.objects[i];
-    const f = { i, o, pc: o.start, l: Buffer.alloc(o.local), ret };
+    const f = { i, o, pc: o.start, l: this.objectMemory[i], ret };
+    this.activeObjects.set(i, f);
     this.frames.push(f);
     return f;
   }
@@ -161,7 +182,12 @@ class VM {
     return { b, off };
   }
   read(a, t = a.t) {
-    if (a.str !== undefined) return a.str;
+    if (a.str !== undefined) {
+      const bytes = Buffer.from(a.str + "\0\0\0\0");
+      return t === "PARF"
+        ? bytes.readFloatLE()
+        : bytes.readIntLE(0, t === "PAR8" ? 1 : t === "PAR16" ? 2 : 4);
+    }
     if (a.scope) {
       const { b, off } = this.mem(a);
       const n = t === "PAR8" ? 1 : t === "PAR16" ? 2 : 4;
@@ -203,13 +229,25 @@ class VM {
   }
   run() {
     try {
-      while (this.frames.length && this.steps++ < 12000 && !this.finished) {
+      while (
+        this.tasks.some((task) => task.frames.length) &&
+        this.steps++ < (this.s.maxSteps ?? 100000) &&
+        !this.finished
+      ) {
+        if (!this.frames.length || this.tasks[this.taskIndex].wake > this.time) this.schedule();
         const f = this.f(),
           i = f.o.ins.find((x) => x.at === f.pc);
         if (!i) throw Error("bad PC " + f.pc);
         this.covered.add(i.at);
         f.pc = i.end;
         this.execute(i);
+        if (
+          !this.finished &&
+          (this.yielded || this.steps % (this.s.quantum ?? 7) === 0 || !this.frames.length)
+        ) {
+          this.schedule();
+          this.yielded = false;
+        }
       }
       return {
         status: this.bounded
@@ -218,9 +256,11 @@ class VM {
             ? "ended"
             : "bounded",
         steps: this.steps,
+        scheduler: this.scheduler,
         trace: this.trace,
         globals: this.g.toString("hex"),
         covered: this.covered.size,
+        files: [...this.files].map(([name, data]) => ({ name, hex: data.toString("hex") })),
         arrays: [...this.arrays].map(([id, ar]) => ({
           id,
           type: ar.t,
@@ -235,9 +275,26 @@ class VM {
         error: e.message,
         pc: this.f()?.pc,
         steps: this.steps,
+        scheduler: this.scheduler,
         trace: this.trace,
         covered: this.covered.size,
       };
+    }
+  }
+  schedule() {
+    const live = this.tasks.filter((task) => task.frames.length);
+    if (!live.length) return;
+    if (!live.some((task) => task.wake <= this.time))
+      this.time = Math.min(...live.map((task) => task.wake));
+    for (let offset = 1; offset <= this.tasks.length; offset++) {
+      const index = (this.taskIndex + offset) % this.tasks.length,
+        task = this.tasks[index];
+      if (task.frames.length && task.wake <= this.time) {
+        if (index !== this.taskIndex) this.scheduler.contextSwitches++;
+        this.taskIndex = index;
+        this.frames = task.frames;
+        return;
+      }
     }
   }
   execute(i) {
@@ -247,14 +304,23 @@ class VM {
       w = (j, v, t) => this.write(a[j], v, t),
       s = (j) => this.str(a[j]);
     if (n === "OBJECT_END") {
-      this.frames.pop();
+      const ended = this.frames.pop();
+      this.activeObjects.delete(ended.i);
+      if (ended.i === 0) this.finished = true;
       return;
     }
     if (n === "PROGRAM_STOP") {
       this.finished = true;
       return;
     }
-    if (n === "SLEEP") return;
+    if (n === "SLEEP") {
+      this.yielded = true;
+      const wakes = this.tasks
+        .filter((task) => task.frames.length && task.wake > this.time)
+        .map((task) => task.wake);
+      if (wakes.length) this.time = Math.min(...wakes);
+      return;
+    }
     if (n === "JR") {
       this.f().pc += r(0);
       return;
@@ -264,8 +330,16 @@ class VM {
       return;
     }
     if (n === "CALL") {
-      const id = r(0) - 1,
-        caller = this.f(),
+      const id = r(0) - 1;
+      if (this.activeObjects.has(id)) {
+        if (this.frames.some((frame) => frame.i === id))
+          throw Error("Non-reentrant EV3 SUBCALL would deadlock");
+        this.f().pc = i.at;
+        this.scheduler.contendedCalls++;
+        this.yielded = true;
+        return;
+      }
+      const caller = this.f(),
         callee = this.start(id, { caller, args: a.slice(2) });
       let off = 0;
       callee.o.params.forEach((p, j) => {
@@ -291,6 +365,7 @@ class VM {
     if (n === "RETURN") {
       const callee = this.frames.pop(),
         ret = callee.ret;
+      this.activeObjects.delete(callee.i);
       let off = 0;
       if (ret)
         callee.o.params.forEach((p, j) => {
@@ -304,11 +379,43 @@ class VM {
     }
     if (n === "OBJECT_START") {
       this.trace.push({ op: n, id: r(0) });
-      this.start(r(0) - 1);
+      const id = r(0) - 1;
+      if (!this.activeObjects.has(id)) {
+        const previous = this.frames;
+        this.frames = [];
+        this.tasks.push({ frames: this.frames, wake: 0 });
+        this.start(id);
+        this.frames = previous;
+        this.scheduler.threadsStarted++;
+      }
       return;
     }
     if (n.startsWith("MOVE")) {
-      w(1, r(0));
+      let value = r(0);
+      if (a[0].t !== a[1].t) {
+        const minimum = { PAR8: -128, PAR16: -32768, PAR32: -2147483648 };
+        if (value === minimum[a[0].t]) value = NaN;
+        if (a[1].t !== "PARF") {
+          const low = minimum[a[1].t];
+          value = Number.isNaN(value)
+            ? low
+            : Math.min(-low - 1, Math.max(low + 1, Math.trunc(value)));
+        }
+      }
+      w(1, value);
+      return;
+    }
+    if (n === "RANDOM") {
+      const value = this.s.randomValues?.[this.randomReads++] ?? r(0);
+      if (value < r(0) || value > r(1)) throw Error("random scenario outside bounds");
+      w(2, value);
+      this.trace.push({ op: n, min: r(0), max: r(1), value });
+      return;
+    }
+    if (n === "RL8") {
+      const value = r(0) & 255,
+        shift = r(1) & 7;
+      w(2, (value << shift) & 255);
       return;
     }
     if (/^(ADD|SUB|MUL|DIV)(8|16|32|F)$/.test(n)) {
@@ -346,6 +453,13 @@ class VM {
         y = a.length > 3 ? r(2) : 0;
       const val = {
         ABS: () => Math.abs(x),
+        SQRT: () => Math.sqrt(x),
+        SIN: () => Math.sin(Math.fround((x * Math.PI) / 180)),
+        COS: () => Math.cos(Math.fround((x * Math.PI) / 180)),
+        TAN: () => Math.tan(Math.fround((x * Math.PI) / 180)),
+        ASIN: () => (Math.asin(x) * 180) / Math.PI,
+        ACOS: () => (Math.acos(x) * 180) / Math.PI,
+        ATAN: () => (Math.atan(x) * 180) / Math.PI,
         POW: () => x ** y,
         MOD: () => x % y,
         FLOOR: () => Math.floor(x),
@@ -358,6 +472,10 @@ class VM {
     }
     if (n.startsWith("STRING.")) {
       const sub = n.split(".")[1];
+      if (sub === "STRING_TO_VALUE") {
+        w(2, parseFloat(s(1)) || 0);
+        return;
+      }
       if (sub === "DUPLICATE") {
         this.put(a[2], s(1));
         return;
@@ -398,12 +516,18 @@ class VM {
       return;
     }
     if (n === "TIMER_WAIT") {
-      this.time += r(0);
-      w(1, this.time);
+      w(1, this.time + r(0));
       this.trace.push({ op: n, ms: r(0) });
       return;
     }
-    if (n === "TIMER_READY") return;
+    if (n === "TIMER_READY") {
+      if (this.time < r(0)) {
+        this.tasks[this.taskIndex].wake = r(0);
+        this.f().pc = i.at;
+        this.yielded = true;
+      }
+      return;
+    }
     if (n.startsWith("UI_DRAW.")) {
       const sub = n.split(".")[1];
       this.trace.push({
@@ -414,10 +538,14 @@ class VM {
             ["TEXT", "BMPFILE"].includes(sub) && j === 3 ? this.str(x) : this.read(x),
           ),
       });
-      if (this.trace.length > 100) {
+      if (this.trace.length > (this.s.maxTrace ?? 10000)) {
         this.bounded = true;
         this.finished = true;
       }
+      return;
+    }
+    if (n === "UI_READ.GET_VBATT" || n === "UI_READ.GET_IBATT") {
+      w(1, n.endsWith("VBATT") ? 7.5 : 0.25);
       return;
     }
     if (n === "UI_READ.GET_LBATT") {
@@ -434,7 +562,7 @@ class VM {
     }
     if (n.startsWith("UI_BUTTON.")) {
       if (n.endsWith("PRESSED") || n.endsWith("SHORTPRESS"))
-        w(2, Number(r(1) === (this.s.button ?? 2)));
+        w(2, Number((this.s.buttons ?? [this.s.button ?? 2]).includes(r(1))));
       return;
     }
     if (n === "NOTE_TO_FREQ") {
@@ -446,7 +574,13 @@ class VM {
       );
       return;
     }
+    if (n === "SOUND_TEST") {
+      w(0, this.soundBusy ?? 0);
+      this.soundBusy = 0;
+      return;
+    }
     if (n.startsWith("SOUND")) {
+      if (n === "SOUND.TONE" || n === "SOUND.PLAY") this.soundBusy = 1;
       this.trace.push({
         op: n,
         args: a
@@ -456,14 +590,29 @@ class VM {
       return;
     }
     if (n.startsWith("OUTPUT_")) {
-      if (n === "OUTPUT_GET_COUNT") w(2, this.s.motorCount ?? 10);
-      else if (n === "OUTPUT_TEST") w(2, 0);
+      if (n === "OUTPUT_GET_COUNT") {
+        if (this.s.motorCounts && this.motorReads >= this.s.motorCounts.length)
+          throw Error("motor scenario exhausted");
+        w(2, this.s.motorCounts?.[this.motorReads++] ?? this.s.motorCount ?? 10);
+      } else if (n === "OUTPUT_READ") {
+        w(2, this.s.motorSpeed ?? 0);
+        w(3, this.s.motorCount ?? 10);
+      } else if (n === "OUTPUT_TEST") w(2, 0);
       this.trace.push({ op: n, args: a.map((x) => this.read(x)) });
       return;
     }
     if (n === "INPUT_READY") return;
+    if (n === "INPUT_TEST") {
+      w(2, 0);
+      return;
+    }
     if (n === "INPUT_READ") {
-      w(4, this.s.sensor ?? 42);
+      const values = this.s.sensorValues;
+      if (values && this.sensorReads >= values.length) throw Error("sensor scenario exhausted");
+      const value = values ? values[this.sensorReads] : (this.s.sensor ?? 42);
+      this.sensorReads++;
+      w(4, value);
+      this.trace.push({ op: n, args: a.slice(0, 4).map((x) => this.read(x)), value });
       return;
     }
     if (n === "INPUT_DEVICE.GET_NAME") {
@@ -479,21 +628,50 @@ class VM {
       const shift = n === "INPUT_READEXT" ? 0 : 1,
         idx = n === "INPUT_READEXT" ? 6 : 6;
       if (r(shift + 3) !== -1) this.modes[r(shift + 1)] = r(shift + 3);
-      for (let j = idx; j < a.length; j++) w(j, this.s.sensor ?? 42, "PAR32");
+      for (let j = idx; j < a.length; j++)
+        w(j, this.s.rawValues?.[j - idx] ?? this.s.sensor ?? 42, "PAR32");
       return;
     }
     if (n === "INPUT_DEVICE.SETUP") {
-      const dst = this.mem(a[8]);
-      dst.b[dst.off] = this.s.i2c ?? 42;
+      const src = this.mem(a[6]),
+        dst = this.mem(a[8]);
+      const request = [...src.b.subarray(src.off, src.off + r(5))];
+      const count = r(7),
+        key = `${r(1)}:${r(2)}:${request[0]}:`;
+      if (count === 0) {
+        request
+          .slice(2)
+          .forEach((value, index) => this.i2cMemory.set(key + (request[1] + index), value));
+      } else {
+        const reply = this.s.i2cReplies?.[this.i2cReads++];
+        if (this.s.i2cReplies && (!reply || reply.length !== count))
+          throw Error("I2C scenario size/exhaustion");
+        for (let j = 0; j < count; j++)
+          dst.b[dst.off + j] =
+            reply?.[j] ??
+            (this.s.i2cMemory
+              ? (this.i2cMemory.get(key + (request[1] + j)) ?? 0)
+              : (this.s.i2c ?? 42));
+      }
+      this.trace.push({
+        op: n,
+        layer: r(1),
+        port: r(2),
+        request,
+        reply: [...dst.b.subarray(dst.off, dst.off + count)],
+      });
       return;
     }
     if (n === "MEMORY_READ" || n === "MEMORY_WRITE") {
       const id = r(1),
         off = r(2),
         len = r(3),
-        mem = id === 0 ? this.g : this.frames.find((x) => x.i === id - 1)?.l;
+        mem = id === 0 ? this.g : this.objectMemory[id - 1];
       if (!mem) throw Error("missing object memory");
-      const dst = this.mem(a[4]);
+      const dst = a[4].scope ? this.mem(a[4]) : { b: Buffer.alloc(Math.max(4, len)), off: 0 };
+      if (!a[4].scope) dst.b.writeInt32LE(r(4));
+      if (off < 0 || len < 0 || off + len > mem.length || dst.off + len > dst.b.length)
+        throw Error("memory copy bounds");
       if (n === "MEMORY_READ") mem.copy(dst.b, dst.off, off, off + len);
       else dst.b.copy(mem, off, dst.off, dst.off + len);
       return;
@@ -518,6 +696,13 @@ class VM {
         if (ar.t === "PARF") ar.b.writeFloatLE(v, off);
         else ar.b.writeIntLE(v, off, ar.size);
       }
+      return;
+    }
+    if (n === "ARRAY.RESIZE") {
+      const ar = this.array(a[1]),
+        replacement = Buffer.alloc(r(2) * ar.size);
+      ar.b.copy(replacement);
+      ar.b = replacement;
       return;
     }
     if (n === "ARRAY.SIZE") {
@@ -574,7 +759,11 @@ class VM {
         text = n === "FILE.READ_TEXT",
         len = r(text ? 3 : 2),
         dst = this.mem(a[text ? 4 : 3]);
-      const count = Math.min(len, data.length - f.p);
+      let count = Math.min(len, data.length - f.p);
+      if (text && r(2) !== 0) {
+        const newline = data.indexOf(10, f.p);
+        if (newline >= f.p && newline < f.p + count) count = newline - f.p + 1;
+      }
       data.copy(dst.b, dst.off, f.p, f.p + count);
       f.p += count;
       if (text && r(2) !== 0) {
@@ -583,9 +772,36 @@ class VM {
       }
       return;
     }
-    if (n === "MAILBOX_OPEN") return;
+    if (n === "COM_SET.SET_CONNECTION") {
+      this.trace.push({ op: n, args: [r(1), r(2), s(3)] });
+      return;
+    }
+    if (n === "MAILBOX_OPEN") {
+      this.mailboxes.set(r(0), { name: s(1), type: r(2), value: this.s.mailboxes?.[s(1)] });
+      return;
+    }
     if (n === "MAILBOX_TEST") {
-      w(1, this.s.mailboxNew ? 0 : 1);
+      w(1, this.mailboxes.get(r(0))?.value !== undefined || this.s.mailboxNew ? 0 : 1);
+      return;
+    }
+    if (n === "MAILBOX_READY") {
+      if (this.mailboxes.get(r(0))?.value === undefined)
+        throw Error("Mailbox wait has no incoming message");
+      return;
+    }
+    if (n === "MAILBOX_READ") {
+      const box = this.mailboxes.get(r(0));
+      if (!box || box.value === undefined) throw Error("read from empty mailbox");
+      if (box.type === 4) this.put(a[3], String(box.value));
+      else w(3, box.value, "PARF");
+      box.value = undefined;
+      return;
+    }
+    if (n === "MAILBOX_WRITE") {
+      this.trace.push({
+        op: n,
+        args: [s(0), r(1), s(2), r(3), r(4), r(3) === 4 ? s(5) : r(5, "PARF")],
+      });
       return;
     }
     throw Error("unsupported " + n);
@@ -609,6 +825,53 @@ class VM {
   assert.equal(memory.readUInt32LE(0), 2);
   assert.equal(memory.readFloatLE(4), 2);
 }
+// These literal native images are independent of the compiler being checked.
+function nativeImage(codes, globalBytes = 8) {
+  let offset = 16 + 12 * codes.length;
+  const image = Buffer.alloc(offset + codes.reduce((sum, code) => sum + code.length, 0));
+  image.write("LEGO");
+  image.writeUInt32LE(image.length, 4);
+  image.writeUInt16LE(104, 8);
+  image.writeUInt16LE(codes.length, 10);
+  image.writeUInt32LE(globalBytes, 12);
+  codes.forEach((code, index) => {
+    image.writeUInt32LE(offset, 16 + 12 * index);
+    image.writeUInt16LE(index === 0 ? 0 : 1, 22 + 12 * index);
+    Buffer.from(code).copy(image, offset);
+    offset += code.length;
+  });
+  return image;
+}
+{
+  // MOVE32_8 128 saturates to 127; MOVE8_32 -128 propagates NaN.
+  const run = new VM(
+    decode(nativeImage([[0x38, 0x82, 0x80, 0, 0x60, 0x32, 0x81, 0x80, 0x64, 0x0a]])),
+  ).run();
+  assert.equal(run.status, "ended");
+  const memory = Buffer.from(run.globals, "hex");
+  assert.equal(memory.readInt8(0), 127);
+  assert.equal(memory.readInt32LE(4), -2147483648);
+  // Firmware RL8 drops shifted-out bits; it does not rotate them back in.
+  const shifted = new VM(decode(nativeImage([[0x2c, 0x82, 0xa5, 0, 1, 0x60, 0x0a]]))).run();
+  assert.equal(Buffer.from(shifted.globals, "hex")[0], 0x4a);
+  // The native SIN instruction consumes degrees, whereas Basic Plus uses radians.
+  const trig = new VM(
+    decode(nativeImage([[nums.opMATH, nums.SIN, 0x83, 0, 0, 0xb4, 0x42, 0x60, 0x0a]])),
+  ).run();
+  assert.equal(trig.status, "ended");
+  assert.equal(Buffer.from(trig.globals, "hex").readFloatLE(), 1);
+  // A SUBCALL calling its busy self is invalid, even though a host JS stack can do it.
+  const recursive = new VM(
+    decode(
+      nativeImage([
+        [0x09, 2, 0, 0x0a],
+        [0, 0x09, 2, 0, 0x08, 0x0a],
+      ]),
+    ),
+  ).run();
+  assert.equal(recursive.status, "error");
+  assert.match(recursive.error, /Non-reentrant/);
+}
 async function projects(dir) {
   const es = await fs.readdir(dir, { withFileTypes: true });
   if (es.some((e) => e.name === "kobrixa.json")) return [dir];
@@ -622,27 +885,53 @@ async function projects(dir) {
 }
 const out = path.resolve(outputPath);
 await fs.mkdir(out, { recursive: true });
+const regressions = await auditCompilerRegressions((bytes) => new VM(decode(bytes)).run());
+await fs.writeFile(
+  path.join(out, "compiler-regressions.json"),
+  JSON.stringify(regressions, null, 2) + "\n",
+);
 const results = [];
-for (const dir of (await projects(path.join(root, "examples"))).sort()) {
-  const project = path.relative(path.join(root, "examples"), dir),
-    loaded = await loadProject(dir),
-    front = await new BasicPlusFrontend().compile(loaded.project, new AbortController().signal),
-    back = await new EV3Backend().compile(front.ir, new AbortController().signal);
+const selection = selectionPath ? JSON.parse(await fs.readFile(selectionPath, "utf8")) : null;
+if (selection) {
+  assert(selection.length > 0, "Empty example selection");
+  assert.equal(new Set(selection.map((item) => item.project)).size, selection.length);
+  for (const item of selection)
+    assert(/^[a-z0-9-]+\/[a-z0-9-]+$/.test(item.project), "Invalid example path");
+}
+const directories = selection
+  ? selection.map((item) => path.join(root, "examples", item.project))
+  : await projects(path.join(root, "examples"));
+for (const dir of directories.sort()) {
+  const project = path.relative(path.join(root, "examples"), dir).split(path.sep).join("/"),
+    loaded = await loadProject(dir);
+  assert.deepEqual(loaded.diagnostics, [], project + " project diagnostics");
+  assert(loaded.project, project + " missing project");
+  const front = await new BasicPlusFrontend().compile(loaded.project, new AbortController().signal);
+  assert.deepEqual(front.diagnostics, [], project + " frontend diagnostics");
+  assert(front.ir, project + " missing IR");
+  assert.deepEqual(validateIR(front.ir), [], project + " IR diagnostics");
+  const back = await new EV3Backend().compile(front.ir, new AbortController().signal);
+  assert.deepEqual(back.diagnostics, [], project + " backend diagnostics");
   if (!back.rbf) throw Error(project + JSON.stringify(back.diagnostics));
+  const selected = selection?.find((item) => item.project === project);
   const decoded = decode(back.rbf);
-  const sim = new VM(decoded).run();
+  const sim = new VM(decoded, selected?.defaultInput ?? {}).run();
   const variants = [];
+  if (selected)
+    for (const { input: scenario } of selected.scenarios ?? [])
+      variants.push({ scenario, ...new VM(decoded, scenario).run() });
   if (
-    project.startsWith("sensors/") ||
-    project.startsWith("capstones/") ||
-    project === "motors/motor-counter"
+    !selection &&
+    (project.startsWith("sensors/") ||
+      project.startsWith("capstones/") ||
+      project === "motors/motor-counter")
   )
     for (const scenario of [
       { sensor: 0, motorCount: 0, button: 1 },
       { sensor: 75, motorCount: -1, button: 2 },
     ])
       variants.push({ scenario, ...new VM(decoded, scenario).run() });
-  if (["sensors/raw-and-mode", "sensors/sensor-details"].includes(project)) {
+  if (!selection && ["sensors/raw-and-mode", "sensors/sensor-details"].includes(project)) {
     for (const sensor of [-42, -2147483648]) {
       const scenario = { sensor };
       variants.push({ scenario, ...new VM(decoded, scenario).run() });
@@ -658,6 +947,10 @@ for (const dir of (await projects(path.join(root, "examples"))).sort()) {
     project,
     bytes: back.rbf.length,
     sha256: createHash("sha256").update(back.rbf).digest("hex"),
+    sources: loaded.project.sources.map((source) => ({
+      path: source.path,
+      sha256: createHash("sha256").update(source.content).digest("hex"),
+    })),
     instructions: decoded.objects.reduce((n, o) => n + o.ins.length, 0),
     ...sim,
     variants,

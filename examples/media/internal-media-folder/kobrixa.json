@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "name": "internal-media-folder",
+  "language": "bp",
+  "entry": "src/main.bp",
+  "target": "ev3-native",
+  "assets": ["assets/*"],
+  "outputDir": "build"
+}

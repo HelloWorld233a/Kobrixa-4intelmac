@@ -151,8 +151,29 @@ describe("BasicPlusFrontend", () => {
     const result = await new BasicPlusFrontend().compile(input, new AbortController().signal);
 
     expect(result.diagnostics).toEqual([]);
+    expect(result.ir?.program.runtimeDirectory).toBe("/home/root/lms2012/prjs/Demo");
     expect(result.ir?.sourceFiles).toEqual(["lib.bpm", "main.bp"]);
     expect(result.ir?.functions.map((fn) => fn.name)).toContain("helper");
+  });
+
+  it("preserves SD Folder deployment and rejects ambiguous or escaping paths", async () => {
+    const valid = await new BasicPlusFrontend().compile(
+      project('Folder "sd" "Lesson"\nLCD.Clear()'),
+      new AbortController().signal,
+    );
+    expect(valid.ir?.program.runtimeDirectory).toBe("/home/root/lms2012/prjs/SD_Card/Lesson");
+    for (const source of [
+      'Folder "usb" "Lesson"',
+      'Folder "sd" "../Lesson"',
+      'Folder "sd" "Lesson"\nFolder "prjs" "Other"',
+    ]) {
+      const result = await new BasicPlusFrontend().compile(
+        project(source),
+        new AbortController().signal,
+      );
+      expect(result.ir).toBeUndefined();
+      expect(result.diagnostics.some((item) => item.code === "BP1051")).toBe(true);
+    }
   });
 
   it("lowers break, continue, increment, and compound assignments", async () => {
@@ -274,6 +295,45 @@ describe("BasicPlusFrontend", () => {
 });
 
 describe("numeric variable storage", () => {
+  it("widens all numeric return branches to one floating-point call signature", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(`
+answer = Clamp(42.5)
+Function Clamp(in number value)
+  If value < 0 Then
+    Return 0
+  ElseIf value > 100 Then
+    Return 100
+  EndIf
+  Return value
+EndFunction
+`),
+      new AbortController().signal,
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(validateIR(result.ir!)).toEqual([]);
+    expect(result.ir!.functions.find((fn) => fn.name === "clamp")!.returnType.kind).toBe("number");
+    expect(result.ir!.globals.find((variable) => variable.name === "answer")!.type.kind).toBe(
+      "number",
+    );
+  });
+
+  it("rejects incompatible return branches instead of sharing a numeric and string ABI", async () => {
+    const result = await new BasicPlusFrontend().compile(
+      project(`
+answer = Mixed(1)
+Function Mixed(in number value)
+  If value > 0 Then
+    Return 1
+  EndIf
+  Return "invalid"
+EndFunction
+`),
+      new AbortController().signal,
+    );
+    expect(result.diagnostics.map((entry) => entry.code)).toContain("BP2010");
+  });
+
   it("preserves integer storage across comparisons, text, and number API arguments", async () => {
     const result = await new BasicPlusFrontend().compile(
       project(`

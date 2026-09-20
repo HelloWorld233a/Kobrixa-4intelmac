@@ -1,0 +1,244 @@
+[
+  {
+    "project": "algorithms/euclidean-gcd",
+    "values": {
+      "a": 6,
+      "b": 25,
+      "c": 6
+    }
+  },
+  {
+    "project": "algorithms/fibonacci-sequence",
+    "values": {
+      "sequence": "0 1 1 2 3 5 8 13 "
+    }
+  },
+  {
+    "project": "algorithms/prime-count",
+    "values": {
+      "count": 8,
+      "sum": 77
+    }
+  },
+  {
+    "project": "algorithms/insertion-sort",
+    "arrays": {
+      "values": [-2, 0, 3, 7, 7]
+    }
+  },
+  {
+    "project": "control-flow/for-step-boundaries",
+    "values": {
+      "descending": 9,
+      "ascending": 9,
+      "skipped": 0
+    }
+  },
+  {
+    "project": "control-flow/nested-loop-exits",
+    "values": {
+      "visits": 6,
+      "total": 132
+    }
+  },
+  {
+    "project": "language/compound-arithmetic",
+    "values": {
+      "value": 6,
+      "fraction": 3.5
+    }
+  },
+  {
+    "project": "language/function-outputs",
+    "values": {
+      "doubled": -6,
+      "label": "Negative: "
+    },
+    "texts": ["Marker: 7"]
+  },
+  {
+    "project": "language/text-search",
+    "values": {
+      "position": 4,
+      "state": "ready",
+      "prefix": "EV3",
+      "tail": "dy",
+      "empty": ""
+    }
+  },
+  {
+    "project": "collections/row-statistics",
+    "values": {
+      "total": 20,
+      "minimum": -2,
+      "maximum": 10,
+      "average": 5
+    }
+  },
+  {
+    "project": "collections/matrix-product",
+    "arrays": {
+      "product": [19, 22, 43, 50]
+    }
+  },
+  {
+    "project": "time/finite-countdown",
+    "ranges": {
+      "elapsed": [750, 2500]
+    }
+  },
+  {
+    "project": "display/fractional-coordinates",
+    "values": {
+      "x": 12.75,
+      "y": 20.5
+    }
+  },
+  {
+    "project": "sound/computed-arpeggio",
+    "values": {
+      "frequency": 660
+    }
+  },
+  {
+    "project": "projects/import-calibration",
+    "values": {
+      "low": 0,
+      "mid": 42.5,
+      "high": 100
+    }
+  },
+  {
+    "project": "control-flow/loop-exit-matrix",
+    "values": {
+      "forsum": 8,
+      "whilesum": 12
+    }
+  },
+  {
+    "project": "language/display-function",
+    "texts": ["Typed inputs"]
+  },
+  {
+    "project": "language/output-pipeline",
+    "values": {
+      "answer": 31
+    },
+    "texts": ["Result: 31"]
+  },
+  {
+    "project": "projects/nested-imports",
+    "texts": ["Range: 42"]
+  },
+  {
+    "project": "concurrency/sort-and-heartbeat",
+    "values": {
+      "finished": 1
+    },
+    "arrays": {
+      "sorted": [1, 2, 3, 7, 8, 9]
+    }
+  },
+  {
+    "project": "benchmarks/compute-and-draw",
+    "values": {
+      "score": 78,
+      "productloop": 1,
+      "determinant": 1,
+      "angle": 1
+    },
+    "ranges": {
+      "randomtotal": [4, 48]
+    },
+    "arrays": {
+      "product": [30]
+    }
+  },
+  {
+    "project": "language/byte-workbench",
+    "values": {
+      "a": 165,
+      "b": 15,
+      "high": 128
+    },
+    "texts": ["A5", "10100101"]
+  },
+  {
+    "project": "getting-started/brick-greeting",
+    "texts": ["Welcome EV3"]
+  },
+  {
+    "project": "sound/note-busy-sequence",
+    "completionOnly": true
+  },
+  {
+    "project": "concurrency/shared-counters",
+    "values": {
+      "count": 7,
+      "done": 2
+    }
+  },
+  {
+    "project": "time/elapsed-intervals",
+    "textRanges": {
+      "Elapsed: ": [120, 1500]
+    }
+  },
+  {
+    "project": "algorithms/recursive-hanoi",
+    "values": {
+      "moves": 7
+    }
+  },
+  {
+    "project": "collections/vector-toolkit",
+    "arrays": {
+      "sum": [5, 1, 4, 2],
+      "sorted": [-1, 0, 2, 3],
+      "product": [8]
+    }
+  },
+  {
+    "project": "collections/row-lifecycle",
+    "texts": ["Size: 4", "6,9,-3,12"]
+  },
+  {
+    "project": "time/independent-timers",
+    "textRanges": {
+      "Timer 1: ": [50, 1000],
+      "Timer 9: ": [20, 1000]
+    }
+  },
+  {
+    "project": "files/byte-sequence",
+    "values": {
+      "first": 0,
+      "second": 42,
+      "third": 127
+    },
+    "files": {
+      "byte-sequence.bin": "002a7f"
+    }
+  },
+  {
+    "project": "files/typed-record",
+    "values": {
+      "label": "sample",
+      "version": 175
+    },
+    "arrays": {
+      "loaded": [1.5, -2, 8]
+    },
+    "files": {
+      "typed-record.dat": "73616d706c650aaf0000c03f000000c000000041"
+    }
+  },
+  {
+    "project": "media/graphic-sound-card",
+    "completionOnly": true
+  },
+  {
+    "project": "media/internal-media-folder",
+    "completionOnly": true
+  }
+]

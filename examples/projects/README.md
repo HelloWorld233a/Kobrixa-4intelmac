@@ -14,3 +14,12 @@ Lift the robot before running either project so connected motors can turn safely
 - [include-multiple](./include-multiple/) — Load configuration and startup operations from two files.／從兩個檔案載入設定與啟動操作。
 - [import-functions](./import-functions/) — Import a `.bpm` Function and use its return value.／匯入 `.bpm` Function 並使用回傳值。
 - [import-module](./import-module/) — Use a private helper from an imported module.／使用匯入模組中的 private helper。
+
+## New lessons / 新課程
+
+- [import-calibration](./import-calibration/) — Imported calibration／匯入校正函式。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [include-behaviors](./include-behaviors/) — Included robot behaviors／引用機器人行為
+- [nested-imports](./nested-imports/) — Nested imports and includes／巢狀匯入與引用

@@ -1,0 +1,8 @@
+Function ClampPercent(in number value)
+  If value < 0 Then
+    Return 0
+  ElseIf value > 100 Then
+    Return 100
+  EndIf
+  Return value
+EndFunction

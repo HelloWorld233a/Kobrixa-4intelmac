@@ -16,3 +16,15 @@ Kobrixa 在布林情境中同時接受裸 `true`／`false` 與舊式帶引號的
 - [text-and-math](./text-and-math/) — Combine math results with text operations.／將數學結果與文字操作結合。
 - [byte-logic](./byte-logic/) — Apply byte logic and hexadecimal formatting.／使用位元邏輯與十六進位格式化。
 - [local-functions](./local-functions/) — Define and call a local Function.／定義並呼叫本地 Function。
+
+## New lessons / 新課程
+
+- [compound-arithmetic](./compound-arithmetic/) — Compound arithmetic／複合賦值運算。
+- [function-outputs](./function-outputs/) — Function output parameters／函式輸出參數。
+- [text-search](./text-search/) — Text search and slicing／文字搜尋與擷取。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [display-function](./display-function/) — Display function／顯示函式
+- [output-pipeline](./output-pipeline/) — Output parameter pipeline／輸出參數串接
+- [byte-workbench](./byte-workbench/) — Complete byte workbench／完整位元組工作台

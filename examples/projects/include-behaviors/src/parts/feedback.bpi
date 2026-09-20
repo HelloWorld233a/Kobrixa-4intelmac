@@ -1,0 +1,9 @@
+Sub ShowSample()
+  number r
+  number g
+  number b
+  Sensor.SetMode(1, 4)
+  Sensor1.Raw3(r, g, b)
+  LCD.Text(1, 4, 16, 1, "RGB total: " + (r + g + b))
+  Program.Delay(1000)
+EndSub

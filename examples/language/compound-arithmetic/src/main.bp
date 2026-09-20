@@ -1,0 +1,15 @@
+' Independently authored Kobrixa lesson.
+number value
+value = 10
+value += 5
+value *= 2
+value -= 6
+value /= 4
+value++
+value--
+fraction = 7 / 2
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Value: " + value)
+LCD.Text(1, 4, 32, 1, "Fraction: " + fraction)
+LCD.Text(1, 4, 52, 1, "Floor: " + Math.Floor(-1.25))
+Program.Delay(1500)

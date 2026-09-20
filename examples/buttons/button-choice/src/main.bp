@@ -1,0 +1,10 @@
+' Independently authored Kobrixa lesson.
+LCD.Clear()
+If Button.IsPressed("L") Then
+  LCD.Text(1, 4, 12, 1, "Left")
+ElseIf Button.IsPressed("R") Then
+  LCD.Text(1, 4, 12, 1, "Right")
+Else
+  LCD.Text(1, 4, 12, 1, "Neither")
+EndIf
+Program.Delay(1500)

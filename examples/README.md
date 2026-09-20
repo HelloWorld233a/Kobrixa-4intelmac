@@ -1,8 +1,8 @@
 # Kobrixa examples
 
-These 53 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
+These 114 examples are independently authored for Kobrixa and progress from display-only first builds to programs that need connected EV3 hardware.
 
-<a href="./getting-started/">Getting started</a> · <a href="./capstones/">Capstones</a> · <a href="./display/">Display</a> · <a href="./sound/">Sound</a> · <a href="./media/">Media</a> · <a href="./time/">Time</a> · <a href="./buttons/">Buttons</a> · <a href="./control-flow/">Control flow</a> · <a href="./language/">Language</a> · <a href="./collections/">Collections</a> · <a href="./concurrency/">Concurrency</a> · <a href="./files/">Files</a> · <a href="./mailboxes/">Mailboxes</a> · <a href="./program/">Program</a> · <a href="./projects/">Projects</a> · <a href="./motors/">Motors</a> · <a href="./sensors/">Sensors</a>
+<a href="./algorithms/">Algorithms</a> · <a href="./getting-started/">Getting started</a> · <a href="./capstones/">Capstones</a> · <a href="./display/">Display</a> · <a href="./sound/">Sound</a> · <a href="./media/">Media</a> · <a href="./time/">Time</a> · <a href="./buttons/">Buttons</a> · <a href="./control-flow/">Control flow</a> · <a href="./language/">Language</a> · <a href="./collections/">Collections</a> · <a href="./concurrency/">Concurrency</a> · <a href="./files/">Files</a> · <a href="./mailboxes/">Mailboxes</a> · <a href="./program/">Program</a> · <a href="./projects/">Projects</a> · <a href="./motors/">Motors</a> · <a href="./sensors/">Sensors</a>
 
 | Category        | Example                                                    | What it teaches                                  | Hardware notes                       |
 | --------------- | ---------------------------------------------------------- | ------------------------------------------------ | ------------------------------------ |
@@ -57,6 +57,31 @@ Each category is a physical folder under `examples/`; every link above opens the
 
 See [core API coverage](API-COVERAGE.md) for the complete teaching map and [the learning path](LEARNING-PATH.md) for recommended lesson order.
 
+## New lessons (2026-09-20)
+
+These 20 lessons have their own [bytecode verification scope and instructions](NEW-EXAMPLES.md). Each includes bilingual run notes and expected results.
+
+- [euclidean-gcd](algorithms/euclidean-gcd/) — Euclidean GCD.
+- [fibonacci-sequence](algorithms/fibonacci-sequence/) — Fibonacci sequence.
+- [prime-count](algorithms/prime-count/) — Prime counting.
+- [insertion-sort](algorithms/insertion-sort/) — Insertion sort.
+- [for-step-boundaries](control-flow/for-step-boundaries/) — For loop boundaries.
+- [nested-loop-exits](control-flow/nested-loop-exits/) — Nested loop exits.
+- [compound-arithmetic](language/compound-arithmetic/) — Compound arithmetic.
+- [function-outputs](language/function-outputs/) — Function output parameters.
+- [text-search](language/text-search/) — Text search and slicing.
+- [row-statistics](collections/row-statistics/) — Row statistics.
+- [matrix-product](collections/matrix-product/) — Matrix multiplication.
+- [byte-sequence](files/byte-sequence/) — Byte sequence round trip.
+- [finite-countdown](time/finite-countdown/) — Finite countdown.
+- [fractional-coordinates](display/fractional-coordinates/) — Fractional coordinates.
+- [computed-arpeggio](sound/computed-arpeggio/) — Computed arpeggio.
+- [three-zone-light](sensors/three-zone-light/) — Three-zone reflected light.
+- [five-sample-average](sensors/five-sample-average/) — Five-sample average.
+- [power-ramp](motors/power-ramp/) — Power ramp.
+- [button-choice](buttons/button-choice/) — Button choice.
+- [import-calibration](projects/import-calibration/) — Imported calibration.
+
 ## Verification status
 
 The syntax and argument order are cross-checked against the public [CLEV3R English Help](https://github.com/iCheh/Clev3r-1/tree/main/Clever/bin/Release/Help/en). In particular, these examples use `LCD.Text(color, x, y, font, text)`, color-first drawing calls, `Motor.Move(ports, speed, degrees, brake)`, both bare and legacy quoted Boolean values, one-based sensor ports, and extension-free `Include` paths. Every example is automatically parsed, lowered to version 1 IR, validated, and compiled to a structurally valid `.rbf`. Backend regression tests also check the documented integer operands, sensor-port conversion, and blocking behavior of `Motor.Move` against the [LEGO EV3 Firmware Developer Kit](https://assets.education.lego.com/v3/assets/blt293eea581807678a/blt469be1e11ad37696/5f880384f71916144453a49f/lego-mindstorms-ev3-firmware-developer-kit.pdf?locale=en-us).
@@ -64,3 +89,51 @@ The syntax and argument order are cross-checked against the public [CLEV3R Engli
 These checks make the examples compiler- and bytecode-verified v1 candidates. Physical USB/Wi-Fi upload and execution still require an EV3 acceptance run on the stated hardware, so they are not described as hardware-certified yet.
 
 The topic taxonomy was informed by the public CLEV3R example directory (control flow, functions, includes, sensors, motors, time, graphics, sound, files, mailboxes, and threads). No CLEV3R source, documentation, assets, or generated output is included here. Every shipped example is parsed, lowered, validated, and compiled to native bytecode; device-to-device mailbox exchange and physical hardware acceptance remain separate runtime checks.
+
+## Clev3r curriculum expansion / Clev3r 課程擴充
+
+[41-topic coverage and bytecode verification / 41 主題對照與字節碼驗證](CLEV3R-PARITY.md)
+
+<a href="./benchmarks/">Benchmarks / 基準測試</a> · <a href="./daisy-chain/">Daisy chain / 串接</a> · <a href="./hitechnic/">HiTechnic</a>
+
+- [control-flow/loop-exit-matrix](control-flow/loop-exit-matrix/) — Loop exit matrix
+- [language/display-function](language/display-function/) — Display function
+- [language/output-pipeline](language/output-pipeline/) — Output parameter pipeline
+- [sensors/rgb-function](sensors/rgb-function/) — RGB function inputs
+- [hitechnic/compass-heading](hitechnic/compass-heading/) — Compass heading error
+- [hitechnic/infrared-direction](hitechnic/infrared-direction/) — Infrared direction and strength
+- [projects/include-behaviors](projects/include-behaviors/) — Included robot behaviors
+- [projects/nested-imports](projects/nested-imports/) — Nested imports and includes
+- [capstones/scheduled-action-loop](capstones/scheduled-action-loop/) — Scheduled action loop
+- [program/battery-under-load](program/battery-under-load/) — Battery under load
+- [concurrency/sort-and-heartbeat](concurrency/sort-and-heartbeat/) — Sort and heartbeat
+- [benchmarks/compute-and-draw](benchmarks/compute-and-draw/) — Compute and draw benchmark
+- [buttons/held-button-drive](buttons/held-button-drive/) — Held-button drive
+- [language/byte-workbench](language/byte-workbench/) — Complete byte workbench
+- [buttons/click-stepper](buttons/click-stepper/) — Click-driven stepper
+- [daisy-chain/two-brick-control](daisy-chain/two-brick-control/) — Two-brick control
+- [files/typed-record](files/typed-record/) — Typed file record
+- [media/graphic-sound-card](media/graphic-sound-card/) — Graphic and sound card
+- [getting-started/brick-greeting](getting-started/brick-greeting/) — Brick greeting
+- [sensors/i2c-register-workbench](sensors/i2c-register-workbench/) — I2C register workbench
+- [mailboxes/paired-receiver](mailboxes/paired-receiver/) — Paired mailbox receiver
+- [mailboxes/paired-sender](mailboxes/paired-sender/) — Paired mailbox sender
+- [media/internal-media-folder](media/internal-media-folder/) — Media storage: prjs
+- [media/sd-media-folder](media/sd-media-folder/) — Media storage: sd
+- [sound/note-busy-sequence](sound/note-busy-sequence/) — Note and busy sequence
+- [motors/encoder-profile](motors/encoder-profile/) — Encoder profile
+- [motors/polarity-feedback](motors/polarity-feedback/) — Motor polarity and feedback
+- [motors/steering-lifecycle](motors/steering-lifecycle/) — Steering lifecycle
+- [motors/sync-lifecycle](motors/sync-lifecycle/) — Synchronization lifecycle
+- [display/button-cursor](display/button-cursor/) — Button-controlled cursor
+- [sensors/mode-inspector](sensors/mode-inspector/) — Sensor mode inspector
+- [sensors/raw-channel-dashboard](sensors/raw-channel-dashboard/) — Raw channel dashboard
+- [concurrency/shared-counters](concurrency/shared-counters/) — Concurrent shared counters
+- [time/elapsed-intervals](time/elapsed-intervals/) — Elapsed intervals
+- [sensors/touch-port-grid](sensors/touch-port-grid/) — Touch sensor port grid
+- [algorithms/recursive-hanoi](algorithms/recursive-hanoi/) — Recursive Hanoi
+- [motors/paired-trajectories](motors/paired-trajectories/) — Paired trajectories
+- [collections/vector-toolkit](collections/vector-toolkit/) — Vector toolkit
+- [collections/row-lifecycle](collections/row-lifecycle/) — Row lifecycle
+- [sensors/port-raw-access](sensors/port-raw-access/) — Port-specific raw access
+- [time/independent-timers](time/independent-timers/) — Independent timer slots

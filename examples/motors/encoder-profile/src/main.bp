@@ -1,0 +1,13 @@
+' Independently authored Kobrixa curriculum.
+Motor.ResetCount("A")
+Motor.SchedulePower("A", 20, 20, 100, 20, true)
+values = Vector.Init(4, 0)
+For sample = 0 To 3
+  values[sample] = Motor.GetCount("A")
+  LCD.Pixel(1, 10 + sample * 20, 90 - values[sample] / 2)
+  Program.Delay(20)
+EndFor
+Motor.Wait("A")
+Motor.Stop("A", true)
+LCD.Text(1, 4, 12, 1, "Last count: " + values[3])
+Program.Delay(1000)

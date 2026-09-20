@@ -1,0 +1,17 @@
+' Independently authored Kobrixa curriculum.
+finished = false
+Thread.Run = Heartbeat
+values = Vector.Data(6, "9 2 8 1 7 3")
+sorted = Vector.Sort(6, values)
+While Not finished
+  Thread.Yield()
+EndWhile
+LCD.Text(1, 4, 16, 1, "Sorted: " + sorted[0] + "," + sorted[5])
+Program.Delay(1000)
+Sub Heartbeat()
+  For pulse = 1 To 3
+    EV3.SetLEDColor("GREEN", "NORMAL")
+    Program.Delay(10)
+  EndFor
+  finished = true
+EndSub

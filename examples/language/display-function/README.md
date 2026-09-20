@@ -1,0 +1,18 @@
+# Display function / 顯示函式
+
+[Curriculum and verification / 課程與驗證](../../CLEV3R-PARITY.md) · [English index](../../README.md) · [繁中索引](../../README.zh-TW.md)
+
+Typed numeric and string inputs／數字與文字輸入參數
+
+## Run / 執行
+
+Open this folder in Kobrixa and build `kobrixa.json`.／在 Kobrixa 開啟此資料夾並建置 `kobrixa.json`。
+
+EV3 display; no external devices.／EV3 螢幕，不需外接裝置。
+
+## Expected result / 預期結果
+
+- UI_DRAW.TEXT args.3: `["Typed inputs"]`
+- UI_DRAW.TEXT args: `[[1, 8, 16, "Typed inputs"]]`
+
+The audit executes the built RBF with deterministic device models.／稽核以固定裝置模型執行建置後的 RBF。

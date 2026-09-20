@@ -1,0 +1,7 @@
+speed = 15
+MotorA.IsMedium()
+MotorB.IsMedium()
+MotorAB.SetPower(12)
+MotorAB.Start()
+Program.Delay(50)
+MotorAB.OffAndBrake()

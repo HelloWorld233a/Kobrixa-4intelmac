@@ -1,0 +1,6 @@
+' Independently authored Kobrixa curriculum.
+LCD.Clear()
+LCD.BmpFile(1, 0, 0, "assets/card")
+Speaker.Play(20, "assets/ping")
+Speaker.Wait()
+Program.Delay(500)

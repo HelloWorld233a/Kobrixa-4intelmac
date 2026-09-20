@@ -1,0 +1,33 @@
+' Independently authored Kobrixa curriculum.
+count = 0
+done = 0
+mutex = Thread.CreateMutex()
+Thread.Run = First
+Thread.Run = Second
+While done < 2
+  Thread.Yield()
+EndWhile
+LCD.Text(1, 4, 16, 1, "Count: " + count)
+Program.Delay(1000)
+Sub First()
+  For i = 1 To 3
+    Thread.Lock(mutex)
+    count++
+    Thread.Unlock(mutex)
+    Thread.Yield()
+  EndFor
+  Thread.Lock(mutex)
+  done++
+  Thread.Unlock(mutex)
+EndSub
+Sub Second()
+  For j = 1 To 4
+    Thread.Lock(mutex)
+    count++
+    Thread.Unlock(mutex)
+    Thread.Yield()
+  EndFor
+  Thread.Lock(mutex)
+  done++
+  Thread.Unlock(mutex)
+EndSub

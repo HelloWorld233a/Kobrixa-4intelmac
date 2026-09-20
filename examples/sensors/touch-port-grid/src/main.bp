@@ -1,0 +1,14 @@
+' Independently authored Kobrixa curriculum.
+LCD.StopUpdate()
+LCD.Clear()
+For port = 1 To 4
+  value = Sensor.ReadPercent(port)
+  x = 4 + (port - 1) * 42
+  If value > 50 Then
+    LCD.FillRect(1, x, 40, 32, 24)
+  Else
+    LCD.Rect(1, x, 40, 32, 24)
+  EndIf
+EndFor
+LCD.Update()
+Program.Delay(1000)

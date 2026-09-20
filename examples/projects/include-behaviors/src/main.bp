@@ -1,0 +1,5 @@
+' Independently authored Kobrixa curriculum.
+Include "parts/settings"
+Include "parts/feedback"
+Motor.Move("A", speed, 90, true)
+ShowSample()

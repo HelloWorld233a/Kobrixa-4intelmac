@@ -1,0 +1,4 @@
+Import "arithmetic"
+Function FormatValue(in number input)
+  Return "Range: " + Twice(input)
+EndFunction

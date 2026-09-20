@@ -1,0 +1,12 @@
+' Independently authored Kobrixa curriculum.
+Buttons.Flush()
+Buttons.Wait()
+click = Buttons.GetClicks()
+current = Buttons.Current()
+LCD.Text(1, 4, 12, 1, "Click: " + click)
+LCD.Text(1, 4, 32, 1, "Held: " + current)
+If Text.IsSubText(click, "E") Then
+  EV3.SetLEDColor("GREEN", "NORMAL")
+  Motor.MovePower("A", 20, 90, true)
+EndIf
+Program.Delay(1000)

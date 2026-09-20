@@ -1,0 +1,22 @@
+' Independently authored Kobrixa lesson.
+row = Row.Init(4, 0)
+Row.Write(row, 0, -2)
+Row.Write(row, 1, 4)
+Row.Write(row, 2, 8)
+Row.Write(row, 3, 10)
+number total
+total = 0
+minimum = Row.Read(row, 0)
+maximum = minimum
+For index = 0 To Row.Size(row) - 1
+  value = Row.Read(row, index)
+  total += value
+  minimum = Math.Min(minimum, value)
+  maximum = Math.Max(maximum, value)
+EndFor
+average = total / Row.Size(row)
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Mean: " + average)
+LCD.Text(1, 4, 32, 1, "Range: " + minimum + "," + maximum)
+Row.Delete(row)
+Program.Delay(1500)

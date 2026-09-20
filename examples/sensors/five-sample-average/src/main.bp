@@ -1,0 +1,13 @@
+' Independently authored Kobrixa lesson.
+Sensor.SetMode(1, 0)
+Sensor.Wait(1)
+number total
+total = 0
+For sample = 1 To 5
+  total += Sensor.ReadPercent(1)
+  Program.Delay(20)
+EndFor
+average = total / 5
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Average: " + average)
+Program.Delay(1500)

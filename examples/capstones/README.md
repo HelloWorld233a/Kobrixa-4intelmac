@@ -7,3 +7,7 @@ Build a complete small robot behavior after completing the prerequisite lessons.
 - [button-car](./button-car/) — Brick-button controlled two-motor car.／用本體按鍵控制雙馬達小車。
 - [sensor-dashboard](./sensor-dashboard/) — Visual sensor percentage dashboard.／視覺化感測器百分比儀表板。
 - [obstacle-rover](./obstacle-rover/) — Stop a rover when a touch sensor detects an obstacle.／觸碰感測器偵測障礙時停止小車。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [scheduled-action-loop](./scheduled-action-loop/) — Scheduled action loop／排程動作迴圈

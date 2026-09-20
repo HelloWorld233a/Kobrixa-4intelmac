@@ -1,0 +1,13 @@
+' Independently authored Kobrixa lesson.
+previous = 0
+current = 1
+sequence = ""
+For index = 0 To 7
+  sequence = sequence + previous + " "
+  next = previous + current
+  previous = current
+  current = next
+EndFor
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, sequence)
+Program.Delay(1500)

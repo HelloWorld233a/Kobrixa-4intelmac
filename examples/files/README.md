@@ -8,3 +8,11 @@ Read and write an EV3 project file.／讀取與寫入 EV3 專案檔案。
 
 - [file-round-trip](./file-round-trip/) — Write one text line, reopen the file, and display it.／寫入一行文字、重新開啟檔案並顯示它。
 - [binary-record](./binary-record/) — Write and read one binary byte.／寫入並讀取一個二進位位元組。
+
+## New lessons / 新課程
+
+- [byte-sequence](./byte-sequence/) — Byte sequence round trip／位元組序列讀寫。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [typed-record](./typed-record/) — Typed file record／混合型別檔案記錄

@@ -1,0 +1,10 @@
+' Independently authored Kobrixa lesson.
+started = EV3.Time
+LCD.Clear()
+For remaining = 3 To 1 Step -1
+  LCD.Text(1, 4, 12 + (3 - remaining) * 20, 1, "Count: " + remaining)
+  Program.Delay(250)
+EndFor
+elapsed = EV3.Time - started
+LCD.Text(1, 4, 72, 1, "Elapsed: " + elapsed)
+Program.Delay(1500)

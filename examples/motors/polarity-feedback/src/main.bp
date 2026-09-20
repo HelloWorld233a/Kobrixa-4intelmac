@@ -1,0 +1,9 @@
+' Independently authored Kobrixa curriculum.
+Motor.Invert("A")
+Motor.Start("A", 20)
+Program.Delay(100)
+LCD.Text(1, 4, 12, 1, "Speed: " + Motor.GetSpeed("A"))
+LCD.Text(1, 4, 32, 1, "Count: " + Motor.GetCount("A"))
+Motor.Stop("A", true)
+Motor.Invert("A")
+Program.Delay(1000)

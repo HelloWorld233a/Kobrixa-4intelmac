@@ -1,0 +1,17 @@
+' Independently authored Kobrixa curriculum.
+x = 40
+For frame = 1 To 3
+  pressed = Buttons.Current()
+  If Text.IsSubText(pressed, "R") Then
+    x += 5
+  EndIf
+  If Text.IsSubText(pressed, "B") Then
+    Break
+  EndIf
+  LCD.StopUpdate()
+  LCD.Clear()
+  LCD.FillCircle(1, x, 50, 8)
+  LCD.Update()
+  Program.Delay(50)
+EndFor
+Program.End()

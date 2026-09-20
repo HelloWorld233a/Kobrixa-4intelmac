@@ -1,0 +1,18 @@
+' Independently authored Kobrixa lesson.
+number[] left
+number[] right
+left = Vector.Init(4, 0)
+right = Vector.Init(4, 0)
+left[0] = 1
+left[1] = 2
+left[2] = 3
+left[3] = 4
+right[0] = 5
+right[1] = 6
+right[2] = 7
+right[3] = 8
+product = Vector.Multiply(2, 2, 2, left, right)
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, product[0] + "," + product[1])
+LCD.Text(1, 4, 32, 1, product[2] + "," + product[3])
+Program.Delay(1500)

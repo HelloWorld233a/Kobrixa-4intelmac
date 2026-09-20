@@ -1,0 +1,6 @@
+' Independently authored Kobrixa curriculum.
+Include "settings/limits"
+Include "settings/label"
+Import "modules/formatter"
+LCD.Text(1, 4, 16, 1, FormatValue(limit))
+Program.Delay(1000)

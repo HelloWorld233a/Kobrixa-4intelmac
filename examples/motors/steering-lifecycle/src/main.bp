@@ -1,0 +1,9 @@
+' Independently authored Kobrixa curriculum.
+Motor.StartSteer("AD", 20, 25)
+Program.Delay(80)
+Motor.Stop("AD", true)
+Motor.MoveSteer("AD", 20, -25, 90, true)
+Motor.ScheduleSteer("AD", 15, 0, 90, true)
+Motor.Wait("AD")
+Motor.Stop("AD", true)
+LCD.Text(1, 4, 16, 1, "Steering complete")

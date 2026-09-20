@@ -54,3 +54,13 @@ An unsupported feature is an error, never a warning followed by altered executio
 - Each regression gets the smallest independently authored fixture that reproduces it.
 - Reference-brick tests define behavior where emulation is insufficient.
 - Deterministic compiler tests may compare Kobrixa outputs across builds; they do not require equality with third-party compiler bytes.
+
+## Numeric returns and text boundaries
+
+Division (`/`) produces a floating-point result even with integer operands: `7 / 2` is `3.5`. All numeric return branches in a function share one inferred representation; a floating-point branch widens integer branches. Integer and Boolean returns use their matching EV3 call parameter widths. Incompatible return kinds report `BP2010`.
+
+Text search and slicing use one-based positions. `Text.GetIndexOf` returns zero for a missing match; `Text.GetSubText` truncates the requested length at the source end and returns empty text for an invalid start or nonpositive length. A successful search branches on the firmware string equality result. Executable cases and bytecode expectations are in the [new example curriculum](../../examples/NEW-EXAMPLES.md).
+
+## Example-driven runtime support / 範例驗證的執行支援
+
+See the [expanded curriculum](../../examples/CLEV3R-PARITY.md) and its bytecode audit. Recursive call groups support 32 simultaneous frames with an explicit overflow stop; native function objects are not reentrant. Mutex acquisition is serialized through a shared native subcall. Basic Plus trigonometric APIs use radians and convert to/from EV3 native degrees. Byte and I²C/file byte values preserve 0–255. Folder in the entry source selects internal or SD deployment and runtime paths.／請見擴充課程與字節碼稽核。遞迴群組支援同時 32 層，超限明確停止；原生函式物件不可重入。互斥鎖取得透過共用原生子呼叫序列化。三角函數使用弧度並轉換 EV3 的度數；Byte、I²C 與檔案位元組保留 0–255。入口 Folder 設定內建或 SD 部署與執行路徑。

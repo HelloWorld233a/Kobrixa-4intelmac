@@ -1,0 +1,25 @@
+' Independently authored Kobrixa lesson.
+number[] values
+values = Vector.Init(5, 0)
+values[0] = 7
+values[1] = -2
+values[2] = 7
+values[3] = 0
+values[4] = 3
+For index = 1 To 4
+  key = values[index]
+  position = index - 1
+  While position >= 0
+    If values[position] <= key Then
+      Break
+    EndIf
+    values[position + 1] = values[position]
+    position--
+  EndWhile
+  values[position + 1] = key
+EndFor
+LCD.Clear()
+For index = 0 To 4
+  LCD.Text(1, 4, 8 + index * 20, 1, "Item: " + values[index])
+EndFor
+Program.Delay(1500)

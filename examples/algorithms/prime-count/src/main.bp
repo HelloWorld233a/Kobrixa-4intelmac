@@ -1,0 +1,22 @@
+' Independently authored Kobrixa lesson.
+count = 0
+sum = 0
+For candidate = 2 To 20
+  prime = true
+  divisor = 2
+  While divisor * divisor <= candidate
+    If Math.Remainder(candidate, divisor) = 0 Then
+      prime = false
+      Break
+    EndIf
+    divisor++
+  EndWhile
+  If prime Then
+    count++
+    sum += candidate
+  EndIf
+EndFor
+LCD.Clear()
+LCD.Text(1, 4, 12, 1, "Primes: " + count)
+LCD.Text(1, 4, 32, 1, "Sum: " + sum)
+Program.Delay(1500)

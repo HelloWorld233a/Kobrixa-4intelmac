@@ -1,0 +1,25 @@
+' Independently authored Kobrixa curriculum.
+forSum = 0
+For i = 1 To 8
+  If i = 2 Then
+    Continue
+  EndIf
+  If i = 5 Then
+    Break
+  EndIf
+  forSum += i
+EndFor
+whileSum = 0
+i = 0
+While i < 8
+  i++
+  If i = 3 Then
+    Continue
+  EndIf
+  If i = 6 Then
+    Break
+  EndIf
+  whileSum += i
+EndWhile
+LCD.Text(1, 4, 16, 1, "For/While: " + forSum + "/" + whileSum)
+Program.Delay(1000)

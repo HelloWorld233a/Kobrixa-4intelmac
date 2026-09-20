@@ -15,3 +15,17 @@ Connect the sensor required by each project to input port 1. Each project waits 
 - [sensor-details](./sensor-details/) — Inspect name, type, mode, and a raw reading.／檢視名稱、類型、模式與原始讀值。
 - [raw-and-mode](./raw-and-mode/) — Choose a mode then inspect a raw channel.／選擇模式並檢視原始通道。
 - [i2c-registers](./i2c-registers/) — Read a documented I2C register.／讀取文件化的 I2C 暫存器。
+
+## New lessons / 新課程
+
+- [three-zone-light](./three-zone-light/) — Three-zone reflected light／三段反射光分類。
+- [five-sample-average](./five-sample-average/) — Five-sample average／五次取樣平均。
+
+## Clev3r topic counterparts / Clev3r 主題對照
+
+- [rgb-function](./rgb-function/) — RGB function inputs／RGB 函式輸入
+- [i2c-register-workbench](./i2c-register-workbench/) — I2C register workbench／I2C 暫存器工作台
+- [mode-inspector](./mode-inspector/) — Sensor mode inspector／感測模式檢視器
+- [raw-channel-dashboard](./raw-channel-dashboard/) — Raw channel dashboard／原始通道儀表板
+- [touch-port-grid](./touch-port-grid/) — Touch sensor port grid／觸碰感測器埠格線
+- [port-raw-access](./port-raw-access/) — Port-specific raw access／指定埠原始值存取

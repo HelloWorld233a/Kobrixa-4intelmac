@@ -1,0 +1,10 @@
+' Independently authored Kobrixa curriculum.
+started = EV3.Time
+For sample = 1 To 3
+  Program.Delay(40)
+  LCD.StopUpdate()
+  LCD.Clear()
+  LCD.Text(1, 4, 16, 1, "Elapsed: " + (EV3.Time - started))
+  LCD.Update()
+EndFor
+Program.Delay(1000)

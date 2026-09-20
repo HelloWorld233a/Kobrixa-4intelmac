@@ -1,0 +1,6 @@
+' Independently authored Kobrixa curriculum.
+Mailbox.Connect("KobrixaPeer")
+Mailbox.Send("KobrixaPeer", "KobrixaText", "Hello peer")
+Mailbox.SendNumber("KobrixaPeer", "KobrixaNumber", 12.5)
+LCD.Text(1, 4, 16, 1, "Messages sent")
+Program.Delay(1000)

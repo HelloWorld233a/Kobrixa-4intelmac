@@ -64,6 +64,7 @@ export interface FunctionDeclaration {
 }
 
 export interface ParsedFile {
+  runtimeDirectory?: string;
   file: string;
   includes: Array<{ kind: "include" | "import"; path: string; span: SourceSpan }>;
   body: Statement[];

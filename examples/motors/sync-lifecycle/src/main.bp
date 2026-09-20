@@ -1,0 +1,11 @@
+' Independently authored Kobrixa curriculum.
+Motor.Schedule("A", 15, 10, 60, 10, true)
+Motor.Wait("A")
+Motor.StartSync("AD", 20, 10)
+Program.Delay(80)
+Motor.Stop("AD", true)
+Motor.MoveSync("AD", 20, 10, 90, true)
+Motor.ScheduleSync("AD", 15, 15, 90, true)
+Motor.Wait("AD")
+Motor.Stop("AD", true)
+LCD.Text(1, 4, 16, 1, "Sync complete")

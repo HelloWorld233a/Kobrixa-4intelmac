@@ -1,0 +1,8 @@
+' Independently authored Kobrixa curriculum.
+headingBytes = Sensor.ReadI2CRegisters(1, 1, 66, 2)
+heading = headingBytes[0] * 2 + headingBytes[1]
+target = Math.Ceiling(9.2)
+error = Math.Remainder(target - heading + 540, 360) - 180
+LCD.Text(1, 4, 12, 1, "Heading: " + heading)
+LCD.Text(1, 4, 32, 1, "Error: " + error)
+Program.Delay(1000)

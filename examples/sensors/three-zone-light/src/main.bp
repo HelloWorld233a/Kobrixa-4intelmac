@@ -1,0 +1,13 @@
+' Independently authored Kobrixa lesson.
+Sensor.SetMode(1, 0)
+Sensor.Wait(1)
+value = Sensor.ReadPercent(1)
+LCD.Clear()
+If value < 30 Then
+  LCD.Text(1, 4, 12, 1, "Dark")
+ElseIf value < 70 Then
+  LCD.Text(1, 4, 12, 1, "Middle")
+Else
+  LCD.Text(1, 4, 12, 1, "Bright")
+EndIf
+Program.Delay(1500)

@@ -1,0 +1,8 @@
+' Independently authored Kobrixa curriculum.
+Time.Reset1()
+Program.Delay(30)
+Time.Reset9()
+Program.Delay(20)
+LCD.Text(1, 4, 12, 1, "Timer 1: " + Time.Get1())
+LCD.Text(1, 4, 32, 1, "Timer 9: " + Time.Get9())
+Program.Delay(1000)

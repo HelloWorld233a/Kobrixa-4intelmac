@@ -24,6 +24,8 @@ export interface BuildArtifact {
 }
 
 export interface CompileResult {
+  /** Destination required by an entry source Folder directive. */
+  runtimeDirectory?: string;
   success: boolean;
   diagnostics: Diagnostic[];
   artifacts: BuildArtifact[];

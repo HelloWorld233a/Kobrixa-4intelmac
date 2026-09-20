@@ -39,6 +39,8 @@ import {
 } from "./file-tree.js";
 import { ProjectTree, type ProjectTreeHandle } from "./project-tree.js";
 
+import { deploymentPath } from "./build-path.js";
+
 type Locale = "en" | "zh-TW";
 type Tab = { file: string; content: string; saved: string };
 type PendingDraft = { workspaceId: string; file: string; content: string; timer: number };
@@ -233,6 +235,11 @@ export function App(): React.JSX.Element {
   const [buildDiagnostics, setBuildDiagnostics] = useState<Diagnostic[]>([]);
   const [status, setStatus] = useState<string>(t.ready);
   const [buildId, setBuildId] = useState<string>();
+  const [buildDestination, setBuildDestination] = useState<{
+    workspaceId: string;
+    buildId: string;
+    path: string;
+  }>();
   const [building, setBuilding] = useState(false);
   const [devices, setDevices] = useState<DeviceDescriptor[]>([]);
   const [discovering, setDiscovering] = useState(false);
@@ -379,9 +386,15 @@ export function App(): React.JSX.Element {
     "--problems-divider": problemsOpen ? "5px" : "0px",
   } as CSSProperties;
   const remotePath = useMemo(() => {
+    if (
+      buildDestination &&
+      buildDestination.workspaceId === workspace?.id &&
+      buildDestination.buildId === buildId
+    )
+      return buildDestination.path;
     const name = (workspace?.name ?? "program").replace(/[^A-Za-z0-9_-]+/g, "_");
     return `/home/root/lms2012/prjs/${name}.rbf`;
-  }, [workspace?.name]);
+  }, [workspace?.name, workspace?.id, buildId, buildDestination]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -450,6 +463,12 @@ export function App(): React.JSX.Element {
         setBuilding(false);
         setBuildId(event.buildId);
         setBuildDiagnostics(event.result.diagnostics);
+        const destination = deploymentPath(event.result);
+        setBuildDestination(
+          destination
+            ? { workspaceId: event.workspaceId, buildId: event.buildId, path: destination }
+            : undefined,
+        );
         setStatus(event.result.success ? t.buildComplete : t.buildFailed);
       }
     });

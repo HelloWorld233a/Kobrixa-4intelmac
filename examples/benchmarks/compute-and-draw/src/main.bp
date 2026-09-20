@@ -1,0 +1,46 @@
+' Independently authored Kobrixa curriculum.
+started = EV3.Time
+number score
+score = 0
+For iteration = 1 To 12
+  score += Math.SquareRoot(Math.Power(iteration, 2))
+EndFor
+number productLoop
+productLoop = 1
+For factor = 1 To 6
+  productLoop *= factor
+EndFor
+For factor = 6 To 1 Step -1
+  productLoop /= factor
+EndFor
+Assert.Near(productLoop, 1, "multiply and divide")
+randomTotal = 0
+For draw = 1 To 4
+  randomTotal += Math.GetRandomNumber(12)
+EndFor
+matrix = Vector.Data(4, "2 1 5 3")
+determinant = matrix[0] * matrix[3] - matrix[1] * matrix[2]
+Assert.Equal(determinant, 1, "matrix determinant")
+angle = Math.Sin(Math.PI / 2)
+Assert.Near(Math.Cos(Math.PI), -1, "cos radians")
+Assert.Near(Math.Tan(Math.PI / 4), 1, "tan radians")
+Assert.Near(Math.ArcSin(1), Math.PI / 2, "asin radians")
+Assert.Near(Math.ArcCos(-1), Math.PI, "acos radians")
+Assert.Near(Math.ArcTan(1), Math.PI / 4, "atan radians")
+values = Vector.Data(4, "4 1 3 2")
+sorted = Vector.Sort(4, values)
+product = Vector.Multiply(1, 1, 4, sorted, sorted)
+LCD.StopUpdate()
+LCD.Clear()
+LCD.Line(1, 4, 90, 164, 90)
+LCD.Circle(1, 30, 70, 8)
+LCD.Rect(1, 50, 64, 20, 12)
+LCD.FillCircle(1, 90, 70, 6)
+LCD.FillRect(1, 110, 64, 20, 12)
+LCD.Text(1, 4, 12, 1, "Score: " + score)
+LCD.Text(1, 4, 32, 1, "Norm2: " + product[0])
+LCD.Text(1, 4, 52, 1, "Sin: " + angle)
+LCD.Text(1, 4, 96, 1, "Random: " + randomTotal)
+LCD.Update()
+LCD.Text(1, 4, 108, 1, "Time: " + (EV3.Time - started))
+Program.Delay(1000)
