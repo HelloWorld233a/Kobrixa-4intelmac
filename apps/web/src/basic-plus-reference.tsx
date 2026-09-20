@@ -1,3 +1,5 @@
+import { AppLink } from "./app-link.js";
+import { useSearchParams } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   EV3_OPERATION_CATALOG,
@@ -644,18 +646,18 @@ function Pager({
   return (
     <nav className="article-pager" aria-label="Reference pagination">
       {prev ? (
-        <a href={route(current - 1)}>
+        <AppLink href={route(current - 1)}>
           <span>← {c.previous}</span>
           <strong>{prev.title[locale]}</strong>
-        </a>
+        </AppLink>
       ) : (
         <span />
       )}
       {next ? (
-        <a href={route(current + 1)}>
+        <AppLink href={route(current + 1)}>
           <span>{c.next} →</span>
           <strong>{next.title[locale]}</strong>
-        </a>
+        </AppLink>
       ) : (
         <span />
       )}
@@ -663,11 +665,20 @@ function Pager({
   );
 }
 function Index({ locale }: { locale: DocsLocale }) {
-  const c = t[locale],
-    [query, setQuery] = useState(""),
-    [category, setCategory] = useState(
-      () => new URLSearchParams(window.location.search).get("category") ?? "all",
+  const c = t[locale];
+  const [query, setQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const category = searchParams.get("category") ?? "all";
+  const setCategory = (value: string) => {
+    setSearchParams(
+      (params) => {
+        if (value === "all") params.delete("category");
+        else params.set("category", value);
+        return params;
+      },
+      { preventScrollReset: true },
     );
+  };
   const rows = useMemo(
     () =>
       apiEntries.filter(
@@ -683,7 +694,7 @@ function Index({ locale }: { locale: DocsLocale }) {
   return (
     <section className="reference-page" aria-labelledby="reference-title">
       <nav className="reference-breadcrumb" aria-label="Breadcrumb">
-        <a href="/docs">Kobrixa</a>
+        <AppLink href="/docs">Kobrixa</AppLink>
         <span>/</span>
         <span>Basic Plus</span>
       </nav>
@@ -699,7 +710,7 @@ function Index({ locale }: { locale: DocsLocale }) {
         <h2>{c.syntax}</h2>
         <div>
           {syntaxEntries.map((entry) => (
-            <a
+            <AppLink
               className="syntax-index-card"
               href={`/docs/reference/basic-plus/syntax/${entry.slug}`}
               key={entry.slug}
@@ -707,7 +718,7 @@ function Index({ locale }: { locale: DocsLocale }) {
               <h3>{entry.title[locale]}</h3>
               <p>{entry.body[locale]}</p>
               <i>→</i>
-            </a>
+            </AppLink>
           ))}
         </div>
       </section>
@@ -741,12 +752,12 @@ function Index({ locale }: { locale: DocsLocale }) {
         {rows.length ? (
           <div className="api-index-list">
             {rows.map((op) => (
-              <a href={apiRoute(op)} key={op.name}>
+              <AppLink href={apiRoute(op)} key={op.name}>
                 <span>{locale === "zh-TW" ? labels[op.category][0] : labels[op.category][1]}</span>
                 <strong>{op.name}</strong>
                 <code>{signature(op)}</code>
                 <i>→</i>
-              </a>
+              </AppLink>
             ))}
           </div>
         ) : (
@@ -773,15 +784,15 @@ function ApiDetail({
   return (
     <article className="reference-page detail-page" aria-labelledby="api-title">
       <nav className="reference-breadcrumb" aria-label="Breadcrumb">
-        <a href="/docs">Kobrixa</a>
+        <AppLink href="/docs">Kobrixa</AppLink>
         <span>/</span>
-        <a href="/docs/reference/basic-plus">Basic Plus</a>
+        <AppLink href="/docs/reference/basic-plus">Basic Plus</AppLink>
         <span>/</span>
         <span>{operation.name}</span>
       </nav>
-      <a className="back-link" href="/docs/reference/basic-plus">
+      <AppLink className="back-link" href="/docs/reference/basic-plus">
         ← {c.back}
-      </a>
+      </AppLink>
       <header className="reference-header" id="overview">
         <p className="eyebrow">
           <span className="eyebrow-marker" />
@@ -841,19 +852,19 @@ function ApiDetail({
         <section id="related">
           <h2>{c.related}</h2>
           <div className="detail-links">
-            <a href={`/docs/tutorial/${link[0]}`}>
+            <AppLink href={`/docs/tutorial/${link[0]}`}>
               {c.lesson}: {link[0]}
-            </a>
-            <a
+            </AppLink>
+            <AppLink
               href={`https://github.com/Kingsley1116/Kobrixa/tree/main/examples/${link[1]}`}
               target="_blank"
               rel="noreferrer"
             >
               {c.example} ↗
-            </a>
-            <a href={clev3rHelpUrl(operation)} target="_blank" rel="noreferrer">
+            </AppLink>
+            <AppLink href={clev3rHelpUrl(operation)} target="_blank" rel="noreferrer">
               {c.clev3rHelp} ↗
-            </a>
+            </AppLink>
           </div>
         </section>
       </section>
@@ -875,15 +886,15 @@ function SyntaxDetail({ locale, entry }: { locale: DocsLocale; entry: Syntax }) 
   return (
     <article className="reference-page detail-page" aria-labelledby="syntax-title">
       <nav className="reference-breadcrumb" aria-label="Breadcrumb">
-        <a href="/docs">Kobrixa</a>
+        <AppLink href="/docs">Kobrixa</AppLink>
         <span>/</span>
-        <a href="/docs/reference/basic-plus">Basic Plus</a>
+        <AppLink href="/docs/reference/basic-plus">Basic Plus</AppLink>
         <span>/</span>
         <span>{entry.title[locale]}</span>
       </nav>
-      <a className="back-link" href="/docs/reference/basic-plus">
+      <AppLink className="back-link" href="/docs/reference/basic-plus">
         ← {c.back}
-      </a>
+      </AppLink>
       <header className="reference-header" id="overview">
         <p className="eyebrow">
           <span className="eyebrow-marker" />
@@ -913,9 +924,9 @@ function SyntaxDetail({ locale, entry }: { locale: DocsLocale; entry: Syntax }) 
         <section id="related">
           <h2>{c.related}</h2>
           <div className="detail-links">
-            <a href={`/docs/tutorial/${entry.lesson}`}>
+            <AppLink href={`/docs/tutorial/${entry.lesson}`}>
               {c.lesson}: {entry.lesson}
-            </a>
+            </AppLink>
           </div>
         </section>
       </section>
@@ -932,9 +943,9 @@ function Missing({ locale }: { locale: DocsLocale }) {
   const c = t[locale];
   return (
     <article className="reference-page detail-page">
-      <a className="back-link" href="/docs/reference/basic-plus">
+      <AppLink className="back-link" href="/docs/reference/basic-plus">
         ← {c.back}
-      </a>
+      </AppLink>
       <h1>{c.missing}</h1>
     </article>
   );

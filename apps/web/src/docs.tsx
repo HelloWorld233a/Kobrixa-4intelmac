@@ -1,3 +1,5 @@
+import { AppLink } from "./app-link.js";
+import { SiteHeader } from "./site-header.js";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
@@ -153,7 +155,7 @@ function MarkdownLink({
   const target = normalizeDocLink(href);
   const external = target?.startsWith("http");
   return (
-    <a
+    <AppLink
       href={target}
       target={external ? "_blank" : undefined}
       rel={external ? "noreferrer" : undefined}
@@ -164,7 +166,7 @@ function MarkdownLink({
           ↗
         </span>
       ) : null}
-    </a>
+    </AppLink>
   );
 }
 
@@ -213,47 +215,47 @@ function KnowledgeSidebar({ locale, activePath }: { locale: DocsLocale; activePa
     <aside className="doc-sidebar knowledge-sidebar" aria-label={t.docs} ref={sidebarRef}>
       <section>
         <p>{t.start}</p>
-        <a className={`sidebar-parent ${active("/docs")}`} href="/docs">
+        <AppLink className={`sidebar-parent ${active("/docs")}`} href="/docs">
           {t.start}
-        </a>
+        </AppLink>
       </section>
       <details open={inSection("/docs/tutorial")}>
         <summary>{t.course}</summary>
-        <a className={`sidebar-parent ${active("/docs/tutorial")}`} href="/docs/tutorial">
+        <AppLink className={`sidebar-parent ${active("/docs/tutorial")}`} href="/docs/tutorial">
           {t.overview}
-        </a>
+        </AppLink>
         {tutorials.map((lesson) => (
-          <a
+          <AppLink
             className={`sidebar-child ${active(`/docs/tutorial/${lesson.slug}`)}`}
             href={`/docs/tutorial/${lesson.slug}`}
             key={lesson.slug}
           >
             <span>{lesson.number}</span>
             {lesson.title[locale]}
-          </a>
+          </AppLink>
         ))}
       </details>
       <details open={inSection("/docs/reference/basic-plus")}>
         <summary>{t.basicPlus}</summary>
-        <a
+        <AppLink
           className={`sidebar-parent ${active("/docs/reference/basic-plus")}`}
           href="/docs/reference/basic-plus"
         >
           {t.overview}
-        </a>
+        </AppLink>
         <details
           className="sidebar-syntax-group"
           open={activePath.startsWith("/docs/reference/basic-plus/syntax/")}
         >
           <summary>{t.syntax}</summary>
           {syntaxEntries.map((entry) => (
-            <a
+            <AppLink
               className={`sidebar-child ${active(`/docs/reference/basic-plus/syntax/${entry.slug}`)}`}
               href={`/docs/reference/basic-plus/syntax/${entry.slug}`}
               key={entry.slug}
             >
               {entry.title[locale]}
-            </a>
+            </AppLink>
           ))}
         </details>
         <p className="sidebar-level">{t.functions}</p>
@@ -281,14 +283,14 @@ function KnowledgeSidebar({ locale, activePath }: { locale: DocsLocale; activePa
                   >
                     <summary>{namespace}</summary>
                     {members.map((operation) => (
-                      <a
+                      <AppLink
                         aria-label={operation.name}
                         className={`sidebar-child sidebar-api ${active(apiRoute(operation))}`}
                         href={apiRoute(operation)}
                         key={operation.name}
                       >
                         {operation.name.slice(namespace.length + 1)}
-                      </a>
+                      </AppLink>
                     ))}
                   </details>
                 );
@@ -310,13 +312,13 @@ function KnowledgeSidebar({ locale, activePath }: { locale: DocsLocale; activePa
         {documents
           .filter((document) => document.category === "product")
           .map((document) => (
-            <a
+            <AppLink
               className={`sidebar-child ${active(`/docs/reference/${document.slug}`)}`}
               href={`/docs/reference/${document.slug}`}
               key={document.slug}
             >
               {document.title[locale]}
-            </a>
+            </AppLink>
           ))}
       </details>
       <details
@@ -333,23 +335,27 @@ function KnowledgeSidebar({ locale, activePath }: { locale: DocsLocale; activePa
         {documents
           .filter((document) => document.category === "technical")
           .map((document) => (
-            <a
+            <AppLink
               className={`sidebar-child ${active(`/docs/reference/${document.slug}`)}`}
               href={`/docs/reference/${document.slug}`}
               key={document.slug}
             >
               {document.title[locale]}
-            </a>
+            </AppLink>
           ))}
       </details>
       <section className="sidebar-examples">
         <p>{t.examples}</p>
-        <a href={`${github}/blob/main/examples/LEARNING-PATH.md`} target="_blank" rel="noreferrer">
+        <AppLink
+          href={`${github}/blob/main/examples/LEARNING-PATH.md`}
+          target="_blank"
+          rel="noreferrer"
+        >
           {t.learningPath} <span aria-hidden="true">↗</span>
-        </a>
-        <a href={`${github}/tree/main/examples`} target="_blank" rel="noreferrer">
+        </AppLink>
+        <AppLink href={`${github}/tree/main/examples`} target="_blank" rel="noreferrer">
           {t.browseExamples} <span aria-hidden="true">↗</span>
-        </a>
+        </AppLink>
       </section>
     </aside>
   );
@@ -361,46 +367,6 @@ function DocSidebar({ locale, activeSlug }: { locale: DocsLocale; activeSlug?: s
       locale={locale}
       activePath={activeSlug ? `/docs/reference/${activeSlug}` : "/docs"}
     />
-  );
-}
-
-function DocsHeader({ locale, onLocaleChange }: Pick<DocsPageProps, "locale" | "onLocaleChange">) {
-  const t = ui[locale];
-  return (
-    <header className="docs-header">
-      <a className="brand" href="/" aria-label="Kobrixa home">
-        <img className="brand-mark" src="/icons/kobrixa-mark.svg" alt="" aria-hidden="true" />
-        <span>Kobrixa</span>
-      </a>
-      <nav aria-label="Documentation navigation">
-        <a href="/">{t.home}</a>
-        <a className="current" href="/docs">
-          {t.docs}
-        </a>
-      </nav>
-      <button
-        className="language"
-        onClick={() => onLocaleChange(locale === "zh-TW" ? "en" : "zh-TW")}
-      >
-        {t.language}
-      </button>
-    </header>
-  );
-}
-
-function DocumentCards({ locale }: { locale: DocsLocale }) {
-  const t = ui[locale];
-  return (
-    <div className="doc-card-grid">
-      {documents.map((document) => (
-        <a href={`/docs/reference/${document.slug}`} className="doc-card" key={document.slug}>
-          <span>{document.category === "product" ? t.product : t.technical}</span>
-          <h2>{document.title[locale]}</h2>
-          <p>{document.summary[locale]}</p>
-          <i aria-hidden="true">→</i>
-        </a>
-      ))}
-    </div>
   );
 }
 
@@ -435,7 +401,7 @@ function GettingStarted({ locale }: { locale: DocsLocale }) {
                 ? "安裝 Kobrixa、連接一台 EV3，馬達測試前先架高輪子。"
                 : "Install Kobrixa, connect one EV3, and lift wheels before motor tests."}
             </p>
-            <a href="/docs/tutorial/getting-ready">{first.title[locale]} →</a>
+            <AppLink href="/docs/tutorial/getting-ready">{first.title[locale]} →</AppLink>
           </div>
           <div>
             <span>02</span>
@@ -445,7 +411,7 @@ function GettingStarted({ locale }: { locale: DocsLocale }) {
                 ? "使用 EV3 本體的顯示器與喇叭完成安全的第一次建置。"
                 : "Use the EV3 display and speaker for a safe first build."}
             </p>
-            <a href="/docs/tutorial/first-program">{t.firstLesson} →</a>
+            <AppLink href="/docs/tutorial/first-program">{t.firstLesson} →</AppLink>
           </div>
           <div>
             <span>03</span>
@@ -455,9 +421,9 @@ function GettingStarted({ locale }: { locale: DocsLocale }) {
                 ? "遇到連線或上傳問題時，停止程式、重新連線，並查閱復原指引。"
                 : "If connection or upload fails, stop the program, reconnect, and use the recovery guide."}
             </p>
-            <a href="/docs/reference/installation">
+            <AppLink href="/docs/reference/installation">
               {locale === "zh-TW" ? "安裝與復原 →" : "Installation and recovery →"}
-            </a>
+            </AppLink>
           </div>
         </section>
         <section className="course-map">
@@ -473,21 +439,21 @@ function GettingStarted({ locale }: { locale: DocsLocale }) {
                   : "Twelve lessons, from code to robot."}
               </h2>
             </div>
-            <a className="button primary" href="/docs/tutorial">
+            <AppLink className="button primary" href="/docs/tutorial">
               {t.course} <span aria-hidden="true">→</span>
-            </a>
+            </AppLink>
           </div>
           <ol>
             {tutorials.map((lesson) => (
               <li key={lesson.slug}>
-                <a href={`/docs/tutorial/${lesson.slug}`}>
+                <AppLink href={`/docs/tutorial/${lesson.slug}`}>
                   <span>{lesson.number}</span>
                   <div>
                     <strong>{lesson.title[locale]}</strong>
                     <p>{lesson.summary[locale]}</p>
                   </div>
                   <i aria-hidden="true">→</i>
-                </a>
+                </AppLink>
               </li>
             ))}
           </ol>
@@ -507,9 +473,9 @@ function GettingStarted({ locale }: { locale: DocsLocale }) {
                 : "Use the Basic Plus and EV3 reference material for language support, devices, architecture, and the roadmap."}
             </p>
           </div>
-          <a className="text-link" href="/docs/reference/basic-plus">
+          <AppLink className="text-link" href="/docs/reference/basic-plus">
             {t.basicPlus} →
-          </a>
+          </AppLink>
         </section>
       </div>
     </main>
@@ -574,7 +540,7 @@ function TutorialOverview({ locale }: { locale: DocsLocale }) {
         </section>
         <div className="tutorial-grid">
           {tutorials.map((lesson) => (
-            <a href={`/docs/tutorial/${lesson.slug}`} key={lesson.slug}>
+            <AppLink href={`/docs/tutorial/${lesson.slug}`} key={lesson.slug}>
               <span>{lesson.number}</span>
               <h2>{lesson.title[locale]}</h2>
               <p>{lesson.summary[locale]}</p>
@@ -582,7 +548,7 @@ function TutorialOverview({ locale }: { locale: DocsLocale }) {
                 {t.hardware}: {lesson.hardware[locale]}
               </small>
               <i aria-hidden="true">→</i>
-            </a>
+            </AppLink>
           ))}
         </div>
       </div>
@@ -614,13 +580,13 @@ function TutorialArticle({ locale, tutorial }: { locale: DocsLocale; tutorial: T
             <span>
               {t.hardware}: {tutorial.hardware[locale]}
             </span>
-            <a
+            <AppLink
               href={`${github}/tree/main/examples/${tutorial.example}`}
               target="_blank"
               rel="noreferrer"
             >
               {t.example} ↗
-            </a>
+            </AppLink>
           </div>
         </header>
         <div className="article-content tutorial-content">
@@ -643,18 +609,18 @@ function TutorialArticle({ locale, tutorial }: { locale: DocsLocale; tutorial: T
         </div>
         <nav className="article-pager" aria-label="Lesson pagination">
           {previous ? (
-            <a href={`/docs/tutorial/${previous.slug}`}>
+            <AppLink href={`/docs/tutorial/${previous.slug}`}>
               <span>← {t.previous}</span>
               <strong>{previous.title[locale]}</strong>
-            </a>
+            </AppLink>
           ) : (
             <span />
           )}
           {next ? (
-            <a href={`/docs/tutorial/${next.slug}`}>
+            <AppLink href={`/docs/tutorial/${next.slug}`}>
               <span>{t.next} →</span>
               <strong>{next.title[locale]}</strong>
-            </a>
+            </AppLink>
           ) : (
             <span />
           )}
@@ -704,9 +670,9 @@ function BasicPlusPage({
         >
           <p>{locale === "zh-TW" ? "本頁內容" : "On this page"}</p>
           {links.map(([id, label]) => (
-            <a href={`#${id}`} key={id}>
+            <AppLink href={`#${id}`} key={id}>
               {label}
-            </a>
+            </AppLink>
           ))}
         </aside>
       ) : null}
@@ -737,9 +703,9 @@ function Article({ locale, document: entry }: { locale: DocsLocale; document: Do
           </p>
           <h1>{entry.title[locale]}</h1>
           <p>{entry.summary[locale]}</p>
-          <a className="source-link" href={source} target="_blank" rel="noreferrer">
+          <AppLink className="source-link" href={source} target="_blank" rel="noreferrer">
             {t.source} <span aria-hidden="true">↗</span>
-          </a>
+          </AppLink>
         </header>
         <div className="article-content">
           <ReactMarkdown
@@ -755,18 +721,18 @@ function Article({ locale, document: entry }: { locale: DocsLocale; document: Do
         </div>
         <nav className="article-pager" aria-label="Document pagination">
           {previous ? (
-            <a href={`/docs/reference/${previous.slug}`}>
+            <AppLink href={`/docs/reference/${previous.slug}`}>
               <span>← {t.previous}</span>
               <strong>{previous.title[locale]}</strong>
-            </a>
+            </AppLink>
           ) : (
             <span />
           )}
           {next ? (
-            <a href={`/docs/reference/${next.slug}`}>
+            <AppLink href={`/docs/reference/${next.slug}`}>
               <span>{t.next} →</span>
               <strong>{next.title[locale]}</strong>
-            </a>
+            </AppLink>
           ) : (
             <span />
           )}
@@ -775,13 +741,13 @@ function Article({ locale, document: entry }: { locale: DocsLocale; document: Do
       <aside className="toc" aria-label={t.tableOfContents}>
         <p>{t.tableOfContents}</p>
         {headings.map((heading) => (
-          <a
+          <AppLink
             className={heading.level === 3 ? "nested" : ""}
             href={`#${heading.id}`}
             key={heading.id}
           >
             {heading.text}
-          </a>
+          </AppLink>
         ))}
       </aside>
     </main>
@@ -801,9 +767,9 @@ function NotFound({ locale }: { locale: DocsLocale }) {
       </p>
       <h1>{t.notFound}</h1>
       <p>{t.notFoundBody}</p>
-      <a className="button primary" href="/docs">
+      <AppLink className="button primary" href="/docs">
         {t.backToDocs} <span aria-hidden="true">→</span>
-      </a>
+      </AppLink>
     </main>
   );
 }
@@ -837,10 +803,10 @@ export function DocsPage({ locale, onLocaleChange, path }: DocsPageProps) {
     );
   return (
     <>
-      <a className="skip-link" href="#content">
-        Skip to content
-      </a>
-      <DocsHeader locale={locale} onLocaleChange={onLocaleChange} />
+      <AppLink className="skip-link" href="#content">
+        {locale === "zh-TW" ? "跳到主要內容" : "Skip to content"}
+      </AppLink>
+      <SiteHeader locale={locale} page="docs" onLocaleChange={onLocaleChange} />
       {view}
     </>
   );

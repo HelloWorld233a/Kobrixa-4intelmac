@@ -8,13 +8,15 @@
     "build": "tsc -p tsconfig.json && vite build",
     "check": "tsc -p tsconfig.json --noEmit",
     "preview:worker": "pnpm run build && wrangler dev",
-    "deploy": "pnpm run build && wrangler deploy"
+    "deploy": "pnpm run build && wrangler deploy",
+    "test": "vitest run"
   },
   "dependencies": {
     "@kobrixa/ir": "workspace:*",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0",
+    "react-router": "^7.18.4",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {

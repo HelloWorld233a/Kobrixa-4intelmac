@@ -1,5 +1,17 @@
-import { StrictMode, useEffect, useState } from "react";
+import { AppLink } from "./app-link.js";
+import { FeaturesPage, DownloadPage } from "./product-pages.js";
+import { SiteHeader } from "./site-header.js";
+import { StrictMode, useEffect, useRef, useState } from "react";
+import {
+  createBrowserRouter,
+  Outlet,
+  ScrollRestoration,
+  useLocation,
+  useOutletContext,
+} from "react-router";
+import { RouterProvider } from "react-router/dom";
 import { createRoot } from "react-dom/client";
+import { ToolsPage } from "./tools.js";
 import { DocsPage } from "./docs.js";
 import "./styles.css";
 
@@ -9,8 +21,6 @@ const github = "https://github.com/Kingsley1116/Kobrixa";
 
 const copy = {
   "zh-TW": {
-    localeName: "English",
-    nav: { features: "功能", learn: "學習資源", download: "下載", docs: "文件", github: "GitHub" },
     hero: {
       label: "為 EV3 而生的程式環境",
       title: "用程式，讓創意真的動起來。",
@@ -70,14 +80,6 @@ const copy = {
     },
   },
   en: {
-    localeName: "繁中",
-    nav: {
-      features: "Features",
-      learn: "Learn",
-      download: "Download",
-      docs: "Docs",
-      github: "GitHub",
-    },
     hero: {
       label: "A programming environment for EV3",
       title: "Make ideas move with code.",
@@ -199,40 +201,22 @@ function CodeWorkbench() {
   );
 }
 
-function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () => void }) {
+function HomePage({
+  locale,
+  onLocaleChange,
+}: {
+  locale: Locale;
+  onLocaleChange: (locale: Locale) => void;
+}) {
   const t = copy[locale];
   const learnPath = `${github}/blob/main/examples/LEARNING-PATH.md`;
-  const installation = `${github}/blob/main/docs/${locale === "zh-TW" ? "zh-TW" : "en"}/installation.md`;
 
   return (
     <>
-      <a className="skip-link" href="#content">
-        Skip to content
-      </a>
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="Kobrixa home">
-          <img className="brand-mark" src="/icons/kobrixa-mark.svg" alt="" aria-hidden="true" />
-          <span>Kobrixa</span>
-        </a>
-        <nav aria-label="Primary navigation">
-          <a href="#features">{t.nav.features}</a>
-          <a href="/docs">{t.nav.learn}</a>
-          <a href="#download">{t.nav.download}</a>
-          <a href="/docs">{t.nav.docs}</a>
-        </nav>
-        <div className="header-actions">
-          <button
-            className="language"
-            onClick={toggleLocale}
-            aria-label={`Switch language to ${t.localeName}`}
-          >
-            {t.localeName}
-          </button>
-          <a className="github-link" href={github} target="_blank" rel="noreferrer">
-            {t.nav.github} <span aria-hidden="true">↗</span>
-          </a>
-        </div>
-      </header>
+      <AppLink className="skip-link" href="#content">
+        {locale === "zh-TW" ? "跳到主要內容" : "Skip to content"}
+      </AppLink>
+      <SiteHeader locale={locale} page="home" onLocaleChange={onLocaleChange} />
 
       <main id="content">
         <section className="hero" id="top">
@@ -244,12 +228,12 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
             <h1>{t.hero.title}</h1>
             <p className="hero-body">{t.hero.body}</p>
             <div className="hero-actions">
-              <a className="button primary" href="/docs">
+              <AppLink className="button primary" href="/docs">
                 {t.hero.learn} <span aria-hidden="true">→</span>
-              </a>
-              <a className="button secondary" href={github} target="_blank" rel="noreferrer">
+              </AppLink>
+              <AppLink className="button secondary" href={github} target="_blank" rel="noreferrer">
                 {t.hero.source} <span aria-hidden="true">↗</span>
-              </a>
+              </AppLink>
             </div>
             <p className="hero-note">{t.hero.note}</p>
           </div>
@@ -291,6 +275,9 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
             {t.features.eyebrow}
           </p>
           <h2>{t.features.title}</h2>
+          <AppLink className="text-link" href="/features">
+            {locale === "zh-TW" ? "探索全部功能 →" : "Explore all features →"}
+          </AppLink>
           <div className="feature-grid">
             {t.features.cards.map(([title, body], index) => (
               <article className="feature-card" key={title}>
@@ -332,17 +319,17 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
             <h2>{t.learn.title}</h2>
             <p>{t.learn.body}</p>
             <div className="learn-actions">
-              <a className="button primary" href={learnPath} target="_blank" rel="noreferrer">
+              <AppLink className="button primary" href={learnPath} target="_blank" rel="noreferrer">
                 {t.learn.path} <span aria-hidden="true">↗</span>
-              </a>
-              <a
+              </AppLink>
+              <AppLink
                 className="text-link"
                 href={`${github}/tree/main/examples`}
                 target="_blank"
                 rel="noreferrer"
               >
                 {t.learn.examples} <span aria-hidden="true">→</span>
-              </a>
+              </AppLink>
             </div>
           </div>
           <div className="lesson-stack">
@@ -379,9 +366,10 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
               <i />
               {t.download.status}
             </span>
-            <a className="text-link" href={installation} target="_blank" rel="noreferrer">
-              {t.download.install} <span aria-hidden="true">↗</span>
-            </a>
+            <AppLink className="text-link" href="/download">
+              {locale === "zh-TW" ? "查看下載與安裝方式" : "View download & setup options"}{" "}
+              <span aria-hidden="true">↗</span>
+            </AppLink>
           </div>
         </section>
       </main>
@@ -395,20 +383,23 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
           </div>
         </div>
         <div className="footer-links">
-          <a href="/docs">{t.footer.docs}</a>
-          <a
+          <AppLink href="/features">{locale === "zh-TW" ? "功能" : "Features"}</AppLink>
+          <AppLink href="/download">{locale === "zh-TW" ? "下載" : "Download"}</AppLink>
+          <AppLink href="/tools">{locale === "zh-TW" ? "工具" : "Tools"}</AppLink>
+          <AppLink href="/docs">{t.footer.docs}</AppLink>
+          <AppLink
             href={`${github}/tree/main/docs/${locale === "zh-TW" ? "zh-TW" : "en"}`}
             target="_blank"
             rel="noreferrer"
           >
             GitHub {t.footer.docs} ↗
-          </a>
-          <a href={github} target="_blank" rel="noreferrer">
+          </AppLink>
+          <AppLink href={github} target="_blank" rel="noreferrer">
             GitHub
-          </a>
-          <a href={`${github}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
+          </AppLink>
+          <AppLink href={`${github}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
             {t.footer.license}
-          </a>
+          </AppLink>
         </div>
         <p className="trademark">{t.footer.trademark}</p>
       </footer>
@@ -416,37 +407,82 @@ function HomePage({ locale, toggleLocale }: { locale: Locale; toggleLocale: () =
   );
 }
 
+type PageContext = {
+  locale: Locale;
+  onLocaleChange: (locale: Locale) => void;
+};
+
 function App() {
   const [locale, setLocale] = useState<Locale>(() =>
     localStorage.getItem("kobrixa-locale") === "en" ? "en" : "zh-TW",
   );
-  const [path, setPath] = useState(() => window.location.pathname);
-  const isDocs = path === "/docs" || path.startsWith("/docs/");
-
-  useEffect(() => {
-    const onPopState = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  const { pathname } = useLocation();
+  const previousPath = useRef(pathname);
 
   useEffect(() => {
     document.documentElement.lang = locale;
     localStorage.setItem("kobrixa-locale", locale);
-    if (!isDocs)
-      document.title =
-        locale === "zh-TW" ? "Kobrixa — 用程式驅動創意" : "Kobrixa — Make ideas move with code";
-  }, [isDocs, locale]);
+  }, [locale]);
 
-  const toggleLocale = () => setLocale((current) => (current === "zh-TW" ? "en" : "zh-TW"));
-  return isDocs ? (
-    <DocsPage locale={locale} onLocaleChange={setLocale} path={path} />
-  ) : (
-    <HomePage locale={locale} toggleLocale={toggleLocale} />
+  useEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    const content = document.getElementById("content");
+    if (content) {
+      content.tabIndex = -1;
+      content.focus({ preventScroll: true });
+    }
+  }, [pathname]);
+
+  return (
+    <>
+      <Outlet context={{ locale, onLocaleChange: setLocale } satisfies PageContext} />
+      <ScrollRestoration />
+    </>
   );
 }
 
+function Page({ page }: { page: "home" | "features" | "download" | "tools" | "docs" }) {
+  const props = useOutletContext<PageContext>();
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (page === "home")
+      document.title =
+        props.locale === "zh-TW"
+          ? "Kobrixa — 用程式驅動創意"
+          : "Kobrixa — Make ideas move with code";
+  }, [page, props.locale]);
+
+  switch (page) {
+    case "features":
+      return <FeaturesPage {...props} />;
+    case "download":
+      return <DownloadPage {...props} />;
+    case "tools":
+      return <ToolsPage {...props} />;
+    case "docs":
+      return <DocsPage {...props} path={pathname} />;
+    default:
+      return <HomePage {...props} />;
+  }
+}
+
+const router = createBrowserRouter([
+  {
+    element: <App />,
+    children: [
+      { index: true, element: <Page page="home" /> },
+      { path: "features", element: <Page page="features" /> },
+      { path: "download", element: <Page page="download" /> },
+      { path: "tools", element: <Page page="tools" /> },
+      { path: "docs/*", element: <Page page="docs" /> },
+      { path: "*", element: <Page page="home" /> },
+    ],
+  },
+]);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </StrictMode>,
 );
