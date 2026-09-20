@@ -1,9 +1,9 @@
-import { AppLink } from "./app-link.js";
-import { SiteHeader } from "./site-header.js";
+import { AppLink } from "../../components/app-link.js";
+import { SiteHeader } from "../../components/site-header.js";
 import { useEffect, useState } from "react";
-import { ImageTool } from "./image-tool.js";
-import { AudioTool } from "./audio-tool.js";
-import { Icon } from "./tools-ui.js";
+import { ImageTool } from "./components/image-tool.js";
+import { AudioTool } from "./components/audio-tool.js";
+import { Icon } from "./components/tools-ui.js";
 import "./tools.css";
 export function ToolsPage({
   locale,
@@ -82,19 +82,6 @@ export function ToolsPage({
               </button>
             ))}
           </div>
-          <ol className="studio-steps" aria-label={t("操作流程", "Workflow")}>
-            {[
-              t("匯入", "Import"),
-              t("調整", "Adjust"),
-              t("預覽", "Preview"),
-              t("下載", "Export"),
-            ].map((step, i) => (
-              <li key={step}>
-                <span>0{i + 1}</span>
-                {step}
-              </li>
-            ))}
-          </ol>
         </div>
         <section
           id="panel-image"

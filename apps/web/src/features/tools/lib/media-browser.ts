@@ -1,3 +1,4 @@
+import { encodeRsfSegments, sequenceSampleCount } from "./audio-segments.js";
 import { encodeRsf, sampleCount, SAMPLE_RATE } from "./media.js";
 import { imageGeometry, processAudio, processImage } from "./media-processing.js";
 import type { AudioSettings, ImageSettings } from "./media-processing.js";
@@ -35,6 +36,19 @@ export function convertImage(image: HTMLImageElement, settings: ImageSettings) {
 
 export async function convertAudio(buffer: AudioBuffer, settings: AudioSettings) {
   const count = sampleCount(settings.start, settings.end, buffer.duration);
+  const processed = await renderAudio(buffer, settings, count);
+  return { bytes: encodeRsf(processed.samples), clipped: processed.clipped };
+}
+
+export async function convertAudioSequence(buffer: AudioBuffer, settings: AudioSettings) {
+  const count = sequenceSampleCount(settings.start, settings.end, buffer.duration);
+  // Resample and apply effects once across the entire selection. Splitting afterwards
+  // preserves every output sample and avoids fades/normalization restarting at joins.
+  const processed = await renderAudio(buffer, settings, count);
+  return { parts: encodeRsfSegments(processed.samples), clipped: processed.clipped };
+}
+
+async function renderAudio(buffer: AudioBuffer, settings: AudioSettings, count: number) {
   const context = new OfflineAudioContext(1, count, SAMPLE_RATE);
   // Copy only the selected range, with a short resampling boundary on each side.
   const first = Math.max(0, Math.floor(settings.start * buffer.sampleRate) - 128);
@@ -52,8 +66,7 @@ export async function convertAudio(buffer: AudioBuffer, settings: AudioSettings)
   source.start(0, settings.start - first / buffer.sampleRate);
   try {
     const rendered = await context.startRendering();
-    const processed = processAudio(rendered.getChannelData(0), settings);
-    return { bytes: encodeRsf(processed.samples), clipped: processed.clipped };
+    return processAudio(rendered.getChannelData(0), settings);
   } finally {
     source.disconnect();
   }

@@ -1,4 +1,4 @@
-import { AppLink } from "./app-link.js";
+import { AppLink } from "../../components/app-link.js";
 import { useSearchParams } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 import {

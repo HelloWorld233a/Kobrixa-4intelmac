@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { validFileName } from "../lib/tools-state.js";
+import type { ExportState } from "../lib/tools-state.js";
 export type Translate = (zh: string, en: string) => string;
 export function Icon({
   name = "image",
@@ -52,6 +54,7 @@ export function Range({
   unit = "",
   onChange,
   hint,
+  t,
 }: {
   label: string;
   value: number;
@@ -61,8 +64,11 @@ export function Range({
   unit?: string;
   onChange: (n: number) => void;
   hint?: string;
+  t: Translate;
 }) {
   const id = useId();
+  const invalid = !Number.isFinite(value) || value < min || value > max;
+  const description = `${id}-description`;
   return (
     <div className="studio-control">
       <div className="control-top">
@@ -70,6 +76,8 @@ export function Range({
         <div className="number-unit">
           <input
             aria-label={label}
+            aria-invalid={invalid}
+            aria-describedby={description}
             type="number"
             min={min}
             max={max}
@@ -82,6 +90,7 @@ export function Range({
       </div>
       <input
         id={id}
+        aria-describedby={description}
         type="range"
         min={min}
         max={max}
@@ -89,7 +98,11 @@ export function Range({
         value={Number.isFinite(value) ? value : min}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      {hint && <p className="control-hint">{hint}</p>}
+      <p id={description} className={invalid ? "studio-error" : "control-hint"}>
+        {invalid
+          ? t(`請輸入 ${min}–${max}${unit} 的數值。`, `Enter a value from ${min} to ${max}${unit}.`)
+          : hint}
+      </p>
     </div>
   );
 }
@@ -117,18 +130,23 @@ export function DropZone({
   const upload = t("選擇檔案", "Choose file");
   return (
     <div
+      id={`${kind}-import`}
+      tabIndex={-1}
+      aria-label={t("匯入素材", "Import media")}
+      aria-busy={loading}
       className={`studio-drop ${drag ? "dragging" : ""} ${name ? "has-file" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDrag(true);
       }}
       onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrag(false);
+        if (!(e.relatedTarget instanceof Node) || !e.currentTarget.contains(e.relatedTarget))
+          setDrag(false);
       }}
       onDrop={(e) => {
         e.preventDefault();
         setDrag(false);
-        if (e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);
+        if (active && e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);
       }}
     >
       <span className="drop-icon">
@@ -151,7 +169,7 @@ export function DropZone({
       <div className="drop-actions">
         <button
           type="button"
-          className="studio-button secondary"
+          className={`studio-button ${name ? "secondary" : "primary"}`}
           onClick={() => input.current?.click()}
         >
           {name ? t("替換檔案", "Replace file") : upload}
@@ -167,7 +185,7 @@ export function DropZone({
         aria-label={
           kind === "image" ? t("選擇圖片", "Choose image") : t("選擇音頻", "Choose audio")
         }
-        tabIndex={active ? 0 : -1}
+        tabIndex={-1}
         accept={
           kind === "image"
             ? "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
@@ -179,6 +197,97 @@ export function DropZone({
           e.target.value = "";
         }}
       />
+    </div>
+  );
+}
+export function statusText(state: ExportState, t: Translate) {
+  switch (state) {
+    case "empty":
+      return t("選擇素材或試用範例，即可開始。", "Choose a file or try a demo to begin.");
+    case "loading":
+      return t("正在讀取素材，請稍候…", "Reading your file. Please wait…");
+    case "updating":
+      return t("正在更新預覽與下載檔…", "Updating the preview and download…");
+    case "invalid":
+      return t("請修正標示的設定後再下載。", "Fix the highlighted settings to download.");
+    case "error":
+      return t("轉換失敗，請調整設定以重試。", "Conversion failed. Adjust the settings to retry.");
+    case "filename":
+      return t("請輸入有效的檔案名稱後再下載。", "Enter a valid file name to download.");
+    case "ready":
+      return t("預覽已更新，可以下載。", "Preview updated. Ready to download.");
+  }
+}
+export function StudioStatus({ state, t }: { state: ExportState; t: Translate }) {
+  return (
+    <div className={`studio-status state-${state}`} role="status" aria-atomic="true">
+      {statusText(state, t)}
+    </div>
+  );
+}
+export function StudioWorkflow({
+  kind,
+  hasSource,
+  state,
+  t,
+}: {
+  kind: "image" | "audio";
+  hasSource: boolean;
+  state: ExportState;
+  t: Translate;
+}) {
+  return (
+    <nav className="studio-workflow" aria-label={t("操作流程", "Workflow")}>
+      <ol className="studio-steps">
+        {[
+          ["import", t("匯入", "Import")],
+          ["preview", t("調整與預覽", "Adjust & preview")],
+          ["download", t("下載", "Download")],
+        ].map(([section, label], index) => (
+          <li key={section}>
+            <button
+              type="button"
+              disabled={index > 0 && !hasSource}
+              onClick={() => {
+                const target = document.getElementById(`${kind}-${section}`);
+                target?.focus({ preventScroll: true });
+                target?.scrollIntoView({
+                  block: "start",
+                  behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                    ? "instant"
+                    : "auto",
+                });
+              }}
+            >
+              <span>0{index + 1}</span>
+              {label}
+              {section === "download" && state === "ready" && (
+                <span className="workflow-ready">{t("可下載", "Ready")}</span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+export function StudioWorkspace({
+  kind,
+  preview,
+  settings,
+  download,
+}: {
+  kind: "image" | "audio";
+  preview: ReactNode;
+  settings: ReactNode;
+  download: ReactNode;
+}) {
+  // DOM order also matches the single-column reading and keyboard order.
+  return (
+    <div className={`studio-workspace ${kind}-workspace`}>
+      {preview}
+      {settings}
+      {download}
     </div>
   );
 }
@@ -207,42 +316,61 @@ export function DownloadCard({
   setName,
   extension,
   t,
-  pending = false,
+  state,
+  usageCode,
+  usageIntro,
+  children,
 }: {
   bytes?: Uint8Array<ArrayBuffer> | undefined;
   name: string;
   setName: (name: string) => void;
-  extension: "rgf" | "rsf";
+  extension: "rgf" | "rsf" | "zip";
   t: Translate;
-  pending?: boolean;
+  state: ExportState;
+  usageCode?: string;
+  usageIntro?: string;
+  children?: ReactNode;
 }) {
   const blob = useMemo(
-    () => (bytes ? new Blob([bytes], { type: "application/octet-stream" }) : undefined),
-    [bytes],
+    () =>
+      bytes
+        ? new Blob([bytes], {
+            type: extension === "zip" ? "application/zip" : "application/octet-stream",
+          })
+        : undefined,
+    [bytes, extension],
   );
   const url = useBlobUrl(blob);
-  const [copyState, setCopyState] = useState("");
-  const valid =
-    name.trim().length > 0 &&
-    name.trim() !== "." &&
-    name.trim() !== ".." &&
-    !/[\\/:*?"<>|]/.test(name) &&
-    ![...name].some((c) => c.charCodeAt(0) < 32);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const valid = validFileName(name);
+  const id = useId();
+  const [downloaded, setDownloaded] = useState(false);
+  const effectiveState = state === "ready" && !url ? "updating" : state;
+  const ready = effectiveState === "ready";
+  useEffect(() => setDownloaded(false), [bytes, name, state]);
   const file = `${name.trim()}.${extension}`;
   const code =
-    extension === "rgf"
+    usageCode ??
+    (extension === "rgf"
       ? `LCD.BmpFile(1, 0, 0, "assets/deploy/${name.trim()}")\nLCD.Update()`
-      : `Speaker.Play(35, "assets/deploy/${name.trim()}")\nSpeaker.Wait()`;
-  useEffect(() => setCopyState(""), [code]);
+      : `Speaker.Play(35, "assets/deploy/${name.trim()}")\nSpeaker.Wait()`);
+  useEffect(() => setCopyState("idle"), [code]);
   return (
-    <div className="studio-download">
-      <PanelTitle number="04" title={t("帶到你的 EV3", "Take it to your EV3")} />
+    <div
+      className="studio-download"
+      id={`${extension === "rgf" ? "image" : "audio"}-download`}
+      tabIndex={-1}
+      aria-label={t("下載素材", "Download media")}
+    >
+      <PanelTitle number="03" title={t("帶到你的 EV3", "Take it to your EV3")} />
       <div className="export-row">
         <label className="export-name">
           {t("檔案名稱", "File name")}
           <div>
             <input
               aria-label={t("檔案名稱", "File name")}
+              aria-invalid={!valid}
+              aria-describedby={!valid ? `${id}-name-error` : undefined}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -251,40 +379,50 @@ export function DownloadCard({
         </label>
         <div className="export-action">
           <span className="export-size">
-            {bytes
+            {ready && bytes
               ? `${bytes.length.toLocaleString()} bytes · ${extension.toUpperCase()}`
-              : pending
-                ? t("正在更新…", "Updating…")
-                : t("選擇素材以開始", "Choose a file to begin")}
+              : extension.toUpperCase()}
           </span>
-          {url && valid && !pending ? (
-            <a className="studio-button primary" href={url} download={file}>
+          {ready && url ? (
+            <a
+              className="studio-button primary"
+              href={url}
+              download={file}
+              aria-describedby={`${id}-status`}
+              onClick={() => setDownloaded(true)}
+            >
               <Icon name="download" />
               {t("下載", "Download")} {extension.toUpperCase()}
             </a>
           ) : (
-            <button className="studio-button primary" disabled>
+            <button className="studio-button primary" disabled aria-describedby={`${id}-status`}>
               <Icon name="download" />
               {t("下載", "Download")} {extension.toUpperCase()}
             </button>
           )}
         </div>
       </div>
+      <p id={`${id}-status`} className={`download-status state-${effectiveState}`} role="status">
+        {downloaded ? t("已開始下載", "Download started") : statusText(effectiveState, t)}
+        {ready && <span className="download-filename">{file}</span>}
+      </p>
       {!valid && (
-        <p className="studio-error" role="alert">
+        <p id={`${id}-name-error`} className="studio-error" role="alert">
           {t(
             "請輸入不含斜線、引號或特殊路徑符號的檔名。",
             "Enter a file name without slashes, quotes or reserved path characters.",
           )}
         </p>
       )}
+      {children}
       <details className="usage-details">
         <summary>{t("如何在 Kobrixa 使用？", "How do I use this in Kobrixa?")}</summary>
         <p>
-          {t(
-            "將檔案放進專案的 assets/deploy 資料夾，並在 kobrixa.json 的 assets 加入 assets/deploy/**/*。上傳專案後使用以下程式：",
-            "Put the file in your project's assets/deploy folder and include assets/deploy/**/* in kobrixa.json's assets list. Upload the project, then use:",
-          )}
+          {usageIntro ??
+            t(
+              "將檔案放進專案的 assets/deploy 資料夾，並在 kobrixa.json 的 assets 加入 assets/deploy/**/*。上傳專案後使用以下程式：",
+              "Put the file in your project's assets/deploy folder and include assets/deploy/**/* in kobrixa.json's assets list. Upload the project, then use:",
+            )}
         </p>
         {valid && (
           <>
@@ -296,15 +434,19 @@ export function DownloadCard({
               onClick={() => {
                 void Promise.resolve()
                   .then(() => navigator.clipboard.writeText(code))
-                  .then(() => setCopyState(t("已複製", "Copied")))
-                  .catch(() =>
-                    setCopyState(t("請選取上方程式碼複製", "Select the code above to copy")),
-                  );
+                  .then(() => setCopyState("copied"))
+                  .catch(() => setCopyState("failed"));
               }}
             >
               {t("複製程式碼", "Copy code")}
             </button>
-            <span role="status"> {copyState}</span>
+            <span role="status">
+              {copyState === "copied"
+                ? t("已複製", "Copied")
+                : copyState === "failed"
+                  ? t("請選取上方程式碼複製", "Select the code above to copy")
+                  : ""}
+            </span>
           </>
         )}
       </details>

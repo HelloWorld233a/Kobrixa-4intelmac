@@ -1,7 +1,7 @@
-import { AppLink } from "./app-link.js";
+import { AppLink } from "../../components/app-link.js";
 import { useEffect, useState } from "react";
-import { SiteHeader } from "./site-header.js";
-import metadata from "../../../package.json" with { type: "json" };
+import { SiteHeader } from "../../components/site-header.js";
+import metadata from "../../../../../package.json" with { type: "json" };
 import "./product-pages.css";
 
 type Locale = "zh-TW" | "en";

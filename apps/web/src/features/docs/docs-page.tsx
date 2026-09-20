@@ -1,5 +1,5 @@
-import { AppLink } from "./app-link.js";
-import { SiteHeader } from "./site-header.js";
+import { AppLink } from "../../components/app-link.js";
+import { SiteHeader } from "../../components/site-header.js";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
