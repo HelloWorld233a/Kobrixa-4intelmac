@@ -1,0 +1,216 @@
+' Synthetic robot-control regression fixture.
+' Exercises numeric outputs, row handles, device data and concurrent subroutines.
+x = 700
+y = 0
+b_x_upper = 1140
+b_y_upper = 2800
+rpx = 0
+rpx_360 = 0
+is_stuck = "False"
+config = 0
+CreateConfiguration(config)
+Time.Reset1()
+Time.Reset2()
+Time.Reset4()
+Time.Reset6()
+
+Sensor.SetMode(2, 0)
+resetBytes[0] = 17
+Sensor.SendUARTData(2, 1, resetBytes)
+Sensor.Wait(2)
+Thread.Run = ReadHeading
+If Sensor.ReadRawValue(2, 0) <> 0 Then
+  While 1 = 1
+    LCD.Text(1, 0, 0, 1, "GYRO FAIL")
+    Program.Delay(150)
+  EndWhile
+EndIf
+
+While 1 = 1
+  button = Buttons.GetClicks()
+  If button = "E" Then
+    Thread.Run = DisplayPosition
+    Thread.Run = Sub_is_stuck
+    For sample = 1 To 10
+      getSignature(1, 2, cameraX, cameraY, cameraWidth, cameraHeight)
+    EndFor
+    MotorD.StartPower(-100)
+    MotorA.StartPower(100)
+    move(60, 60)
+    While 1 = 1
+      Program.Delay(10)
+    EndWhile
+  ElseIf button = "L" Then
+    MotorD.StartPower(100)
+    Program.Delay(300)
+    MotorD.StartPower(-100)
+  ElseIf button = "D" Then
+    LCD.Text(1, 0, 0, 1, x)
+  ElseIf button = "R" Then
+    Speaker.Play(100, "chime")
+  Else
+    LCD.Text(1, 0, 0, 1, "READY")
+  EndIf
+  Program.Delay(100)
+EndWhile
+
+Function CreateConfiguration(out number table)
+  table = Row.Init(42, 0)
+  Row.Write(table, 0, 10)
+  Row.Write(table, 1, 4)
+  row[0] = 1
+  row[1] = 0
+  row[2] = 1
+  row[3] = 1
+  WriteConfigurationRow(table, 0, row)
+  WriteConfigurationRow(table, 1, row)
+  row[0] = 100
+  row[2] = 100
+  row[3] = 5
+  WriteConfigurationRow(table, 2, row)
+  WriteConfigurationRow(table, 3, row)
+  row[0] = 0
+  row[2] = 1
+  row[3] = 1
+  WriteConfigurationRow(table, 4, row)
+EndFunction
+
+Function WriteConfigurationRow(in number table, in number index, in number[] values)
+  For column = 0 To 3
+    Row.Write(table, 2 + index * 4 + column, values[column])
+  EndFor
+EndFunction
+
+Function move(in number left, in number right)
+  MotorB.StartPower(-left)
+  MotorC.StartPower(right)
+EndFunction
+
+Function move_gyro(in number gain, in number drive, in number target)
+  correction = (@rpx + target) * gain
+  move(drive + correction, drive - correction)
+EndFunction
+
+Function move_time(in number left, in number right, in number duration)
+  Time.Reset4()
+  While Time.Get4() < duration
+    move(left, right)
+  EndWhile
+EndFunction
+
+Function turn_gyro_rpx(in number target, out number error)
+  angle = Math.Remainder(@rpx_360 + target, 360)
+  error = -angle
+  If angle > 180 Then
+    error += 360
+  EndIf
+EndFunction
+
+Function turn_gyro(in number target, in number gain)
+  Time.Reset6()
+  turn_gyro_rpx(target, error)
+  While Math.Abs(error) > 5 And (Time.Get6() < 1500 Or @is_stuck = "False")
+    turn_gyro_rpx(target, error)
+    If error > 0 Then
+      limit(error * gain, 15, 45, power)
+    Else
+      limit(error * gain, -45, -15, power)
+    EndIf
+    MotorBC.StartPower(-power)
+  EndWhile
+EndFunction
+
+Function limit(in number value, in number low, in number high, out number result)
+  result = Math.Min(high, Math.Max(low, value))
+EndFunction
+
+Function speed(in string enabled, in number boundary, out number power)
+  power = 100
+  If @y > boundary Then
+    power = 45
+    If enabled = "True" Then
+      MotorA.StartPower(100)
+    EndIf
+  EndIf
+EndFunction
+
+Function getHeading(in number port, in number bias, out number signed, out number heading)
+  raw = Sensor.ReadRawValue(port, 0) - bias
+  heading = Math.Remainder(raw, 360)
+  If heading < 0 Then
+    heading += 360
+  EndIf
+  signed = -heading
+  If heading > 180 Then
+    signed += 360
+  EndIf
+EndFunction
+
+Function getSignature(in number port, in number signature, out number x, out number y, out number width, out number height)
+  reply = Sensor.ReadI2CRegisters(port, 1, 80 + signature, 5)
+  x = reply[1]
+  y = reply[2]
+  width = reply[3]
+  height = reply[4]
+EndFunction
+
+Function atan2_m90(in number y, in number x, out number result)
+  If x = 0 Then
+    result = 0
+    If y < 0 Then
+      result = -180
+    EndIf
+  Else
+    result = Math.GetDegrees(Math.ArcTan(y / x)) - 90
+    If x < 0 Then
+      result += 180
+      If y < 0 Then
+        result -= 360
+      EndIf
+    EndIf
+  EndIf
+EndFunction
+
+Sub ReadHeading
+  While 1 = 1
+    getHeading(2, 0, rpx, rpx_360)
+    Program.Delay(1)
+  EndWhile
+EndSub
+
+Sub DisplayPosition
+  While 1 = 1
+    LCD.Text(1, 0, 0, 1, "X: " + x + " Y: " + y)
+    Program.Delay(50)
+  EndWhile
+EndSub
+
+Sub Sub_is_stuck
+  previousLeft = 0
+  previousRight = 0
+  lastSample = 0
+  While 1 = 1
+    left = -MotorB.GetTacho()
+    right = MotorC.GetTacho()
+    deltaLeft = left - previousLeft
+    deltaRight = right - previousRight
+    previousLeft = left
+    previousRight = right
+    If Math.Abs(deltaLeft) + Math.Abs(deltaRight) > 2 Then
+      While Time.Get1() < lastSample + 10
+      EndWhile
+      lastSample = Time.Get1()
+      Time.Reset2()
+      is_stuck = "False"
+      radians = Math.GetRadians(rpx)
+      distance = deltaLeft + deltaRight
+      nextX = x + distance * Math.Sin(radians)
+      nextY = y + distance * Math.Cos(radians)
+      x = Math.Max(0, Math.Min(b_x_upper, nextX))
+      y = Math.Max(0, Math.Min(b_y_upper, nextY))
+    ElseIf Time.Get2() > 125 Then
+      is_stuck = "True"
+    EndIf
+    Program.Delay(1)
+  EndWhile
+EndSub

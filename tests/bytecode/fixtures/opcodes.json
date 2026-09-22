@@ -1,0 +1,3289 @@
+{
+  "ops": [
+    [
+      0,
+      {
+        "name": "ERROR",
+        "types": []
+      }
+    ],
+    [
+      1,
+      {
+        "name": "NOP",
+        "types": []
+      }
+    ],
+    [
+      2,
+      {
+        "name": "PROGRAM_STOP",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      3,
+      {
+        "name": "PROGRAM_START",
+        "types": ["PAR16", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      4,
+      {
+        "name": "OBJECT_STOP",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      5,
+      {
+        "name": "OBJECT_START",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      6,
+      {
+        "name": "OBJECT_TRIG",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      7,
+      {
+        "name": "OBJECT_WAIT",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      8,
+      {
+        "name": "RETURN",
+        "types": []
+      }
+    ],
+    [
+      9,
+      {
+        "name": "CALL",
+        "types": ["PAR16", "PARNO"]
+      }
+    ],
+    [
+      10,
+      {
+        "name": "OBJECT_END",
+        "types": []
+      }
+    ],
+    [
+      11,
+      {
+        "name": "SLEEP",
+        "types": []
+      }
+    ],
+    [
+      12,
+      {
+        "name": "PROGRAM_INFO",
+        "types": ["PAR8", "SUBP", "PROGRAM_SUBP"]
+      }
+    ],
+    [
+      13,
+      {
+        "name": "LABEL",
+        "types": ["PARLAB"]
+      }
+    ],
+    [
+      14,
+      {
+        "name": "PROBE",
+        "types": ["PAR16", "PAR16", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      15,
+      {
+        "name": "DO",
+        "types": ["PAR16", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      16,
+      {
+        "name": "ADD8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      17,
+      {
+        "name": "ADD16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      18,
+      {
+        "name": "ADD32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      19,
+      {
+        "name": "ADDF",
+        "types": ["PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      20,
+      {
+        "name": "SUB8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      21,
+      {
+        "name": "SUB16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      22,
+      {
+        "name": "SUB32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      23,
+      {
+        "name": "SUBF",
+        "types": ["PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      24,
+      {
+        "name": "MUL8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      25,
+      {
+        "name": "MUL16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      26,
+      {
+        "name": "MUL32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      27,
+      {
+        "name": "MULF",
+        "types": ["PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      28,
+      {
+        "name": "DIV8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      29,
+      {
+        "name": "DIV16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      30,
+      {
+        "name": "DIV32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      31,
+      {
+        "name": "DIVF",
+        "types": ["PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      32,
+      {
+        "name": "OR8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      33,
+      {
+        "name": "OR16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      34,
+      {
+        "name": "OR32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      36,
+      {
+        "name": "AND8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      37,
+      {
+        "name": "AND16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      38,
+      {
+        "name": "AND32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      40,
+      {
+        "name": "XOR8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      41,
+      {
+        "name": "XOR16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      42,
+      {
+        "name": "XOR32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      44,
+      {
+        "name": "RL8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      45,
+      {
+        "name": "RL16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      46,
+      {
+        "name": "RL32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      47,
+      {
+        "name": "INIT_BYTES",
+        "types": ["PAR8", "PAR32", "PARVALUES", "PAR8"]
+      }
+    ],
+    [
+      48,
+      {
+        "name": "MOVE8_8",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      49,
+      {
+        "name": "MOVE8_16",
+        "types": ["PAR8", "PAR16"]
+      }
+    ],
+    [
+      50,
+      {
+        "name": "MOVE8_32",
+        "types": ["PAR8", "PAR32"]
+      }
+    ],
+    [
+      51,
+      {
+        "name": "MOVE8_F",
+        "types": ["PAR8", "PARF"]
+      }
+    ],
+    [
+      52,
+      {
+        "name": "MOVE16_8",
+        "types": ["PAR16", "PAR8"]
+      }
+    ],
+    [
+      53,
+      {
+        "name": "MOVE16_16",
+        "types": ["PAR16", "PAR16"]
+      }
+    ],
+    [
+      54,
+      {
+        "name": "MOVE16_32",
+        "types": ["PAR16", "PAR32"]
+      }
+    ],
+    [
+      55,
+      {
+        "name": "MOVE16_F",
+        "types": ["PAR16", "PARF"]
+      }
+    ],
+    [
+      56,
+      {
+        "name": "MOVE32_8",
+        "types": ["PAR32", "PAR8"]
+      }
+    ],
+    [
+      57,
+      {
+        "name": "MOVE32_16",
+        "types": ["PAR32", "PAR16"]
+      }
+    ],
+    [
+      58,
+      {
+        "name": "MOVE32_32",
+        "types": ["PAR32", "PAR32"]
+      }
+    ],
+    [
+      59,
+      {
+        "name": "MOVE32_F",
+        "types": ["PAR32", "PARF"]
+      }
+    ],
+    [
+      60,
+      {
+        "name": "MOVEF_8",
+        "types": ["PARF", "PAR8"]
+      }
+    ],
+    [
+      61,
+      {
+        "name": "MOVEF_16",
+        "types": ["PARF", "PAR16"]
+      }
+    ],
+    [
+      62,
+      {
+        "name": "MOVEF_32",
+        "types": ["PARF", "PAR32"]
+      }
+    ],
+    [
+      63,
+      {
+        "name": "MOVEF_F",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      64,
+      {
+        "name": "JR",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      65,
+      {
+        "name": "JR_FALSE",
+        "types": ["PAR8", "PAR32"]
+      }
+    ],
+    [
+      66,
+      {
+        "name": "JR_TRUE",
+        "types": ["PAR8", "PAR32"]
+      }
+    ],
+    [
+      67,
+      {
+        "name": "JR_NAN",
+        "types": ["PARF", "PAR32"]
+      }
+    ],
+    [
+      68,
+      {
+        "name": "CP_LT8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      69,
+      {
+        "name": "CP_LT16",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      70,
+      {
+        "name": "CP_LT32",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      71,
+      {
+        "name": "CP_LTF",
+        "types": ["PARF", "PARF", "PAR8"]
+      }
+    ],
+    [
+      72,
+      {
+        "name": "CP_GT8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      73,
+      {
+        "name": "CP_GT16",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      74,
+      {
+        "name": "CP_GT32",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      75,
+      {
+        "name": "CP_GTF",
+        "types": ["PARF", "PARF", "PAR8"]
+      }
+    ],
+    [
+      76,
+      {
+        "name": "CP_EQ8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      77,
+      {
+        "name": "CP_EQ16",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      78,
+      {
+        "name": "CP_EQ32",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      79,
+      {
+        "name": "CP_EQF",
+        "types": ["PARF", "PARF", "PAR8"]
+      }
+    ],
+    [
+      80,
+      {
+        "name": "CP_NEQ8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      81,
+      {
+        "name": "CP_NEQ16",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      82,
+      {
+        "name": "CP_NEQ32",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      83,
+      {
+        "name": "CP_NEQF",
+        "types": ["PARF", "PARF", "PAR8"]
+      }
+    ],
+    [
+      84,
+      {
+        "name": "CP_LTEQ8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      85,
+      {
+        "name": "CP_LTEQ16",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      86,
+      {
+        "name": "CP_LTEQ32",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      87,
+      {
+        "name": "CP_LTEQF",
+        "types": ["PARF", "PARF", "PAR8"]
+      }
+    ],
+    [
+      88,
+      {
+        "name": "CP_GTEQ8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      89,
+      {
+        "name": "CP_GTEQ16",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      90,
+      {
+        "name": "CP_GTEQ32",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      91,
+      {
+        "name": "CP_GTEQF",
+        "types": ["PARF", "PARF", "PAR8"]
+      }
+    ],
+    [
+      92,
+      {
+        "name": "SELECT8",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      93,
+      {
+        "name": "SELECT16",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      94,
+      {
+        "name": "SELECT32",
+        "types": ["PAR8", "PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      95,
+      {
+        "name": "SELECTF",
+        "types": ["PAR8", "PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      96,
+      {
+        "name": "SYSTEM",
+        "types": ["PAR8", "PAR32"]
+      }
+    ],
+    [
+      97,
+      {
+        "name": "PORT_CNV_OUTPUT",
+        "types": ["PAR32", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      98,
+      {
+        "name": "PORT_CNV_INPUT",
+        "types": ["PAR32", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      99,
+      {
+        "name": "NOTE_TO_FREQ",
+        "types": ["PAR8", "PAR16"]
+      }
+    ],
+    [
+      100,
+      {
+        "name": "JR_LT8",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      101,
+      {
+        "name": "JR_LT16",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      102,
+      {
+        "name": "JR_LT32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      103,
+      {
+        "name": "JR_LTF",
+        "types": ["PARF", "PARF", "PAR32"]
+      }
+    ],
+    [
+      104,
+      {
+        "name": "JR_GT8",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      105,
+      {
+        "name": "JR_GT16",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      106,
+      {
+        "name": "JR_GT32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      107,
+      {
+        "name": "JR_GTF",
+        "types": ["PARF", "PARF", "PAR32"]
+      }
+    ],
+    [
+      108,
+      {
+        "name": "JR_EQ8",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      109,
+      {
+        "name": "JR_EQ16",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      110,
+      {
+        "name": "JR_EQ32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      111,
+      {
+        "name": "JR_EQF",
+        "types": ["PARF", "PARF", "PAR32"]
+      }
+    ],
+    [
+      112,
+      {
+        "name": "JR_NEQ8",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      113,
+      {
+        "name": "JR_NEQ16",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      114,
+      {
+        "name": "JR_NEQ32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      115,
+      {
+        "name": "JR_NEQF",
+        "types": ["PARF", "PARF", "PAR32"]
+      }
+    ],
+    [
+      116,
+      {
+        "name": "JR_LTEQ8",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      117,
+      {
+        "name": "JR_LTEQ16",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      118,
+      {
+        "name": "JR_LTEQ32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      119,
+      {
+        "name": "JR_LTEQF",
+        "types": ["PARF", "PARF", "PAR32"]
+      }
+    ],
+    [
+      120,
+      {
+        "name": "JR_GTEQ8",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      121,
+      {
+        "name": "JR_GTEQ16",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      122,
+      {
+        "name": "JR_GTEQ32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      123,
+      {
+        "name": "JR_GTEQF",
+        "types": ["PARF", "PARF", "PAR32"]
+      }
+    ],
+    [
+      124,
+      {
+        "name": "INFO",
+        "types": ["PAR8", "SUBP", "VM_SUBP"]
+      }
+    ],
+    [
+      125,
+      {
+        "name": "STRINGS",
+        "types": ["PAR8", "SUBP", "STRING_SUBP"]
+      }
+    ],
+    [
+      126,
+      {
+        "name": "MEMORY_WRITE",
+        "types": ["PAR16", "PAR16", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      127,
+      {
+        "name": "MEMORY_READ",
+        "types": ["PAR16", "PAR16", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      128,
+      {
+        "name": "UI_FLUSH",
+        "types": []
+      }
+    ],
+    [
+      129,
+      {
+        "name": "UI_READ",
+        "types": ["PAR8", "SUBP", "UI_READ_SUBP"]
+      }
+    ],
+    [
+      130,
+      {
+        "name": "UI_WRITE",
+        "types": ["PAR8", "SUBP", "UI_WRITE_SUBP"]
+      }
+    ],
+    [
+      131,
+      {
+        "name": "UI_BUTTON",
+        "types": ["PAR8", "SUBP", "UI_BUTTON_SUBP"]
+      }
+    ],
+    [
+      132,
+      {
+        "name": "UI_DRAW",
+        "types": ["PAR8", "SUBP", "UI_DRAW_SUBP"]
+      }
+    ],
+    [
+      133,
+      {
+        "name": "TIMER_WAIT",
+        "types": ["PAR32", "PAR32"]
+      }
+    ],
+    [
+      134,
+      {
+        "name": "TIMER_READY",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      135,
+      {
+        "name": "TIMER_READ",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      136,
+      {
+        "name": "BP0",
+        "types": []
+      }
+    ],
+    [
+      137,
+      {
+        "name": "BP1",
+        "types": []
+      }
+    ],
+    [
+      138,
+      {
+        "name": "BP2",
+        "types": []
+      }
+    ],
+    [
+      139,
+      {
+        "name": "BP3",
+        "types": []
+      }
+    ],
+    [
+      140,
+      {
+        "name": "BP_SET",
+        "types": ["PAR16", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      141,
+      {
+        "name": "MATH",
+        "types": ["PAR8", "SUBP", "MATH_SUBP"]
+      }
+    ],
+    [
+      142,
+      {
+        "name": "RANDOM",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      143,
+      {
+        "name": "TIMER_READ_US",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      144,
+      {
+        "name": "KEEP_ALIVE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      145,
+      {
+        "name": "COM_READ",
+        "types": ["PAR8", "SUBP", "COM_READ_SUBP"]
+      }
+    ],
+    [
+      146,
+      {
+        "name": "COM_WRITE",
+        "types": ["PAR8", "SUBP", "COM_WRITE_SUBP"]
+      }
+    ],
+    [
+      148,
+      {
+        "name": "SOUND",
+        "types": ["PAR8", "SUBP", "SOUND_SUBP"]
+      }
+    ],
+    [
+      149,
+      {
+        "name": "SOUND_TEST",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      150,
+      {
+        "name": "SOUND_READY",
+        "types": []
+      }
+    ],
+    [
+      151,
+      {
+        "name": "INPUT_SAMPLE",
+        "types": ["PAR32", "PAR16", "PAR16", "PAR8", "PAR8", "PAR8", "PAR8", "PARF"]
+      }
+    ],
+    [
+      152,
+      {
+        "name": "INPUT_DEVICE_LIST",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      153,
+      {
+        "name": "INPUT_DEVICE",
+        "types": ["PAR8", "SUBP", "INPUT_SUBP"]
+      }
+    ],
+    [
+      154,
+      {
+        "name": "INPUT_READ",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      157,
+      {
+        "name": "INPUT_READSI",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PARF"]
+      }
+    ],
+    [
+      155,
+      {
+        "name": "INPUT_TEST",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      155,
+      {
+        "name": "INPUT_TEST",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      156,
+      {
+        "name": "INPUT_READY",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      158,
+      {
+        "name": "INPUT_READEXT",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PARNO"]
+      }
+    ],
+    [
+      159,
+      {
+        "name": "INPUT_WRITE",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      161,
+      {
+        "name": "OUTPUT_SET_TYPE",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      162,
+      {
+        "name": "OUTPUT_RESET",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      163,
+      {
+        "name": "OUTPUT_STOP",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      165,
+      {
+        "name": "OUTPUT_SPEED",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      164,
+      {
+        "name": "OUTPUT_POWER",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      166,
+      {
+        "name": "OUTPUT_START",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      167,
+      {
+        "name": "OUTPUT_POLARITY",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      168,
+      {
+        "name": "OUTPUT_READ",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      170,
+      {
+        "name": "OUTPUT_READY",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      169,
+      {
+        "name": "OUTPUT_TEST",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      172,
+      {
+        "name": "OUTPUT_STEP_POWER",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR32", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      173,
+      {
+        "name": "OUTPUT_TIME_POWER",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR32", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      174,
+      {
+        "name": "OUTPUT_STEP_SPEED",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR32", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      175,
+      {
+        "name": "OUTPUT_TIME_SPEED",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR32", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      176,
+      {
+        "name": "OUTPUT_STEP_SYNC",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR16", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      177,
+      {
+        "name": "OUTPUT_TIME_SYNC",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR16", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      178,
+      {
+        "name": "OUTPUT_CLR_COUNT",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      179,
+      {
+        "name": "OUTPUT_GET_COUNT",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      180,
+      {
+        "name": "OUTPUT_PRG_STOP",
+        "types": []
+      }
+    ],
+    [
+      192,
+      {
+        "name": "FILE",
+        "types": ["PAR8", "SUBP", "FILE_SUBP"]
+      }
+    ],
+    [
+      193,
+      {
+        "name": "ARRAY",
+        "types": ["PAR8", "SUBP", "ARRAY_SUBP"]
+      }
+    ],
+    [
+      194,
+      {
+        "name": "ARRAY_WRITE",
+        "types": ["PAR16", "PAR32", "PARV"]
+      }
+    ],
+    [
+      195,
+      {
+        "name": "ARRAY_READ",
+        "types": ["PAR16", "PAR32", "PARV"]
+      }
+    ],
+    [
+      196,
+      {
+        "name": "ARRAY_APPEND",
+        "types": ["PAR16", "PARV"]
+      }
+    ],
+    [
+      197,
+      {
+        "name": "MEMORY_USAGE",
+        "types": ["PAR32", "PAR32"]
+      }
+    ],
+    [
+      198,
+      {
+        "name": "FILENAME",
+        "types": ["PAR8", "SUBP", "FILENAME_SUBP"]
+      }
+    ],
+    [
+      200,
+      {
+        "name": "READ8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      201,
+      {
+        "name": "READ16",
+        "types": ["PAR16", "PAR8", "PAR16"]
+      }
+    ],
+    [
+      202,
+      {
+        "name": "READ32",
+        "types": ["PAR32", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      203,
+      {
+        "name": "READF",
+        "types": ["PARF", "PAR8", "PARF"]
+      }
+    ],
+    [
+      204,
+      {
+        "name": "WRITE8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      205,
+      {
+        "name": "WRITE16",
+        "types": ["PAR16", "PAR8", "PAR16"]
+      }
+    ],
+    [
+      206,
+      {
+        "name": "WRITE32",
+        "types": ["PAR32", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      207,
+      {
+        "name": "WRITEF",
+        "types": ["PARF", "PAR8", "PARF"]
+      }
+    ],
+    [
+      208,
+      {
+        "name": "COM_READY",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      209,
+      {
+        "name": "COM_READDATA",
+        "types": ["PAR8", "PAR8", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      210,
+      {
+        "name": "COM_WRITEDATA",
+        "types": ["PAR8", "PAR8", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      211,
+      {
+        "name": "COM_GET",
+        "types": ["PAR8", "SUBP", "COM_GET_SUBP"]
+      }
+    ],
+    [
+      212,
+      {
+        "name": "COM_SET",
+        "types": ["PAR8", "SUBP", "COM_SET_SUBP"]
+      }
+    ],
+    [
+      213,
+      {
+        "name": "COM_TEST",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      214,
+      {
+        "name": "COM_REMOVE",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      215,
+      {
+        "name": "COM_WRITEFILE",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      216,
+      {
+        "name": "MAILBOX_OPEN",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      217,
+      {
+        "name": "MAILBOX_WRITE",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PARNO"]
+      }
+    ],
+    [
+      218,
+      {
+        "name": "MAILBOX_READ",
+        "types": ["PAR8", "PAR8", "PARNO"]
+      }
+    ],
+    [
+      219,
+      {
+        "name": "MAILBOX_TEST",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      220,
+      {
+        "name": "MAILBOX_READY",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      221,
+      {
+        "name": "MAILBOX_CLOSE",
+        "types": ["PAR8"]
+      }
+    ]
+  ],
+  "subs": [
+    [
+      "PROGRAM_SUBP:0",
+      {
+        "name": "OBJ_STOP",
+        "types": ["PAR16", "PAR16"]
+      }
+    ],
+    [
+      "PROGRAM_SUBP:4",
+      {
+        "name": "OBJ_START",
+        "types": ["PAR16", "PAR16"]
+      }
+    ],
+    [
+      "PROGRAM_SUBP:22",
+      {
+        "name": "GET_STATUS",
+        "types": ["PAR16", "PAR8"]
+      }
+    ],
+    [
+      "PROGRAM_SUBP:23",
+      {
+        "name": "GET_SPEED",
+        "types": ["PAR16", "PAR32"]
+      }
+    ],
+    [
+      "PROGRAM_SUBP:24",
+      {
+        "name": "GET_PRGRESULT",
+        "types": ["PAR16", "PAR8"]
+      }
+    ],
+    [
+      "PROGRAM_SUBP:25",
+      {
+        "name": "SET_INSTR",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "FILE_SUBP:0",
+      {
+        "name": "OPEN_APPEND",
+        "types": ["PAR8", "PAR16"]
+      }
+    ],
+    [
+      "FILE_SUBP:1",
+      {
+        "name": "OPEN_READ",
+        "types": ["PAR8", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      "FILE_SUBP:2",
+      {
+        "name": "OPEN_WRITE",
+        "types": ["PAR8", "PAR16"]
+      }
+    ],
+    [
+      "FILE_SUBP:3",
+      {
+        "name": "READ_VALUE",
+        "types": ["PAR16", "PAR8", "PARF"]
+      }
+    ],
+    [
+      "FILE_SUBP:4",
+      {
+        "name": "WRITE_VALUE",
+        "types": ["PAR16", "PAR8", "PARF", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:5",
+      {
+        "name": "READ_TEXT",
+        "types": ["PAR16", "PAR8", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:6",
+      {
+        "name": "WRITE_TEXT",
+        "types": ["PAR16", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:7",
+      {
+        "name": "CLOSE",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "FILE_SUBP:8",
+      {
+        "name": "LOAD_IMAGE",
+        "types": ["PAR16", "PAR8", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      "FILE_SUBP:9",
+      {
+        "name": "GET_HANDLE",
+        "types": ["PAR8", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:10",
+      {
+        "name": "MAKE_FOLDER",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:25",
+      {
+        "name": "GET_LOG_NAME",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:11",
+      {
+        "name": "GET_POOL",
+        "types": ["PAR32", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      "FILE_SUBP:13",
+      {
+        "name": "GET_FOLDERS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:15",
+      {
+        "name": "GET_SUBFOLDER_NAME",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:16",
+      {
+        "name": "WRITE_LOG",
+        "types": ["PAR16", "PAR32", "PAR8", "PARF"]
+      }
+    ],
+    [
+      "FILE_SUBP:17",
+      {
+        "name": "CLOSE_LOG",
+        "types": ["PAR16", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:12",
+      {
+        "name": "SET_LOG_SYNC_TIME",
+        "types": ["PAR32", "PAR32"]
+      }
+    ],
+    [
+      "FILE_SUBP:24",
+      {
+        "name": "DEL_SUBFOLDER",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:14",
+      {
+        "name": "GET_LOG_SYNC_TIME",
+        "types": ["PAR32", "PAR32"]
+      }
+    ],
+    [
+      "FILE_SUBP:18",
+      {
+        "name": "GET_IMAGE",
+        "types": ["PAR8", "PAR16", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      "FILE_SUBP:19",
+      {
+        "name": "GET_ITEM",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:20",
+      {
+        "name": "GET_CACHE_FILES",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:22",
+      {
+        "name": "GET_CACHE_FILE",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:21",
+      {
+        "name": "PUT_CACHE_FILE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:23",
+      {
+        "name": "DEL_CACHE_FILE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:27",
+      {
+        "name": "OPEN_LOG",
+        "types": ["PAR8", "PAR32", "PAR32", "PAR32", "PAR32", "PAR32", "PAR8", "PAR16"]
+      }
+    ],
+    [
+      "FILE_SUBP:28",
+      {
+        "name": "READ_BYTES",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:29",
+      {
+        "name": "WRITE_BYTES",
+        "types": ["PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:30",
+      {
+        "name": "REMOVE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "FILE_SUBP:31",
+      {
+        "name": "MOVE",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:1",
+      {
+        "name": "CREATE8",
+        "types": ["PAR32", "PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:2",
+      {
+        "name": "CREATE16",
+        "types": ["PAR32", "PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:3",
+      {
+        "name": "CREATE32",
+        "types": ["PAR32", "PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:4",
+      {
+        "name": "CREATEF",
+        "types": ["PAR32", "PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:5",
+      {
+        "name": "RESIZE",
+        "types": ["PAR16", "PAR32"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:0",
+      {
+        "name": "DELETE",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:6",
+      {
+        "name": "FILL",
+        "types": ["PAR16", "PARV"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:7",
+      {
+        "name": "COPY",
+        "types": ["PAR16", "PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:8",
+      {
+        "name": "INIT8",
+        "types": ["PAR16", "PAR32", "PAR32", "PARVALUES", "PAR8"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:9",
+      {
+        "name": "INIT16",
+        "types": ["PAR16", "PAR32", "PAR32", "PARVALUES", "PAR16"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:10",
+      {
+        "name": "INIT32",
+        "types": ["PAR16", "PAR32", "PAR32", "PARVALUES", "PAR32"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:11",
+      {
+        "name": "INITF",
+        "types": ["PAR16", "PAR32", "PAR32", "PARVALUES", "PARF"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:12",
+      {
+        "name": "SIZE",
+        "types": ["PAR16", "PAR32"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:13",
+      {
+        "name": "READ_CONTENT",
+        "types": ["PAR16", "PAR16", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:14",
+      {
+        "name": "WRITE_CONTENT",
+        "types": ["PAR16", "PAR16", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      "ARRAY_SUBP:15",
+      {
+        "name": "READ_SIZE",
+        "types": ["PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:16",
+      {
+        "name": "EXIST",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:17",
+      {
+        "name": "TOTALSIZE",
+        "types": ["PAR8", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:18",
+      {
+        "name": "SPLIT",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:19",
+      {
+        "name": "MERGE",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:20",
+      {
+        "name": "CHECK",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:21",
+      {
+        "name": "PACK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:22",
+      {
+        "name": "UNPACK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "FILENAME_SUBP:23",
+      {
+        "name": "GET_FOLDERNAME",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:1",
+      {
+        "name": "SET_ERROR",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:2",
+      {
+        "name": "GET_ERROR",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:3",
+      {
+        "name": "ERRORTEXT",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:4",
+      {
+        "name": "GET_VOLUME",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:5",
+      {
+        "name": "SET_VOLUME",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:6",
+      {
+        "name": "GET_MINUTES",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "VM_SUBP:7",
+      {
+        "name": "SET_MINUTES",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:10",
+      {
+        "name": "TST_OPEN",
+        "types": []
+      }
+    ],
+    [
+      "TST_SUBP:11",
+      {
+        "name": "TST_CLOSE",
+        "types": []
+      }
+    ],
+    [
+      "TST_SUBP:12",
+      {
+        "name": "TST_READ_PINS",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:13",
+      {
+        "name": "TST_WRITE_PINS",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:14",
+      {
+        "name": "TST_READ_ADC",
+        "types": ["PAR8", "PAR16"]
+      }
+    ],
+    [
+      "TST_SUBP:15",
+      {
+        "name": "TST_WRITE_UART",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:16",
+      {
+        "name": "TST_READ_UART",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:17",
+      {
+        "name": "TST_ENABLE_UART",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      "TST_SUBP:18",
+      {
+        "name": "TST_DISABLE_UART",
+        "types": []
+      }
+    ],
+    [
+      "TST_SUBP:19",
+      {
+        "name": "TST_ACCU_SWITCH",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:20",
+      {
+        "name": "TST_BOOT_MODE2",
+        "types": []
+      }
+    ],
+    [
+      "TST_SUBP:21",
+      {
+        "name": "TST_POLL_MODE2",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "TST_SUBP:22",
+      {
+        "name": "TST_CLOSE_MODE2",
+        "types": []
+      }
+    ],
+    [
+      "TST_SUBP:23",
+      {
+        "name": "TST_RAM_CHECK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:1",
+      {
+        "name": "GET_SIZE",
+        "types": ["PAR8", "PAR16"]
+      }
+    ],
+    [
+      "STRING_SUBP:2",
+      {
+        "name": "ADD",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:3",
+      {
+        "name": "COMPARE",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:5",
+      {
+        "name": "DUPLICATE",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:6",
+      {
+        "name": "VALUE_TO_STRING",
+        "types": ["PARF", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:7",
+      {
+        "name": "STRING_TO_VALUE",
+        "types": ["PAR8", "PARF"]
+      }
+    ],
+    [
+      "STRING_SUBP:8",
+      {
+        "name": "STRIP",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:9",
+      {
+        "name": "NUMBER_TO_STRING",
+        "types": ["PAR16", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:10",
+      {
+        "name": "SUB",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:11",
+      {
+        "name": "VALUE_FORMATTED",
+        "types": ["PARF", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "STRING_SUBP:12",
+      {
+        "name": "NUMBER_FORMATTED",
+        "types": ["PAR32", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:1",
+      {
+        "name": "GET_VBATT",
+        "types": ["PARF"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:2",
+      {
+        "name": "GET_IBATT",
+        "types": ["PARF"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:3",
+      {
+        "name": "GET_OS_VERS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:4",
+      {
+        "name": "GET_EVENT",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:5",
+      {
+        "name": "GET_TBATT",
+        "types": ["PARF"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:6",
+      {
+        "name": "GET_IINT",
+        "types": ["PARF"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:7",
+      {
+        "name": "GET_IMOTOR",
+        "types": ["PARF"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:8",
+      {
+        "name": "GET_STRING",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:15",
+      {
+        "name": "KEY",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:16",
+      {
+        "name": "GET_SHUTDOWN",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:17",
+      {
+        "name": "GET_WARNING",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:18",
+      {
+        "name": "GET_LBATT",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:13",
+      {
+        "name": "GET_ADDRESS",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:14",
+      {
+        "name": "GET_CODE",
+        "types": ["PAR32", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:21",
+      {
+        "name": "TEXTBOX_READ",
+        "types": ["PAR8", "PAR32", "PAR8", "PAR8", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:9",
+      {
+        "name": "GET_HW_VERS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:10",
+      {
+        "name": "GET_FW_VERS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:11",
+      {
+        "name": "GET_FW_BUILD",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:12",
+      {
+        "name": "GET_OS_BUILD",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:26",
+      {
+        "name": "GET_VERSION",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:27",
+      {
+        "name": "GET_IP",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:30",
+      {
+        "name": "GET_SDCARD",
+        "types": ["PAR8", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      "UI_READ_SUBP:31",
+      {
+        "name": "GET_USBSTICK",
+        "types": ["PAR8", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:1",
+      {
+        "name": "WRITE_FLUSH",
+        "types": []
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:2",
+      {
+        "name": "FLOATVALUE",
+        "types": ["PARF", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:3",
+      {
+        "name": "STAMP",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:8",
+      {
+        "name": "PUT_STRING",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:14",
+      {
+        "name": "CODE",
+        "types": ["PAR8", "PAR32"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:15",
+      {
+        "name": "DOWNLOAD_END",
+        "types": []
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:16",
+      {
+        "name": "SCREEN_BLOCK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:21",
+      {
+        "name": "TEXTBOX_APPEND",
+        "types": ["PAR8", "PAR32", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:22",
+      {
+        "name": "SET_BUSY",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:9",
+      {
+        "name": "VALUE8",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:10",
+      {
+        "name": "VALUE16",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:11",
+      {
+        "name": "VALUE32",
+        "types": ["PAR32"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:12",
+      {
+        "name": "VALUEF",
+        "types": ["PARF"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:25",
+      {
+        "name": "INIT_RUN",
+        "types": []
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:26",
+      {
+        "name": "UPDATE_RUN",
+        "types": []
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:27",
+      {
+        "name": "LED",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:29",
+      {
+        "name": "POWER",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:31",
+      {
+        "name": "TERMINAL",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:30",
+      {
+        "name": "GRAPH_SAMPLE",
+        "types": []
+      }
+    ],
+    [
+      "UI_WRITE_SUBP:24",
+      {
+        "name": "SET_TESTPIN",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:0",
+      {
+        "name": "UPDATE",
+        "types": []
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:1",
+      {
+        "name": "CLEAN",
+        "types": []
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:9",
+      {
+        "name": "FILLRECT",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:10",
+      {
+        "name": "RECT",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:2",
+      {
+        "name": "PIXEL",
+        "types": ["PAR8", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:3",
+      {
+        "name": "LINE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:4",
+      {
+        "name": "CIRCLE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:5",
+      {
+        "name": "TEXT",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:6",
+      {
+        "name": "ICON",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:7",
+      {
+        "name": "PICTURE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR32"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:8",
+      {
+        "name": "VALUE",
+        "types": ["PAR8", "PAR16", "PAR16", "PARF", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:11",
+      {
+        "name": "NOTIFICATION",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:12",
+      {
+        "name": "QUESTION",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:13",
+      {
+        "name": "KEYBOARD",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:14",
+      {
+        "name": "BROWSE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16", "PAR16", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:15",
+      {
+        "name": "VERTBAR",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16", "PAR16", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:16",
+      {
+        "name": "INVERSERECT",
+        "types": ["PAR16", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:17",
+      {
+        "name": "SELECT_FONT",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:18",
+      {
+        "name": "TOPLINE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:19",
+      {
+        "name": "FILLWINDOW",
+        "types": ["PAR8", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:20",
+      {
+        "name": "SCROLL",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:21",
+      {
+        "name": "DOTLINE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:22",
+      {
+        "name": "VIEW_VALUE",
+        "types": ["PAR8", "PAR16", "PAR16", "PARF", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:23",
+      {
+        "name": "VIEW_UNIT",
+        "types": ["PAR8", "PAR16", "PAR16", "PARF", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:24",
+      {
+        "name": "FILLCIRCLE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:25",
+      {
+        "name": "STORE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:26",
+      {
+        "name": "RESTORE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:27",
+      {
+        "name": "ICON_QUESTION",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:28",
+      {
+        "name": "BMPFILE",
+        "types": ["PAR8", "PAR16", "PAR16", "PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:30",
+      {
+        "name": "GRAPH_SETUP",
+        "types": ["PAR16", "PAR16", "PAR16", "PAR16", "PAR8", "PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:31",
+      {
+        "name": "GRAPH_DRAW",
+        "types": ["PAR8", "PARF", "PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:29",
+      {
+        "name": "POPUP",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_DRAW_SUBP:32",
+      {
+        "name": "TEXTBOX",
+        "types": ["PAR16", "PAR16", "PAR16", "PAR16", "PAR8", "PAR32", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:1",
+      {
+        "name": "SHORTPRESS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:2",
+      {
+        "name": "LONGPRESS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:4",
+      {
+        "name": "FLUSH",
+        "types": []
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:3",
+      {
+        "name": "WAIT_FOR_PRESS",
+        "types": []
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:5",
+      {
+        "name": "PRESS",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:6",
+      {
+        "name": "RELEASE",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:7",
+      {
+        "name": "GET_HORZ",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:8",
+      {
+        "name": "GET_VERT",
+        "types": ["PAR16"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:9",
+      {
+        "name": "PRESSED",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:10",
+      {
+        "name": "SET_BACK_BLOCK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:11",
+      {
+        "name": "GET_BACK_BLOCK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:12",
+      {
+        "name": "TESTSHORTPRESS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:13",
+      {
+        "name": "TESTLONGPRESS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:14",
+      {
+        "name": "GET_BUMBED",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "UI_BUTTON_SUBP:15",
+      {
+        "name": "GET_CLICK",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "COM_READ_SUBP:14",
+      {
+        "name": "COMMAND",
+        "types": ["PAR32", "PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      "COM_WRITE_SUBP:14",
+      {
+        "name": "REPLY",
+        "types": ["PAR32", "PAR32", "PAR8"]
+      }
+    ],
+    [
+      "SOUND_SUBP:0",
+      {
+        "name": "BREAK",
+        "types": []
+      }
+    ],
+    [
+      "SOUND_SUBP:1",
+      {
+        "name": "TONE",
+        "types": ["PAR8", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "SOUND_SUBP:2",
+      {
+        "name": "PLAY",
+        "types": ["PAR8", "PARS"]
+      }
+    ],
+    [
+      "SOUND_SUBP:3",
+      {
+        "name": "REPEAT",
+        "types": ["PAR8", "PARS"]
+      }
+    ],
+    [
+      "SOUND_SUBP:4",
+      {
+        "name": "SERVICE",
+        "types": []
+      }
+    ],
+    [
+      "INPUT_SUBP:5",
+      {
+        "name": "GET_TYPEMODE",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:12",
+      {
+        "name": "GET_CONNECTION",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:21",
+      {
+        "name": "GET_NAME",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:6",
+      {
+        "name": "GET_SYMBOL",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:2",
+      {
+        "name": "GET_FORMAT",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:11",
+      {
+        "name": "GET_RAW",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      "INPUT_SUBP:22",
+      {
+        "name": "GET_MODENAME",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:23",
+      {
+        "name": "SET_RAW",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      "INPUT_SUBP:24",
+      {
+        "name": "GET_FIGURES",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:25",
+      {
+        "name": "GET_CHANGES",
+        "types": ["PAR8", "PAR8", "PARF"]
+      }
+    ],
+    [
+      "INPUT_SUBP:26",
+      {
+        "name": "CLR_CHANGES",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:27",
+      {
+        "name": "READY_PCT",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PARNO"]
+      }
+    ],
+    [
+      "INPUT_SUBP:28",
+      {
+        "name": "READY_RAW",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PARNO"]
+      }
+    ],
+    [
+      "INPUT_SUBP:29",
+      {
+        "name": "READY_SI",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PARNO"]
+      }
+    ],
+    [
+      "INPUT_SUBP:30",
+      {
+        "name": "GET_MINMAX",
+        "types": ["PAR8", "PAR8", "PARF", "PARF"]
+      }
+    ],
+    [
+      "INPUT_SUBP:3",
+      {
+        "name": "CAL_MINMAX",
+        "types": ["PAR8", "PAR8", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      "INPUT_SUBP:4",
+      {
+        "name": "CAL_DEFAULT",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:7",
+      {
+        "name": "CAL_MIN",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      "INPUT_SUBP:8",
+      {
+        "name": "CAL_MAX",
+        "types": ["PAR8", "PAR8", "PAR32"]
+      }
+    ],
+    [
+      "INPUT_SUBP:31",
+      {
+        "name": "GET_BUMPS",
+        "types": ["PAR8", "PAR8", "PARF"]
+      }
+    ],
+    [
+      "INPUT_SUBP:9",
+      {
+        "name": "SETUP",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR16", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:10",
+      {
+        "name": "CLR_ALL",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "INPUT_SUBP:13",
+      {
+        "name": "STOP_ALL",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "MATH_SUBP:1",
+      {
+        "name": "EXP",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:2",
+      {
+        "name": "MOD",
+        "types": ["PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:3",
+      {
+        "name": "FLOOR",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:4",
+      {
+        "name": "CEIL",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:5",
+      {
+        "name": "ROUND",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:6",
+      {
+        "name": "ABS",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:7",
+      {
+        "name": "NEGATE",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:8",
+      {
+        "name": "SQRT",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:9",
+      {
+        "name": "LOG",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:10",
+      {
+        "name": "LN",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:11",
+      {
+        "name": "SIN",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:12",
+      {
+        "name": "COS",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:13",
+      {
+        "name": "TAN",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:14",
+      {
+        "name": "ASIN",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:15",
+      {
+        "name": "ACOS",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:16",
+      {
+        "name": "ATAN",
+        "types": ["PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:17",
+      {
+        "name": "MOD8",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "MATH_SUBP:18",
+      {
+        "name": "MOD16",
+        "types": ["PAR16", "PAR16", "PAR16"]
+      }
+    ],
+    [
+      "MATH_SUBP:19",
+      {
+        "name": "MOD32",
+        "types": ["PAR32", "PAR32", "PAR32"]
+      }
+    ],
+    [
+      "MATH_SUBP:20",
+      {
+        "name": "POW",
+        "types": ["PARF", "PARF", "PARF"]
+      }
+    ],
+    [
+      "MATH_SUBP:21",
+      {
+        "name": "TRUNC",
+        "types": ["PARF", "PAR8", "PARF"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:1",
+      {
+        "name": "GET_ON_OFF",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:2",
+      {
+        "name": "GET_VISIBLE",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:4",
+      {
+        "name": "GET_RESULT",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:5",
+      {
+        "name": "GET_PIN",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:8",
+      {
+        "name": "SEARCH_ITEMS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:9",
+      {
+        "name": "SEARCH_ITEM",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:10",
+      {
+        "name": "FAVOUR_ITEMS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:11",
+      {
+        "name": "FAVOUR_ITEM",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:12",
+      {
+        "name": "GET_ID",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:13",
+      {
+        "name": "GET_BRICKNAME",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:14",
+      {
+        "name": "GET_NETWORK",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:15",
+      {
+        "name": "GET_PRESENT",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:16",
+      {
+        "name": "GET_ENCRYPT",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:17",
+      {
+        "name": "CONNEC_ITEMS",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:18",
+      {
+        "name": "CONNEC_ITEM",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:19",
+      {
+        "name": "GET_INCOMING",
+        "types": ["PAR8", "PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_GET_SUBP:20",
+      {
+        "name": "GET_MODE2",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:1",
+      {
+        "name": "SET_ON_OFF",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:2",
+      {
+        "name": "SET_VISIBLE",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:3",
+      {
+        "name": "SET_SEARCH",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:5",
+      {
+        "name": "SET_PIN",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:6",
+      {
+        "name": "SET_PASSKEY",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:7",
+      {
+        "name": "SET_CONNECTION",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:8",
+      {
+        "name": "SET_BRICKNAME",
+        "types": ["PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:9",
+      {
+        "name": "SET_MOVEUP",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:10",
+      {
+        "name": "SET_MOVEDOWN",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:11",
+      {
+        "name": "SET_ENCRYPT",
+        "types": ["PAR8", "PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:12",
+      {
+        "name": "SET_SSID",
+        "types": ["PAR8", "PAR8"]
+      }
+    ],
+    [
+      "COM_SET_SUBP:13",
+      {
+        "name": "SET_MODE2",
+        "types": ["PAR8", "PAR8"]
+      }
+    ]
+  ]
+}
