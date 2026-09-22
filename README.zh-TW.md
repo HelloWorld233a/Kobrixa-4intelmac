@@ -74,7 +74,8 @@ packages/ir/            KobrixaIR 定義與驗證
 packages/backend-ev3/   EV3 bytecode 與 .rbf 產生器
 packages/device/        USB 與 Wi-Fi transport
 frontends/basic-plus/   v1 Basic Plus 前端
-tests/compat/           clean-room 行為相容測試
+tests/bytecode/         離線 bytecode 與行為回歸測試
+tests/hardware/         手動 EV3 實機驗收腳本
 docs/                   產品與工程文件
 ```
 

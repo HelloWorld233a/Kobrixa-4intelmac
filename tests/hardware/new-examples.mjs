@@ -19,7 +19,7 @@ import { BasicPlusFrontend } from "../../frontends/basic-plus/dist/index.js";
 import { loadProject } from "../../packages/compiler/dist/index.js";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const plan = JSON.parse(
-  await fs.readFile(new URL("./new-examples-plan.json", import.meta.url), "utf8"),
+  await fs.readFile(new URL("./fixtures/new-examples.json", import.meta.url), "utf8"),
 );
 const selected = process.argv.slice(2);
 const gyroFixture = selected[0] === "--gyro-port2";

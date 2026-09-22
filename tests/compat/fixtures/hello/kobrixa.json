@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "name": "compat-hello",
-  "language": "bp",
-  "entry": "main.bp",
-  "target": "ev3-native",
-  "assets": [],
-  "outputDir": "build"
-}

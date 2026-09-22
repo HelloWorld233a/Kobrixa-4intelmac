@@ -74,7 +74,8 @@ packages/ir/            KobrixaIR definitions and validation
 packages/backend-ev3/   EV3 bytecode and .rbf generation
 packages/device/        USB and Wi-Fi transports
 frontends/basic-plus/   v1 Basic Plus frontend
-tests/compat/           Clean-room behavioral compatibility tests
+tests/bytecode/         Offline bytecode and behavioral regression tests
+tests/hardware/         Manual EV3 hardware acceptance scripts
 docs/                   Product and engineering documentation
 ```
 
