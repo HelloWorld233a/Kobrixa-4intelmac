@@ -60,7 +60,11 @@ export async function verifyApplication(
   directory,
   platform,
   version,
-  arch = process.env.TARGET_ARCH || process.arch,
+  arch = directory.includes("-x64")
+    ? "x64"
+    : directory.includes("-arm64")
+      ? "arm64"
+      : process.env.TARGET_ARCH || process.arch,
 ) {
   const resources = path.join(
     directory,

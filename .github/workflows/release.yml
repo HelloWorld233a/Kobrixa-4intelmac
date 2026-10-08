@@ -73,19 +73,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            platform: linux
-            arch: x64
-            timeout: 30
-          # Electron's pinned node-gyp does not support Visual Studio 2026 yet.
-          - os: windows-2022
-            platform: win32
-            arch: x64
-            timeout: 180
-          - os: macos-26
-            platform: darwin
-            arch: arm64
-            timeout: 90
           - os: macos-26
             platform: darwin
             arch: x64
