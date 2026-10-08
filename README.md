@@ -31,8 +31,8 @@ Downloads and releases are available on the [GitHub Releases](https://github.com
 | Basic Plus (`.bp`) frontend           | v1 candidate                           |
 | Native EV3 `.rbf` output              | v1 candidate                           |
 | macOS Intel (`x86_64`) support        | **Supported in this fork**             |
-| macOS Apple Silicon (`arm64`) support | Supported                              |
-| Windows & Linux support               | Supported                              |
+| macOS Apple Silicon (`arm64`) support | original version                              |
+| Windows & Linux support               | original version                              |
 | USB HID & Wi-Fi device transports     | Implemented; physical matrix pending   |
 | Installers and distributions          | Implemented (DMG, ZIP, NSIS, AppImage) |
 | Cloud collaboration                   | Included in candidate.12+              |
