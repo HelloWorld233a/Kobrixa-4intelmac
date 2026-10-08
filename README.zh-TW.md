@@ -31,8 +31,8 @@ Kobrixa IDE 是一個開源跨平台開發環境，用於編寫 LEGO® MINDSTORM
 | Basic Plus（`.bp`）前端        | v1 候選版                          |
 | 原生 EV3 `.rbf` 輸出           | v1 候選版                          |
 | macOS Intel（`x86_64`）支援    | **本分支正式支援**                 |
-| macOS Apple Silicon（`arm64`） | 請移玉步至原版本                               |
-| Windows 與 Linux 支援          | 請移玉步至原版本                               |
+| macOS Apple Silicon（`arm64`） | 請移玉步至原版本                   |
+| Windows 與 Linux 支援          | 請移玉步至原版本                   |
 | USB HID 與 Wi-Fi 傳輸          | 已實作；實機矩陣驗收中             |
 | 安裝套件與散布檔               | 已實作（DMG、ZIP、NSIS、AppImage） |
 | 雲端協作                       | candidate.12+ 已納入               |
