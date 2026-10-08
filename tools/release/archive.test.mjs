@@ -58,7 +58,7 @@ async function fixture(t) {
     "app-update.yml",
     JSON.stringify({
       provider: "generic",
-      url: "https://github.com/Kingsley1116/Kobrixa/releases/download/",
+      url: "https://github.com/HelloWorld233a/Kobrixa-4intelmac/releases/download/",
     }),
   );
   await put(resources, "kobrixa-update.json", JSON.stringify({ signedMac: false }));

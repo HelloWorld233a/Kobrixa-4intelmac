@@ -72,7 +72,7 @@ export function notes(tag, sha, status, generated = "", modes = unsigned, verifi
     : verified
       ? "SignPath signature and timestamp verified / 已驗證 SignPath 簽章及時間戳"
       : "SignPath signing required; not yet verified / 待 SignPath 簽章驗證";
-  const policy = `https://github.com/Kingsley1116/Kobrixa/blob/${sha}/docs/en/code-signing.md`;
+  const policy = `https://github.com/HelloWorld233a/Kobrixa-4intelmac/blob/${sha}/docs/en/code-signing.md`;
   const attribution =
     modes.windows && verified
       ? "\nFree code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).\n"

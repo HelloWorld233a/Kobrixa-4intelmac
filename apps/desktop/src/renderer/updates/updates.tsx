@@ -121,9 +121,31 @@ export function UpdatesPanel({
   };
   return (
     <>
-      <p>
-        {t("目前版本", "Current version")}: <code>{state.currentVersion}</code>
-      </p>
+      <div className="updates-about" style={{ marginBottom: "1rem" }}>
+        <p>
+          {t("目前版本", "Current version")}:{" "}
+          <code>{state.currentVersion} (Intel Mac)</code>
+        </p>
+        <p className="settings-hint">
+          {t(
+            "此版本為專門為 Intel 處理器 Mac 電腦最佳化之開源版本。",
+            "Optimized open-source build tailored for Intel-based Mac computers.",
+          )}
+        </p>
+        <p className="settings-hint">
+          {t("專案倉庫", "Project repository")}:{" "}
+          <a
+            href="https://github.com/HelloWorld233a/Kobrixa-4intelmac"
+            onClick={(e) => {
+              e.preventDefault();
+              void action(() => window.kobrixa.updates.openRelease());
+            }}
+            style={{ textDecoration: "underline", cursor: "pointer" }}
+          >
+            HelloWorld233a/Kobrixa-4intelmac
+          </a>
+        </p>
+      </div>
       {showPreferences && (
         <fieldset disabled={saving || locked} className="updates-preferences">
           <SettingToggle

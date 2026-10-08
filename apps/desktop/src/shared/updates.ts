@@ -34,7 +34,7 @@ export interface UpdatesApi {
   install(): Promise<void>;
   openRelease(): Promise<void>;
 }
-export const RELEASE_REPOSITORY = "Kingsley1116/Kobrixa";
+export const RELEASE_REPOSITORY = "HelloWorld233a/Kobrixa-4intelmac";
 export const RELEASES_URL = `https://github.com/${RELEASE_REPOSITORY}/releases`;
 export function updateMetadataName(platform: string): string {
   return platform === "darwin"

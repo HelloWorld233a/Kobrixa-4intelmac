@@ -137,7 +137,7 @@ export async function verifyApplication(
   assert.equal(updateConfig.provider, "generic", "Unexpected update provider");
   assert.equal(
     updateConfig.url,
-    "https://github.com/Kingsley1116/Kobrixa/releases/download/",
+    "https://github.com/HelloWorld233a/Kobrixa-4intelmac/releases/download/",
     "Unexpected update source",
   );
   assert.equal(

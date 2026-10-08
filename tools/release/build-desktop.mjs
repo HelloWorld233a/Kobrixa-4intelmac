@@ -130,7 +130,7 @@ await writeFile(
 );
 const publish = {
   provider: "generic",
-  url: "https://github.com/Kingsley1116/Kobrixa/releases/download/",
+  url: "https://github.com/HelloWorld233a/Kobrixa-4intelmac/releases/download/",
   channel: "latest",
 };
 // Dir-only packaging does not always emit updater config. Installers consume this exact signed resource.

@@ -33,7 +33,7 @@ export async function createUpdateService(
   }
   if (!app.isPackaged) reason = "development";
   else if (!(
-    (process.platform === "darwin" && process.arch === "arm64") ||
+    process.platform === "darwin" ||
     (["win32", "linux"].includes(process.platform) && process.arch === "x64")
   ))
     reason = "platform";
