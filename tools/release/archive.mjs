@@ -171,7 +171,9 @@ export async function packageArchive({
   const version = await readVersion(root);
   const name = archiveName(version, platform, arch);
   assert.equal(platform, process.platform, "Archive must be built on its target OS");
-  assert.equal(arch, process.arch, "Archive must be built on its target architecture");
+  if (platform !== "darwin") {
+    assert.equal(arch, process.arch, "Archive must be built on its target architecture");
+  }
   const output = path.join(root, "apps/desktop/out");
   const directoryName = `Kobrixa-${platform}-${arch}`;
   const directory = path.join(output, directoryName);

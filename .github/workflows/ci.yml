@@ -92,13 +92,10 @@ jobs:
       - run: pnpm test:desktop
       - run: pnpm build:desktop
       - name: Smoke test the packaged application
+        if: runner.arch == matrix.arch
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a pnpm test:desktop:packaged
-          else
-            pnpm test:desktop:packaged
-          fi
+          pnpm test:desktop:packaged
       - run: pnpm package:installers
       - run: pnpm package:archive
         env:

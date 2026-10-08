@@ -10,9 +10,10 @@ import { readVersion, repositoryRoot } from "../../tools/release/common.mjs";
 // No test update feed or test version is exposed in the production application.
 const profile = await mkdtemp(path.join(tmpdir(), "kobrixa-packaged-smoke-"));
 const version = await readVersion();
+const arch = process.env.TARGET_ARCH || process.arch;
 const appDirectory = path.join(
   repositoryRoot,
-  `apps/desktop/out/Kobrixa-${process.platform}-${process.arch}`,
+  `apps/desktop/out/Kobrixa-${process.platform}-${arch}`,
 );
 const executable = path.join(
   appDirectory,
