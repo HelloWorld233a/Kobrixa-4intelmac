@@ -101,8 +101,8 @@ export async function prepareUpdateAssets(version, platform, arch, modes, root =
 if (isMain(import.meta))
   await prepareUpdateAssets(
     await readVersion(),
-    process.platform,
-    process.arch,
+    process.env.TARGET_PLATFORM || process.platform,
+    process.env.TARGET_ARCH || process.arch,
     process.env.KOBRIXA_RELEASE_BUILD === "true"
       ? signingModes()
       : { macos: false, windows: false },
