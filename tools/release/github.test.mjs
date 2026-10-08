@@ -94,7 +94,7 @@ function mockGithub(existing = null, modes = { macos: false, windows: false }) {
       if (checksumManifest)
         await writeFile(path.join(directory, "SHA256SUMS.txt"), checksumManifest);
       for (const { platform, arch } of targets.filter(
-        (item) => item.platform !== "darwin" || modes.macos,
+        (item) => item.platform !== "darwin" || (modes.macos && item.arch !== "x64"),
       ))
         await writeUpdateMetadata(directory, version, platform, arch);
     },
