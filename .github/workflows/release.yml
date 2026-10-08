@@ -86,7 +86,7 @@ jobs:
             platform: darwin
             arch: arm64
             timeout: 90
-          - os: macos-13
+          - os: macos-26
             platform: darwin
             arch: x64
             timeout: 90
@@ -96,6 +96,8 @@ jobs:
       contents: write
       actions: read
     env:
+      TARGET_PLATFORM: ${{ matrix.platform }}
+      TARGET_ARCH: ${{ matrix.arch }}
       SIGNING_MODES: ${{ needs.validate.outputs.signing }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
       MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}

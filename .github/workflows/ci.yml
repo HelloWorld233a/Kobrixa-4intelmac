@@ -81,11 +81,14 @@ jobs:
           - os: macos-26
             platform: darwin
             arch: arm64
-          - os: macos-13
+          - os: macos-26
             platform: darwin
             arch: x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      TARGET_PLATFORM: ${{ matrix.platform }}
+      TARGET_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
         with:
