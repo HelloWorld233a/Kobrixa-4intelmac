@@ -1,4 +1,5 @@
 name: CI
+# Kobrixa Intel Mac (darwin-x64) CI Pipeline
 
 on:
   push:
