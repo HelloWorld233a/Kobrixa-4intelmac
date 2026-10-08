@@ -124,7 +124,7 @@ export function UpdatesPanel({
       <div className="updates-about" style={{ marginBottom: "1rem" }}>
         <p>
           {t("目前版本", "Current version")}:{" "}
-          <code>{state.currentVersion} (Intel Mac)</code>
+          <code>{state.currentVersion} (Intel Mac Version)</code>
         </p>
         <p className="settings-hint">
           {t(
