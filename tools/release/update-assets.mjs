@@ -18,7 +18,9 @@ import { signingModes } from "../../apps/desktop/signing.ts";
 
 export function installerNames(version, platform, arch, modes = { macos: false }) {
   return [
-    ...(platform !== "darwin" || modes.macos ? [updateArtifactName(version, platform, arch)] : []),
+    ...(platform !== "darwin" || (modes.macos && arch !== "x64")
+      ? [updateArtifactName(version, platform, arch)]
+      : []),
     ...(platform === "darwin" ? [`Kobrixa-${version}-${platform}-${arch}.dmg`] : []),
   ];
 }
@@ -29,7 +31,9 @@ export function targetAssets(version, platform, arch, modes = { macos: false, wi
   ];
   return [
     ...archives.flatMap((name) => [name, `${name}.sha256`]),
-    ...(platform !== "darwin" || modes.macos ? [updateMetadataName(platform)] : []),
+    ...(platform !== "darwin" || (modes.macos && arch !== "x64")
+      ? [updateMetadataName(platform)]
+      : []),
   ];
 }
 export async function sha512(file) {
@@ -68,7 +72,7 @@ export async function verifyTargetAssets(directory, version, platform, arch, mod
     (name) => !name.endsWith(".sha256") && !name.endsWith(".yml"),
   ))
     await verifyChecksum(path.join(directory, name));
-  if (platform !== "darwin" || modes.macos)
+  if (platform !== "darwin" || (modes.macos && arch !== "x64"))
     await verifyUpdateMetadata(directory, version, platform, arch);
 }
 export async function prepareUpdateAssets(version, platform, arch, modes, root = repositoryRoot) {
@@ -89,7 +93,7 @@ export async function prepareUpdateAssets(version, platform, arch, modes, root =
     await cp(path.join(out, "installers", name), file);
     await writeFile(`${file}.sha256`, `${await sha256(file)}  ${name}\n`);
   }
-  if (platform !== "darwin" || modes.macos)
+  if (platform !== "darwin" || (modes.macos && arch !== "x64"))
     await writeUpdateMetadata(path.join(out, "release"), version, platform, arch);
   else await rm(path.join(out, "release", updateMetadataName(platform)), { force: true });
   await verifyTargetAssets(path.join(out, "release"), version, platform, arch, modes);
