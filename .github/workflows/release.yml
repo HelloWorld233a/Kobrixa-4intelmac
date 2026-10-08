@@ -152,13 +152,10 @@ jobs:
         if: matrix.platform == 'win32' && fromJSON(needs.validate.outputs.signing).windows
         run: node tools/release/signing.mjs accept-windows
       - name: Smoke test the packaged application
+        if: runner.arch == matrix.arch
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a pnpm test:desktop:packaged
-          else
-            pnpm test:desktop:packaged
-          fi
+          pnpm test:desktop:packaged
       - run: pnpm package:installers
         env:
           KOBRIXA_RELEASE_BUILD: "true"
