@@ -9,8 +9,8 @@ import { macIdentity, required, signingModes, windowsVersion } from "../../apps/
 
 const desktop = path.join(repositoryRoot, "apps/desktop");
 const version = await readVersion();
-const platform = process.platform,
-  arch = process.arch;
+const platform = process.env.TARGET_PLATFORM || process.platform,
+  arch = process.env.TARGET_ARCH || process.arch;
 const release = process.env.KOBRIXA_RELEASE_BUILD === "true";
 const modes = release ? signingModes() : { macos: false, windows: false };
 const stage = path.join(desktop, "out/stage");
@@ -182,7 +182,7 @@ await packageElectron({
       to: name,
     })),
     mac: {
-      target: "dir",
+      target: [{ target: "dir", arch: [arch] }],
       icon: path.join(desktop, "resources/icons/kobrixa.icns"),
       identity,
       hardenedRuntime: signMac,

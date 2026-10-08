@@ -81,6 +81,9 @@ jobs:
           - os: macos-26
             platform: darwin
             arch: arm64
+          - os: macos-13
+            platform: darwin
+            arch: x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:

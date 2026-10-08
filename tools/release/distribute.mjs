@@ -7,8 +7,8 @@ import { updateArtifactName } from "../../apps/desktop/src/shared/updates.ts";
 import { signingModes, windowsVersion } from "../../apps/desktop/signing.ts";
 const desktop = path.join(repositoryRoot, "apps/desktop");
 const version = await readVersion(),
-  platform = process.platform,
-  arch = process.arch;
+  platform = process.env.TARGET_PLATFORM || process.platform,
+  arch = process.env.TARGET_ARCH || process.arch;
 const modes = process.env.KOBRIXA_RELEASE_BUILD === "true" ? signingModes() : { macos: false };
 const output = path.join(desktop, "out/installers");
 await rm(output, { recursive: true, force: true });
@@ -27,6 +27,7 @@ await build({
         ? ["dmg", "zip"]
         : ["dmg"]
       : [platform === "win32" ? "nsis" : "AppImage"],
+    arch,
   ),
   config: {
     publish: null, // Never infer a provider from CI tokens or rewrite the signed app's resources.
