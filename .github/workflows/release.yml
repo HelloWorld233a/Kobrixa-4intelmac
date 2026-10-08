@@ -86,6 +86,10 @@ jobs:
             platform: darwin
             arch: arm64
             timeout: 90
+          - os: macos-13
+            platform: darwin
+            arch: x64
+            timeout: 90
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     permissions:

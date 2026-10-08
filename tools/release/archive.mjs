@@ -56,7 +56,12 @@ export async function treeManifest(root, platform) {
   return entries;
 }
 
-export async function verifyApplication(directory, platform, version) {
+export async function verifyApplication(
+  directory,
+  platform,
+  version,
+  arch = process.env.TARGET_ARCH || process.arch,
+) {
   const resources = path.join(
     directory,
     platform === "darwin" ? "Kobrixa.app/Contents/Resources" : "resources",
@@ -78,7 +83,11 @@ export async function verifyApplication(directory, platform, version) {
     await handle.read(header, 0, header.length, 0);
     if (platform === "darwin") {
       assert.equal(header.readUInt32LE(0), 0xfeedfacf, "Expected 64-bit Mach-O executable");
-      assert.equal(header.readUInt32LE(4), 0x0100000c, "Expected arm64 executable");
+      if (arch === "arm64") {
+        assert.equal(header.readUInt32LE(4), 0x0100000c, "Expected arm64 executable");
+      } else {
+        assert.equal(header.readUInt32LE(4), 0x01000007, "Expected x64 executable");
+      }
     } else if (platform === "linux") {
       assert.equal(
         header.subarray(0, 6).toString("hex"),
@@ -162,7 +171,7 @@ export async function packageArchive({
   const output = path.join(root, "apps/desktop/out");
   const directoryName = `Kobrixa-${platform}-${arch}`;
   const directory = path.join(output, directoryName);
-  await verifyApplication(directory, platform, version);
+  await verifyApplication(directory, platform, version, arch);
   await verifySignature(directory, platform, version, modes, verificationEnv);
   const before = await treeManifest(directory, platform);
   const releaseDirectory = archiveDirectory ?? path.join(output, "release");
@@ -186,7 +195,7 @@ export async function packageArchive({
       before,
       "Archive changed files, symlinks or executable permissions",
     );
-    await verifyApplication(restored, platform, version);
+    await verifyApplication(restored, platform, version, arch);
     await verifySignature(restored, platform, version, modes, verificationEnv);
     await writeFile(`${archive}.sha256`, `${await sha256(archive)}  ${name}\n`);
     await verifyChecksum(archive);

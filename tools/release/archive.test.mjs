@@ -100,8 +100,8 @@ test("validates SemVer, prereleases and target archive names", () => {
   assert.equal(archiveName(version, "linux", "x64"), `Kobrixa-${version}-linux-x64.tar.gz`);
   assert.equal(archiveName(version, "win32", "x64"), `Kobrixa-${version}-win32-x64.zip`);
   assert.equal(archiveName(version, "darwin", "arm64"), `Kobrixa-${version}-darwin-arm64.zip`);
-  assert.throws(() => archiveName(version, "darwin", "x64"));
-  assert.equal(expectedAssets(version).length, 6);
+  assert.equal(archiveName(version, "darwin", "x64"), `Kobrixa-${version}-darwin-x64.zip`);
+  assert.equal(expectedAssets(version).length, 8);
 });
 
 test("checks versions in root and every workspace, including web", async (t) => {

@@ -343,7 +343,7 @@ test("finalization consolidates checksums and resumes interrupted sidecar cleanu
   github.deleteAsset = remove;
   await finalizeRelease(github, tag, sha, success);
   assertAssets(github.release.assets, version);
-  assert.equal(github.release.assets.length, 8);
+  assert.equal(github.release.assets.length, 9);
   assert.ok(!github.release.assets.some((asset) => asset.name.endsWith(".sha256")));
   await finalizeRelease(github, tag, sha, success);
   assertAssets(github.release.assets, version);
