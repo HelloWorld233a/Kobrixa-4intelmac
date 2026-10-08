@@ -1,60 +1,39 @@
 # Kobrixa IDE（Intel Mac 版）
 
-**用程式驅動創意。**
+**編寫動作。建構創意。**
 
-Kobrixa IDE 是一個開源跨平台開發環境，用於編寫 LEGO® MINDSTORMS® EV3 機器人程式。主要服務學生與創客，提供從原始碼到實體 EV3 主機執行程式的流暢流程。
+Kobrixa IDE 是一個為 LEGO® MINDSTORMS® EV3 機器人設計的開源、跨平台整合開發環境（IDE）。本專案專為學生與創客設計，提供從源碼直接編譯並在實體 EV3 主機上運行的完整體驗。
 
-> [English README](README.md)
-
----
-
-## 關於本分支（Fork）
-
-本專案是源自 [Kobrixa](https://github.com/Kingsley1116/Kobrixa) 的社群分支，旨在為 **配備 Intel 處理器的 Mac 電腦（`darwin-x64`）提供原生支援與發行版本**。
-
-上游官方專案目前 macOS 僅發布 Apple Silicon（ARM64）版本；本分支提供：
-
-- **原生 Intel Mac 二進位檔與安裝套件**：提供專為 x86_64 Mac 編譯的 `.dmg` 安裝映像檔與免安裝 `.zip` 壓縮檔。
-- **多架構打包與驗證管線**：更新打包腳本、二進位 Mach-O 標頭架構檢驗邏輯，同時支援 `darwin-arm64` 與 `darwin-x64`。
-- **持續維護與相容**：持續跟進上游功能改進，並確保舊款 Intel Mac 設備能順暢使用。
-
-最新安裝包請前往 [GitHub Releases](https://github.com/HelloWorld233a/Kobrixa-4intelmac/releases) 頁面下載。
+> [English Version](README.md)
 
 ---
 
-## 專案狀態
+### 關於本 Fork：Intel Mac 專屬版
 
-**v1 候選實作（含 Intel Mac 支援）。** 本倉庫包含可直接建置的 IDE、編譯器管線、EV3 image 後端，以及 USB／Wi-Fi 設備服務。
+本專案是 [Kingsley1116/Kobrixa](https://github.com/Kingsley1116/Kobrixa) 的獨立維護分支。
 
-| 能力                           | 狀態                               |
-| ------------------------------ | ---------------------------------- |
-| Basic Plus（`.bp`）前端        | v1 候選版                          |
-| 原生 EV3 `.rbf` 輸出           | v1 候選版                          |
-| macOS Intel（`x86_64`）支援    | **本分支正式支援**                 |
-| macOS Apple Silicon（`arm64`） | 請移玉步至原版本                   |
-| Windows 與 Linux 支援          | 請移玉步至原版本                   |
-| USB HID 與 Wi-Fi 傳輸          | 已實作；實機矩陣驗收中             |
-| 安裝套件與散布檔               | 已實作（DMG、ZIP、NSIS、AppImage） |
-| 雲端協作                       | candidate.12+ 已納入               |
-| Python / TypeScript / C++ 前端 | v1 之後規劃                        |
+原版 Kobrixa 主要針對 Apple Silicon (`darwin-arm64`) 提供 macOS 支援；**本分支專門維護並提供對 Intel 處理器 Mac 電腦（`x86_64` / `darwin-x64`）的完整建置、測試與自動發布支援**。
 
-## 產品方向
+- **原生 Intel Mac 安裝檔**：提供針對 x86_64 架構特別編譯的 `.dmg` 安裝映像檔與 `.zip` 免安裝綠色版。
+- **跨架構發布管道**：整合跨架構打包與動態 Mach-O 標頭檢驗機制，完整保留更新清單與校驗碼。
+- **百分之百相容原版功能**：完整繼承原專案的所有編譯器、中間表示（IR）、EV3 位元組碼生成器及裝置通訊協定。
 
-```text
-編輯 .bp 原始碼
-      ↓
-編譯為 KobrixaIR
-      ↓
-產生原生 EV3 bytecode（.rbf）
-      ↓
-透過 USB 或 Wi-Fi 上傳
-      ↓
-在 EV3 主機執行
-```
+---
 
-Kobrixa 採用 clean-room 方式實作，對常用的舊版 `.bp` 程式提供行為相容性。相容代表程式不需修改即可直接執行，並產生等價的可觀察行為。
+## 下載安裝
 
-## 從原始碼編譯
+請至 [GitHub Releases](https://github.com/HelloWorld233a/Kobrixa-4intelmac/releases) 下載最新預建安裝包：
+
+| 檔案名稱                   | 適用平台             | 說明                                                          |
+| :------------------------- | :------------------- | :------------------------------------------------------------ |
+| `Kobrixa-*-darwin-x64.dmg` | macOS (Intel x86_64) | 標準 DMG 安裝映像檔，掛載後拖入「應用程式」資料夾即可完成安裝 |
+| `Kobrixa-*-darwin-x64.zip` | macOS (Intel x86_64) | 獨立應用程式壓縮包（`kobrixa.app`），解壓後直接雙擊執行       |
+
+> **macOS 安全提示**：若 macOS 出現「無法打開，因為它不是來自獲識別的開發者」提示，請前往 **系統設定** > **隱私權與安全性**，在安全性區塊點擊 **「強制打開」** 即可。
+
+---
+
+## 本地原始碼編譯
 
 ### 環境需求
 
@@ -64,44 +43,50 @@ Kobrixa 採用 clean-room 方式實作，對常用的舊版 `.bp` 程式提供�
 ### 編譯步驟
 
 ```bash
-# Clone 程式碼倉庫
+# 1. Clone 倉庫
 git clone https://github.com/HelloWorld233a/Kobrixa-4intelmac.git
 cd Kobrixa-4intelmac
 
-# 安裝相依套件
+# 2. 安裝相依套件
 pnpm install
 
-# 編譯核心模組
+# 3. 編譯核心模組
 pnpm build:core
 
-# 編譯 Intel Mac (x64) 桌面端與安裝檔
+# 4. 編譯 Intel Mac 桌面端應用
 TARGET_ARCH=x64 pnpm build:desktop
-TARGET_ARCH=x64 pnpm package:installers
 
-# 或編譯 Apple Silicon (arm64) 版本
-TARGET_ARCH=arm64 pnpm build:desktop
-TARGET_ARCH=arm64 pnpm package:installers
+# 5. 打包標準發布壓縮包
+TARGET_PLATFORM=darwin TARGET_ARCH=x64 pnpm package:archive
 ```
 
-安裝檔會生成在 `apps/desktop/out/installers/` 目錄中。
+---
 
-## 技術架構
+## 技術棧
 
-- **桌面端外殼**：Electron
-- **前端介面**：React、TypeScript、Monaco Editor
-- **編譯器與通訊核心**：Node.js、TypeScript
-- **執行目標**：原生 EV3 虛擬機器 (VM)
+- Electron 桌面容器
+- React 與 TypeScript 前端渲染架構
+- Monaco 編輯器
+- Node.js 與 TypeScript 編譯器核心、EV3 後端及裝置通訊服務
+- 原生 EV3 虛擬機作為執行目標
+- Apache-2.0 開源授權
 
-## 上游專案與致謝
+---
 
-本專案基於 [Kingsley1116/Kobrixa](https://github.com/Kingsley1116/Kobrixa) 開發。感謝原作者與所有貢獻者打造了優秀的 IDE 架構與編譯流程。
+## 來源與致謝
+
+- 原專案：[Kingsley1116/Kobrixa](https://github.com/Kingsley1116/Kobrixa)
+- 原作者：Kingsley1116 及 Kobrixa 貢獻者。
+
+---
 
 ## 法律與商標聲明
 
-Kobrixa 是獨立專案，與 LEGO Group 沒有隸屬、認可或贊助關係。LEGO、MINDSTORMS 與 EV3 是 LEGO Group 的商標。
+Kobrixa 為獨立開源專案，與樂高集團（LEGO Group）無任何附屬、背書或贊助關係。LEGO、MINDSTORMS 與 EV3 為樂高集團之商標。
 
-本倉庫的 Apache-2.0 授權適用於 Kobrixa 的原創成果以及本分支的新增修改。本授權不授予任何第三方所擁有的商標或素材權利。
+---
 
-## 授權
+## 開源協議 (License)
 
-Kobrixa 原創成果以及本分支之修改均依據 [Apache License 2.0](LICENSE) 條款授權發布。
+原版 Kobrixa 原始碼基於 [Apache License 2.0](LICENSE) 授權。
+本分支的所有修改與 Intel Mac 發布工作流程亦遵循 [Apache License 2.0](LICENSE) 協議。
