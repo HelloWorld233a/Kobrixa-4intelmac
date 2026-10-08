@@ -113,7 +113,6 @@ jobs:
           TARGET_ARCH: ${{ matrix.arch }}
       - run: pnpm package:updates
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
         with:
           name: Kobrixa-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.run_attempt }}
           path: apps/desktop/out/release/*
