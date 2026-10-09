@@ -19,6 +19,7 @@ export type Text = readonly [zh: string, en: string];
 export const localText = (text: Text, locale: Locale): string => text[locale === "zh-TW" ? 0 : 1];
 export const CATEGORY_LABELS = {
   appearance: ["一般與外觀", "General & appearance"],
+  theme: ["主題與個性化", "Theme & Personalization"],
   editor: ["編輯器", "Editor"],
   saving: ["儲存", "Saving"],
   fileHistory: ["檔案與歷史", "Files & history"],

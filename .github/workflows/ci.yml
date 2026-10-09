@@ -74,7 +74,7 @@ jobs:
         include:
           - os: macos-26
             platform: darwin
-            arch: x64
+            arch: arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:

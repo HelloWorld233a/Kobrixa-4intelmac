@@ -178,7 +178,7 @@ export function App(): React.JSX.Element {
   const t = copy[locale];
   const st = settingsCopy[locale];
   const [settingsCategory, setSettingsCategory] = useState<{
-    category: "appearance" | "shortcuts" | "updates";
+    category: "appearance" | "theme" | "shortcuts" | "updates";
     request: number;
   }>({ category: "appearance", request: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);

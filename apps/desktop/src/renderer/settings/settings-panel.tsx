@@ -1,4 +1,5 @@
 import { UpdatesPanel } from "../updates/updates.js";
+import { CustomThemePanel } from "./custom-theme.js";
 import type { UpdateState } from "../../shared/updates.js";
 import { SettingSelect, SettingToggle } from "./setting-field.js";
 import { ClosableTab } from "../components/closable-tab.js";
@@ -208,7 +209,10 @@ export function SettingsPanel({
   updateBusy: boolean;
   onInstallUpdate(): void;
   keyboard: KeyboardSettings;
-  requestedCategory: { category: "appearance" | "shortcuts" | "updates"; request: number };
+  requestedCategory: {
+    category: "appearance" | "theme" | "shortcuts" | "updates";
+    request: number;
+  };
   settings: Settings;
   onChange: Change;
   onReset(): void;
@@ -421,7 +425,7 @@ export function SettingsPanel({
             </button>
           )}
         </div>
-        {category !== "shortcuts" && (
+        {category !== "shortcuts" && category !== "theme" && (
           <p role="status">
             {local(`顯示 ${entries.length} 項設定`, `${entries.length} settings`)}
           </p>
@@ -478,6 +482,7 @@ export function SettingsPanel({
             [
               "all",
               "appearance",
+              "theme",
               "editor",
               "saving",
               "fileHistory",
@@ -505,7 +510,7 @@ export function SettingsPanel({
             active && <ShortcutsPanel keyboard={keyboard} locale={settings.locale} />
           ) : (
             <>
-              {entries.length === 0 && (
+              {entries.length === 0 && category !== "theme" && (
                 <p className="settings-empty">
                   {local(
                     "沒有符合的設定。試試其他關鍵字，或清除條件。",
@@ -514,6 +519,17 @@ export function SettingsPanel({
                 </p>
               )}
               {(Object.keys(CATEGORY_LABELS) as SettingsCategory[]).map((group) => {
+                if (group === "theme") {
+                  if (category !== "theme" && category !== "all") return null;
+                  return (
+                    <section key="theme" aria-labelledby="settings-theme">
+                      <h2 id="settings-theme">
+                        {localText(CATEGORY_LABELS.theme, settings.locale)}
+                      </h2>
+                      <CustomThemePanel locale={settings.locale} />
+                    </section>
+                  );
+                }
                 const groupEntries = entries.filter((entry) => entry.category === group);
                 if (!groupEntries.length && category !== group) return null;
                 return (

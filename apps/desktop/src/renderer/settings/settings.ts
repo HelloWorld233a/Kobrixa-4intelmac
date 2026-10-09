@@ -6,6 +6,7 @@ import {
 } from "../workbench/workbench-state.js";
 import type { Locale } from "../i18n/copy.js";
 import { THEME_KEY, resolveTheme, type ThemePreference } from "./theme.js";
+import { applyCustomTheme } from "./custom-theme.js";
 
 export const UI_SCALES = [100, 110, 125] as const;
 export const CODE_SIZES = [14, 16, 18, 20, 24] as const;
@@ -284,4 +285,5 @@ export function applyAppearance(
   root.dataset.motion = values.motion;
   root.lang = values.locale;
   root.style.setProperty("--ui-scale", String(values.uiScale / 100));
+  applyCustomTheme();
 }

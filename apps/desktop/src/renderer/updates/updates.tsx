@@ -121,15 +121,33 @@ export function UpdatesPanel({
   };
   return (
     <>
-      <div className="updates-about" style={{ marginBottom: "1rem" }}>
+      <div className="updates-about" style={{ marginBottom: "1.25rem" }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "6px 14px",
+            borderRadius: "20px",
+            background: "linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)",
+            color: "#ffffff",
+            fontWeight: 750,
+            fontSize: "14px",
+            letterSpacing: "0.06em",
+            boxShadow: "0 2px 8px rgba(236, 72, 153, 0.35)",
+            marginBottom: "12px",
+          }}
+        >
+          <span>❤️</span>
+          <span>We love 14</span>
+        </div>
         <p>
-          {t("目前版本", "Current version")}:{" "}
-          <code>{state.currentVersion} (Intel Mac Version)</code>
+          {t("目前版本", "Current version")}: <code>0.1.0-v1-candidate.14 (ARM Mac 專用版)</code>
         </p>
-        <p className="settings-hint">
+        <p className="settings-hint" style={{ fontWeight: 650, color: "var(--accent)" }}>
           {t(
-            "此版本為專門為 Intel 處理器 Mac 電腦最佳化之開源版本。",
-            "Optimized open-source build tailored for Intel-based Mac computers.",
+            "此版本為 Apple Silicon / ARM Mac 專用客製版。冇得再更新，此版本為個人專用。",
+            "Dedicated custom edition for Apple Silicon / ARM Mac. Updates disabled; this build is for your personal use only.",
           )}
         </p>
         <p className="settings-hint">
@@ -194,17 +212,34 @@ export function UpdatesPanel({
               )}
         </p>
       )}
+      <div
+        style={{
+          padding: "10px 14px",
+          borderRadius: "8px",
+          background: "var(--raised)",
+          border: "1px solid var(--border)",
+          marginBottom: "1rem",
+        }}
+      >
+        <p style={{ margin: 0, fontWeight: 600, color: "var(--text)" }}>
+          {t(
+            "更新狀態：已停止更新（專用客製版）",
+            "Update Status: Updates Disabled (Dedicated Build)",
+          )}
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: "var(--font-small)", color: "var(--muted)" }}>
+          {t(
+            "此版本為專屬客製版本（We love 14），冇得再更新，專供個人使用。",
+            "This is a dedicated personal custom build (We love 14). Updates are disabled and not required.",
+          )}
+        </p>
+      </div>
       <div className="update-actions">
         <button
-          disabled={
-            locked ||
-            saving ||
-            state.reason === "development" ||
-            ["checking", "downloading", "ready"].includes(state.phase)
-          }
-          onClick={() => void action(() => window.kobrixa.updates.check())}
+          disabled={true}
+          title={t("專用版已停用更新", "Updates are disabled on this dedicated build")}
         >
-          {t("檢查更新", "Check for updates")}
+          {t("更新已停用（專用版）", "Updates Disabled")}
         </button>
         {state.phase === "ready" && (
           <button disabled={busy} onClick={onInstall}>
