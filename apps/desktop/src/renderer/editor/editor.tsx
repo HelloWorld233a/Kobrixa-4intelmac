@@ -3,6 +3,7 @@ import { completionWidget } from "./completion-widget.js";
 import type { CompletionSession } from "./completion-session.js";
 import type { BasicPlusProjectAnalysis } from "@kobrixa/basic-plus";
 import { basicPlusMonarch, basicPlusThemeRules } from "./basic-plus-language.js";
+import { loadCustomTheme, type CustomThemeConfig } from "../settings/custom-theme.js";
 import type { Documents, DocumentBuffer } from "./documents.js";
 import type { AnalysisSession } from "./analysis-session.js";
 import { ModelSnapshots } from "./model-snapshots.js";
@@ -38,6 +39,31 @@ self.MonacoEnvironment = {
   getWorker: (_workerId, label) => (label === "json" ? new JsonWorker() : new EditorWorker()),
 };
 
+export function defineKobrixaMonacoThemes(custom?: CustomThemeConfig): void {
+  const cfg = custom ?? loadCustomTheme();
+  for (const theme of ["light", "dark"] as const) {
+    const dark = theme === "dark";
+    monaco.editor.defineTheme(`kobrixa-${theme}`, {
+      base: dark ? "vs-dark" : "vs",
+      inherit: true,
+      rules: basicPlusThemeRules(dark, cfg.syntax),
+      colors: {
+        "editor.background": (dark ? cfg.editorBg : undefined) || (dark ? "#18212b" : "#fdfaf4"),
+        "editor.foreground": cfg.textColor || (dark ? "#e6eaf0" : "#1e2933"),
+        "editorLineNumber.foreground": cfg.mutedColor || (dark ? "#697a8b" : "#91958f"),
+        "editorLineNumber.activeForeground": cfg.accent || (dark ? "#88acff" : "#2457d6"),
+        "editor.lineHighlightBackground":
+          cfg.syntax?.lineHighlight || (dark ? "#202c3a" : "#f0ede5"),
+        "editor.selectionBackground": cfg.selection || (dark ? "#344a72" : "#cddbf8"),
+        "editorCursor.foreground":
+          cfg.syntax?.cursor || cfg.accent || (dark ? "#88acff" : "#2457d6"),
+        "editorWidget.background": cfg.raised || (dark ? "#222e3b" : "#fdfaf4"),
+        "editorWidget.border": cfg.border || (dark ? "#3a4857" : "#d7d1c7"),
+      },
+    });
+  }
+}
+
 let registered = false;
 function registerLanguage(): void {
   if (registered) return;
@@ -62,25 +88,7 @@ function registerLanguage(): void {
     indentationRules: BASIC_PLUS_INDENTATION_RULES,
   });
   monaco.languages.setMonarchTokensProvider("basic-plus", basicPlusMonarch);
-  for (const theme of ["light", "dark"] as const) {
-    const dark = theme === "dark";
-    monaco.editor.defineTheme(`kobrixa-${theme}`, {
-      base: dark ? "vs-dark" : "vs",
-      inherit: true,
-      rules: basicPlusThemeRules(dark),
-      colors: {
-        "editor.background": dark ? "#18212b" : "#fdfaf4",
-        "editor.foreground": dark ? "#e6eaf0" : "#1e2933",
-        "editorLineNumber.foreground": dark ? "#697a8b" : "#91958f",
-        "editorLineNumber.activeForeground": dark ? "#88acff" : "#2457d6",
-        "editor.lineHighlightBackground": dark ? "#202c3a" : "#f0ede5",
-        "editor.selectionBackground": dark ? "#344a72" : "#cddbf8",
-        "editorCursor.foreground": dark ? "#88acff" : "#2457d6",
-        "editorWidget.background": dark ? "#222e3b" : "#fdfaf4",
-        "editorWidget.border": dark ? "#3a4857" : "#d7d1c7",
-      },
-    });
-  }
+  defineKobrixaMonacoThemes();
   monaco.languages.registerDocumentFormattingEditProvider("basic-plus", {
     provideDocumentFormattingEdits: (model, options) => [
       {
@@ -569,7 +577,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       readOnly,
       ariaLabel,
       automaticLayout: true,
-      fontFamily: "JetBrains Mono, SFMono-Regular, Consolas, monospace",
+      fontFamily:
+        loadCustomTheme().codeFontFamily || "JetBrains Mono, SFMono-Regular, Consolas, monospace",
       padding: { top: 16 },
       glyphMargin: true,
       lineNumbersMinChars: 3,
@@ -760,7 +769,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       model.updateOptions({ tabSize: indentSize, indentSize, insertSpaces: true });
   }, [indentSize]);
   useEffect(() => {
+    defineKobrixaMonacoThemes();
     monaco.editor.setTheme(`kobrixa-${theme}`);
+    const onThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<CustomThemeConfig>;
+      defineKobrixaMonacoThemes(customEvent.detail);
+      monaco.editor.setTheme(`kobrixa-${theme}`);
+      if (editor.current && customEvent.detail?.codeFontFamily) {
+        editor.current.updateOptions({ fontFamily: customEvent.detail.codeFontFamily });
+      }
+    };
+    window.addEventListener("kobrixa:theme-change", onThemeChange);
+    return () => window.removeEventListener("kobrixa:theme-change", onThemeChange);
   }, [theme]);
 
   useEffect(() => {

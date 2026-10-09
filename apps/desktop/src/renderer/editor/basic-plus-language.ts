@@ -54,36 +54,69 @@ export const basicPlusMonarch: languages.IMonarchLanguage = {
   },
 };
 
-export function basicPlusThemeRules(dark: boolean): editor.ITokenThemeRule[] {
+export interface SyntaxTokenColors {
+  keyword?: string;
+  controlKeyword?: string;
+  string?: string;
+  number?: string;
+  comment?: string;
+  identifier?: string;
+  function?: string;
+  variable?: string;
+  type?: string;
+  operator?: string;
+  delimiter?: string;
+}
+
+export function basicPlusThemeRules(
+  dark: boolean,
+  syntax?: SyntaxTokenColors,
+): editor.ITokenThemeRule[] {
   const color = (darkColor: string, lightColor: string) => (dark ? darkColor : lightColor);
+  const clean = (val: string | undefined, fallback: string) => {
+    if (!val) return fallback;
+    return val.replace("#", "").trim();
+  };
+
+  const kw = clean(syntax?.keyword, color("569CD6", "0000FF"));
+  const ctrl = clean(syntax?.controlKeyword, color("C586C0", "AF00DB"));
+  const str = clean(syntax?.string, color("CE9178", "A31515"));
+  const num = clean(syntax?.number, color("B5CEA8", "098658"));
+  const comm = clean(syntax?.comment, color("6A9955", "008000"));
+  const ident = clean(syntax?.variable || syntax?.identifier, color("9CDCFE", "001080"));
+  const op = clean(syntax?.operator, color("569CD6", "0000FF"));
+  const opSym = clean(syntax?.operator, color("E6EAF0", "1E2933"));
+  const delim = clean(syntax?.delimiter, color("E6EAF0", "1E2933"));
+  const fn = clean(syntax?.function, color("DCDCAA", "795E26"));
+  const ty = clean(syntax?.type, color("4EC9B0", "267F99"));
+
   const rules: editor.ITokenThemeRule[] = [
-    { token: "keyword.basic-plus", foreground: color("569CD6", "0000FF") },
-    { token: "keyword.control.basic-plus", foreground: color("C586C0", "AF00DB") },
-    { token: "constant.language.basic-plus", foreground: color("569CD6", "0000FF") },
-    { token: "operator.word.basic-plus", foreground: color("569CD6", "0000FF") },
-    { token: "operator.basic-plus", foreground: color("E6EAF0", "1E2933") },
-    { token: "delimiter.basic-plus", foreground: color("E6EAF0", "1E2933") },
-    { token: "string.basic-plus", foreground: color("CE9178", "A31515") },
-    { token: "string.invalid.basic-plus", foreground: color("CE9178", "A31515") },
-    { token: "number.basic-plus", foreground: color("B5CEA8", "098658") },
-    { token: "comment.basic-plus", foreground: color("6A9955", "008000") },
-    { token: "identifier.basic-plus", foreground: color("9CDCFE", "001080") },
+    { token: "keyword.basic-plus", foreground: kw },
+    { token: "keyword.control.basic-plus", foreground: ctrl },
+    { token: "constant.language.basic-plus", foreground: kw },
+    { token: "operator.word.basic-plus", foreground: op },
+    { token: "operator.basic-plus", foreground: opSym },
+    { token: "delimiter.basic-plus", foreground: delim },
+    { token: "string.basic-plus", foreground: str },
+    { token: "string.invalid.basic-plus", foreground: str },
+    { token: "number.basic-plus", foreground: num },
+    { token: "comment.basic-plus", foreground: comm },
+    { token: "identifier.basic-plus", foreground: ident },
     { token: "invalid.basic-plus", foreground: color("F44747", "CD3131") },
+    { token: "type", foreground: ty },
+    { token: "namespace", foreground: ty },
+    { token: "type.basic-plus", foreground: ty },
+    { token: "namespace.basic-plus", foreground: ty },
+    { token: "function", foreground: fn },
+    { token: "method", foreground: fn },
+    { token: "function.basic-plus", foreground: fn },
+    { token: "method.basic-plus", foreground: fn },
+    { token: "variable", foreground: ident },
+    { token: "parameter", foreground: ident },
+    { token: "variable.basic-plus", foreground: ident },
+    { token: "parameter.basic-plus", foreground: ident },
+    { token: "label", foreground: color("C8C8C8", "000000") },
+    { token: "label.basic-plus", foreground: color("C8C8C8", "000000") },
   ];
-  // Standalone Monaco matches semantic types/modifiers directly against theme rules.
-  for (const [type, foreground] of [
-    ["type", color("4EC9B0", "267F99")],
-    ["namespace", color("4EC9B0", "267F99")],
-    ["function", color("DCDCAA", "795E26")],
-    ["method", color("DCDCAA", "795E26")],
-    ["variable", color("9CDCFE", "001080")],
-    ["parameter", color("9CDCFE", "001080")],
-    ["label", color("C8C8C8", "000000")],
-  ]) {
-    rules.push(
-      { token: type!, foreground: foreground! },
-      { token: `${type}.basic-plus`, foreground: foreground! },
-    );
-  }
   return rules.map((rule) => ({ ...rule, fontStyle: "" }));
 }
