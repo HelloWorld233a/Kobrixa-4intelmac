@@ -405,7 +405,7 @@ export const THEME_COLOR_PRESETS: {
     labelEn: "🌑 Standard Dark Mode (Obsidian)",
     theme: {
       ...DEFAULT_PINK_THEME,
-      mode: "standard",
+      mode: "custom",
       name: "Obsidian Pure Dark",
       accent: "#88acff",
       primary: "#3768dc",
@@ -439,7 +439,7 @@ export const THEME_COLOR_PRESETS: {
     labelEn: "☀️ Standard Light Mode (Clean White)",
     theme: {
       ...DEFAULT_PINK_THEME,
-      mode: "standard",
+      mode: "custom",
       name: "Minimalist Pure Light",
       accent: "#2563eb",
       primary: "#2563eb",
@@ -530,6 +530,7 @@ export function loadCustomTheme(): CustomThemeConfig {
     return {
       ...DEFAULT_PINK_THEME,
       ...parsed,
+      mode: "custom",
       syntax: {
         ...DEFAULT_PINK_THEME.syntax,
         ...(parsed.syntax ?? {}),
@@ -542,13 +543,14 @@ export function loadCustomTheme(): CustomThemeConfig {
 
 export function saveCustomTheme(config: CustomThemeConfig): void {
   if (typeof window === "undefined" || !window.localStorage) return;
+  const toSave: CustomThemeConfig = { ...config, mode: "custom" };
   try {
-    window.localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(config));
+    window.localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(toSave));
   } catch {
     // quota
   }
-  applyCustomTheme(config);
-  window.dispatchEvent(new CustomEvent("kobrixa:theme-change", { detail: config }));
+  applyCustomTheme(toSave);
+  window.dispatchEvent(new CustomEvent("kobrixa:theme-change", { detail: toSave }));
 }
 
 export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()): void {
@@ -566,14 +568,6 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
     ${config.fontFamily ? `body, input, button, select, textarea { font-family: ${config.fontFamily} !important; }` : ""}
     ${config.codeFontFamily ? `.monaco-editor, .monaco-editor textarea, pre, code { font-family: ${config.codeFontFamily} !important; }` : ""}
   `;
-
-  // When standard mode is selected, remove custom theme data attribute and custom overrides!
-  if (config.mode === "standard") {
-    delete root.dataset.customTheme;
-    delete root.dataset.hasWallpaper;
-    styleEl.textContent = fontRules;
-    return;
-  }
 
   root.dataset.customTheme = "true";
 
@@ -656,18 +650,26 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
     :root[data-custom-theme="true"] .workspace,
     :root[data-custom-theme="true"] .center,
     :root[data-custom-theme="true"] .sidebar,
+    :root[data-custom-theme="true"] .files-panel,
+    :root[data-custom-theme="true"] .project-tree,
     :root[data-custom-theme="true"] .topbar,
     :root[data-custom-theme="true"] footer,
     :root[data-custom-theme="true"] .settings-page,
+    :root[data-custom-theme="true"] .settings-heading,
     :root[data-custom-theme="true"] .settings-body,
     :root[data-custom-theme="true"] .settings-content,
     :root[data-custom-theme="true"] .settings-categories,
     :root[data-custom-theme="true"] .editor-toolbar,
     :root[data-custom-theme="true"] .problems,
+    :root[data-custom-theme="true"] .problem-list,
+    :root[data-custom-theme="true"] .activity-list,
     :root[data-custom-theme="true"] .tabs,
     :root[data-custom-theme="true"] .project-tabs,
     :root[data-custom-theme="true"] .device-panel,
-    :root[data-custom-theme="true"] .bottom-tabs {
+    :root[data-custom-theme="true"] .tools-heading,
+    :root[data-custom-theme="true"] .tool-content,
+    :root[data-custom-theme="true"] .bottom-tabs,
+    :root[data-custom-theme="true"] .welcome {
       background-color: var(--surface) !important;
       color: var(--text) !important;
     }
@@ -675,7 +677,13 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
     :root[data-custom-theme="true"] .editor-stage,
     :root[data-custom-theme="true"] .editor,
     :root[data-custom-theme="true"] .monaco-editor,
-    :root[data-custom-theme="true"] .monaco-editor-background {
+    :root[data-custom-theme="true"] .monaco-editor .overflow-guard,
+    :root[data-custom-theme="true"] .monaco-editor .monaco-scrollable-element,
+    :root[data-custom-theme="true"] .monaco-editor .lines-content,
+    :root[data-custom-theme="true"] .monaco-editor-background,
+    :root[data-custom-theme="true"] .monaco-editor .margin,
+    :root[data-custom-theme="true"] .monaco-editor .margin-view-overlays,
+    :root[data-custom-theme="true"] .monaco-editor .glyph-margin {
       background-color: var(--editor) !important;
     }
 
@@ -689,10 +697,12 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
     :root[data-custom-theme="true"] .card,
     :root[data-custom-theme="true"] dialog,
     :root[data-custom-theme="true"] .modal,
+    :root[data-custom-theme="true"] .modal-card,
     :root[data-custom-theme="true"] input,
     :root[data-custom-theme="true"] select,
     :root[data-custom-theme="true"] textarea,
-    :root[data-custom-theme="true"] .picker {
+    :root[data-custom-theme="true"] .picker,
+    :root[data-custom-theme="true"] button.secondary {
       background-color: var(--raised) !important;
       border-color: var(--border) !important;
       color: var(--text) !important;

@@ -149,12 +149,9 @@ export const SETTINGS_CATALOG: readonly SettingDefinition[] = [
   ),
   app(
     "theme",
-    "appearance",
-    ["主題", "Theme"],
-    [
-      "依系統設定會自動跟隨系統深淺外觀。",
-      "Follow system tracks your system's light or dark appearance.",
-    ],
+    "theme",
+    ["基礎深淺模式", "Base appearance mode"],
+    ["選擇深色、淺色或依系統外觀設定。", "Choose dark, light, or follow system appearance."],
     {
       options: options(SETTINGS_CHOICES.theme, [
         ["深色", "Dark"],

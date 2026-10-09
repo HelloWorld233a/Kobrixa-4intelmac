@@ -1,5 +1,11 @@
 import { UpdatesPanel } from "../updates/updates.js";
-import { CustomThemePanel } from "./custom-theme.js";
+import {
+  CustomThemePanel,
+  loadCustomTheme,
+  saveCustomTheme,
+  THEME_COLOR_PRESETS,
+  isColorDark,
+} from "./custom-theme.js";
 import type { UpdateState } from "../../shared/updates.js";
 import { SettingSelect, SettingToggle } from "./setting-field.js";
 import { ClosableTab } from "../components/closable-tab.js";
@@ -130,7 +136,22 @@ export function SettingsQuickControls({
       <button
         aria-label={resolvedTheme === "dark" ? t.light : t.dark}
         title={resolvedTheme === "dark" ? t.light : t.dark}
-        onClick={() => onChange("theme", resolvedTheme === "dark" ? "light" : "dark")}
+        onClick={() => {
+          const next = resolvedTheme === "dark" ? "light" : "dark";
+          onChange("theme", next);
+          try {
+            const currentCustom = loadCustomTheme();
+            if (next === "light" && isColorDark(currentCustom.surface || "#281724")) {
+              const peach = THEME_COLOR_PRESETS.find((p) => p.id === "sweet-peach")?.theme;
+              if (peach) saveCustomTheme(peach);
+            } else if (next === "dark" && !isColorDark(currentCustom.surface || "#fdf2f8")) {
+              const sakura = THEME_COLOR_PRESETS.find((p) => p.id === "sakura-pink")?.theme;
+              if (sakura) saveCustomTheme(sakura);
+            }
+          } catch {
+            // ignore
+          }
+        }}
       >
         <Icon name={resolvedTheme === "dark" ? "sun" : "moon"} />
       </button>
@@ -521,11 +542,13 @@ export function SettingsPanel({
               {(Object.keys(CATEGORY_LABELS) as SettingsCategory[]).map((group) => {
                 if (group === "theme") {
                   if (category !== "theme" && category !== "all") return null;
+                  const groupEntries = entries.filter((entry) => entry.category === group);
                   return (
                     <section key="theme" aria-labelledby="settings-theme">
                       <h2 id="settings-theme">
                         {localText(CATEGORY_LABELS.theme, settings.locale)}
                       </h2>
+                      {groupEntries.map(row)}
                       <CustomThemePanel locale={settings.locale} />
                     </section>
                   );

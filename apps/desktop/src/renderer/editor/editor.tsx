@@ -41,47 +41,26 @@ self.MonacoEnvironment = {
 
 export function defineKobrixaMonacoThemes(custom?: CustomThemeConfig): void {
   const cfg = custom ?? loadCustomTheme();
-  const isCustom = cfg.mode !== "standard";
   for (const theme of ["light", "dark"] as const) {
-    const dark = theme === "dark";
-    if (isCustom && cfg.editorBg) {
-      const isDarkEditor = isColorDark(cfg.editorBg);
-      monaco.editor.defineTheme(`kobrixa-${theme}`, {
-        base: isDarkEditor ? "vs-dark" : "vs",
-        inherit: true,
-        rules: basicPlusThemeRules(isDarkEditor, cfg.syntax),
-        colors: {
-          "editor.background": cfg.editorBg,
-          "editor.foreground": cfg.textColor || (isDarkEditor ? "#fdf2f8" : "#1e101b"),
-          "editorLineNumber.foreground": cfg.mutedColor || (isDarkEditor ? "#d4a5be" : "#9d174d"),
-          "editorLineNumber.activeForeground": cfg.accent || "#ec4899",
-          "editor.lineHighlightBackground":
-            cfg.syntax?.lineHighlight || (isDarkEditor ? "#331b2d" : "#fce7f3"),
-          "editor.selectionBackground": cfg.selection || "rgba(244, 114, 182, 0.32)",
-          "editorCursor.foreground":
-            cfg.syntax?.cursor || cfg.accent || "#ec4899",
-          "editorWidget.background": cfg.raised || (isDarkEditor ? "#382032" : "#fce7f3"),
-          "editorWidget.border": cfg.border || (isDarkEditor ? "#562e4c" : "#fbcfe8"),
-        },
-      });
-    } else {
-      monaco.editor.defineTheme(`kobrixa-${theme}`, {
-        base: dark ? "vs-dark" : "vs",
-        inherit: true,
-        rules: basicPlusThemeRules(dark),
-        colors: {
-          "editor.background": dark ? "#18212b" : "#fdfaf4",
-          "editor.foreground": dark ? "#e6eaf0" : "#1e2933",
-          "editorLineNumber.foreground": dark ? "#697a8b" : "#91958f",
-          "editorLineNumber.activeForeground": dark ? "#88acff" : "#2457d6",
-          "editor.lineHighlightBackground": dark ? "#202c3a" : "#f0ede5",
-          "editor.selectionBackground": dark ? "#344a72" : "#cddbf8",
-          "editorCursor.foreground": dark ? "#88acff" : "#2457d6",
-          "editorWidget.background": dark ? "#222e3b" : "#fdfaf4",
-          "editorWidget.border": dark ? "#3a4857" : "#d7d1c7",
-        },
-      });
-    }
+    const isDarkEditor = isColorDark(cfg.editorBg || "#1e101b");
+    monaco.editor.defineTheme(`kobrixa-${theme}`, {
+      base: isDarkEditor ? "vs-dark" : "vs",
+      inherit: true,
+      rules: basicPlusThemeRules(isDarkEditor, cfg.syntax),
+      colors: {
+        "editor.background": cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff"),
+        "editorGutter.background": cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff"),
+        "editor.foreground": cfg.textColor || (isDarkEditor ? "#fdf2f8" : "#1e101b"),
+        "editorLineNumber.foreground": cfg.mutedColor || (isDarkEditor ? "#d4a5be" : "#9d174d"),
+        "editorLineNumber.activeForeground": cfg.accent || "#ec4899",
+        "editor.lineHighlightBackground":
+          cfg.syntax?.lineHighlight || (isDarkEditor ? "#331b2d" : "#fce7f3"),
+        "editor.selectionBackground": cfg.selection || "rgba(244, 114, 182, 0.32)",
+        "editorCursor.foreground": cfg.syntax?.cursor || cfg.accent || "#ec4899",
+        "editorWidget.background": cfg.raised || (isDarkEditor ? "#382032" : "#fce7f3"),
+        "editorWidget.border": cfg.border || (isDarkEditor ? "#562e4c" : "#fbcfe8"),
+      },
+    });
   }
 }
 
