@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../i18n/copy.js";
-import { Icon } from "../components/icon.js";
 
 export interface CustomThemeConfig {
   name: string;
@@ -308,7 +307,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
 
     let jsonProcessed = false;
     let imageProcessed = false;
-    let pendingTheme: CustomThemeConfig = { ...theme };
+    const pendingTheme: CustomThemeConfig = { ...theme };
 
     const finalize = () => {
       setTheme(pendingTheme);
