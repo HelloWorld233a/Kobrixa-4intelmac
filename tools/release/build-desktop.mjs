@@ -167,13 +167,6 @@ await packageElectron({
     electronVersion: JSON.parse(
       await readFile(createRequire(import.meta.url).resolve("electron/package.json"), "utf8"),
     ).version,
-    electronDist:
-      platform === process.platform && arch === process.arch
-        ? path.join(
-            path.dirname(createRequire(import.meta.url).resolve("electron/package.json")),
-            "dist",
-          )
-        : undefined,
     // The staging tree already contains the complete, target-filtered runtime graph.
     // Returning false also disables builder's workspace dependency collector.
     beforeBuild: async () => false,
