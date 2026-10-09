@@ -197,6 +197,37 @@ export const DEFAULT_PINK_THEME: CustomThemeConfig = {
   blur: 8,
 };
 
+export const DEFAULT_SWEET_PEACH_THEME: CustomThemeConfig = {
+  ...DEFAULT_PINK_THEME,
+  name: "Sweet Peach Light (蜜桃粉明亮)",
+  accent: "#db2777",
+  primary: "#be185d",
+  primaryHover: "#9d174d",
+  selection: "rgba(219, 39, 119, 0.18)",
+  onAccent: "#ffffff",
+  surface: "#fdf2f8",
+  editorBg: "#ffffff",
+  raised: "#fce7f3",
+  border: "#fbcfe8",
+  hover: "#f9a8d4",
+  textColor: "#831843",
+  mutedColor: "#9d174d",
+  syntax: {
+    keyword: "#be185d",
+    controlKeyword: "#9d174d",
+    string: "#b45309",
+    number: "#047857",
+    comment: "#4b5563",
+    function: "#db2777",
+    variable: "#1d4ed8",
+    type: "#0e7490",
+    operator: "#db2777",
+    delimiter: "#475569",
+    lineHighlight: "#fce7f3",
+    cursor: "#be185d",
+  },
+};
+
 export function generateThemeFromBaseColor(
   baseHex: string,
   name = "自訂全域色彩",
@@ -204,9 +235,7 @@ export function generateThemeFromBaseColor(
 ): CustomThemeConfig {
   const cleanHex = baseHex.replace("#", "").trim();
   if (cleanHex.length !== 6 && cleanHex.length !== 3) {
-    return targetMode === "light"
-      ? (THEME_COLOR_PRESETS.find((p) => p.id === "sweet-peach")?.theme ?? DEFAULT_PINK_THEME)
-      : DEFAULT_PINK_THEME;
+    return targetMode === "light" ? DEFAULT_SWEET_PEACH_THEME : DEFAULT_PINK_THEME;
   }
   const [r, g, b] = hexToRgb(baseHex);
   const [h, s, l] = rgbToHsl(r, g, b);
@@ -329,75 +358,37 @@ export function toggleThemeMode(
   const isCurrentDark = isColorDark(currentTheme.surface || "#281724");
   const nextIsDark = targetMode !== undefined ? targetMode === "dark" : !isCurrentDark;
 
-  // Direct known preset pairs
-  if (nextIsDark) {
-    if (currentTheme.name.includes("Sweet Peach") || currentTheme.name.includes("蜜桃粉")) {
-      return {
-        ...DEFAULT_PINK_THEME,
-        backgroundImage: currentTheme.backgroundImage ?? null,
-        ...(typeof currentTheme.bgOpacity === "number"
-          ? { bgOpacity: currentTheme.bgOpacity }
-          : {}),
-        ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
-        ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
-      };
-    }
-    if (currentTheme.name.includes("Pure Light") || currentTheme.name.includes("極簡純白")) {
-      const obsidian = THEME_COLOR_PRESETS.find((p) => p.id === "classic-obsidian")?.theme;
-      if (obsidian) {
-        return {
-          ...obsidian,
-          backgroundImage: currentTheme.backgroundImage ?? null,
-          ...(typeof currentTheme.bgOpacity === "number"
-            ? { bgOpacity: currentTheme.bgOpacity }
-            : {}),
-          ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
-          ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
-        };
-      }
-    }
-    const darkTheme = generateThemeFromBaseColor(currentTheme.accent, currentTheme.name, "dark");
+  // Direct matching against our 2-in-1 presets
+  const matchedPreset = THEME_COLOR_PRESETS.find(
+    (p) =>
+      p.darkTheme.name === currentTheme.name ||
+      p.lightTheme.name === currentTheme.name ||
+      p.id === currentTheme.name ||
+      p.darkTheme.accent.toLowerCase() === currentTheme.accent.toLowerCase() ||
+      p.lightTheme.accent.toLowerCase() === currentTheme.accent.toLowerCase() ||
+      currentTheme.name.toLowerCase().includes(p.id.toLowerCase()) ||
+      (currentTheme.name.includes("Sweet Peach") && p.id === "sakura-pink") ||
+      (currentTheme.name.includes("櫻花粉") && p.id === "sakura-pink") ||
+      (currentTheme.name.includes("Obsidian") && p.id === "classic-obsidian") ||
+      (currentTheme.name.includes("曜石黑") && p.id === "classic-obsidian") ||
+      (currentTheme.name.includes("Pure Light") && p.id === "classic-obsidian") ||
+      (currentTheme.name.includes("極簡純白") && p.id === "classic-obsidian") ||
+      (currentTheme.name.includes("Lavender") && p.id === "lavender-purple") ||
+      (currentTheme.name.includes("紫羅蘭") && p.id === "lavender-purple") ||
+      (currentTheme.name.includes("Ocean") && p.id === "deep-ocean") ||
+      (currentTheme.name.includes("深海") && p.id === "deep-ocean") ||
+      (currentTheme.name.includes("Emerald") && p.id === "emerald-mint") ||
+      (currentTheme.name.includes("薄荷") && p.id === "emerald-mint") ||
+      (currentTheme.name.includes("Coral") && p.id === "coral-sunset") ||
+      (currentTheme.name.includes("珊瑚") && p.id === "coral-sunset") ||
+      (currentTheme.name.includes("Neon") && p.id === "cyberpunk-neon") ||
+      (currentTheme.name.includes("霓虹") && p.id === "cyberpunk-neon"),
+  );
+
+  if (matchedPreset) {
+    const target = nextIsDark ? matchedPreset.darkTheme : matchedPreset.lightTheme;
     return {
-      ...darkTheme,
-      ...(currentTheme.fontFamily ? { fontFamily: currentTheme.fontFamily } : {}),
-      ...(currentTheme.codeFontFamily ? { codeFontFamily: currentTheme.codeFontFamily } : {}),
-      backgroundImage: currentTheme.backgroundImage ?? null,
-      ...(typeof currentTheme.bgOpacity === "number" ? { bgOpacity: currentTheme.bgOpacity } : {}),
-      ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
-      ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
-    };
-  } else {
-    if (currentTheme.name.includes("Sakura Pink") || currentTheme.name.includes("櫻花粉")) {
-      const peach = THEME_COLOR_PRESETS.find((p) => p.id === "sweet-peach")?.theme;
-      if (peach) {
-        return {
-          ...peach,
-          backgroundImage: currentTheme.backgroundImage ?? null,
-          ...(typeof currentTheme.bgOpacity === "number"
-            ? { bgOpacity: currentTheme.bgOpacity }
-            : {}),
-          ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
-          ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
-        };
-      }
-    }
-    if (currentTheme.name.includes("Obsidian") || currentTheme.name.includes("曜石黑")) {
-      const light = THEME_COLOR_PRESETS.find((p) => p.id === "classic-light")?.theme;
-      if (light) {
-        return {
-          ...light,
-          backgroundImage: currentTheme.backgroundImage ?? null,
-          ...(typeof currentTheme.bgOpacity === "number"
-            ? { bgOpacity: currentTheme.bgOpacity }
-            : {}),
-          ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
-          ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
-        };
-      }
-    }
-    const lightTheme = generateThemeFromBaseColor(currentTheme.accent, currentTheme.name, "light");
-    return {
-      ...lightTheme,
+      ...target,
       ...(currentTheme.fontFamily ? { fontFamily: currentTheme.fontFamily } : {}),
       ...(currentTheme.codeFontFamily ? { codeFontFamily: currentTheme.codeFontFamily } : {}),
       backgroundImage: currentTheme.backgroundImage ?? null,
@@ -406,6 +397,22 @@ export function toggleThemeMode(
       ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
     };
   }
+
+  // Fallback for custom color generated theme
+  const generated = generateThemeFromBaseColor(
+    currentTheme.accent,
+    currentTheme.name,
+    nextIsDark ? "dark" : "light",
+  );
+  return {
+    ...generated,
+    ...(currentTheme.fontFamily ? { fontFamily: currentTheme.fontFamily } : {}),
+    ...(currentTheme.codeFontFamily ? { codeFontFamily: currentTheme.codeFontFamily } : {}),
+    backgroundImage: currentTheme.backgroundImage ?? null,
+    ...(typeof currentTheme.bgOpacity === "number" ? { bgOpacity: currentTheme.bgOpacity } : {}),
+    ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+    ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+  };
 }
 
 export async function extractDominantColorFromImage(imageUrl: string): Promise<string> {
@@ -462,226 +469,94 @@ export async function extractDominantColorFromImage(imageUrl: string): Promise<s
   });
 }
 
-export const THEME_COLOR_PRESETS: {
+export interface ThemeColorPreset {
   id: string;
   labelZh: string;
   labelEn: string;
+  accent: string;
+  darkTheme: CustomThemeConfig;
+  lightTheme: CustomThemeConfig;
+  /** For backwards compatibility */
   theme: CustomThemeConfig;
-}[] = [
+}
+
+export const THEME_COLOR_PRESETS: ThemeColorPreset[] = [
   {
     id: "sakura-pink",
-    labelZh: "🌸 櫻花粉全境（預設）",
-    labelEn: "🌸 Sakura Pink Immersion (Default)",
+    labelZh: "🌸 浪漫粉紅 (櫻花/蜜桃)",
+    labelEn: "🌸 Romantic Pink (Sakura/Peach)",
+    accent: "#ec4899",
+    darkTheme: DEFAULT_PINK_THEME,
+    lightTheme: DEFAULT_SWEET_PEACH_THEME,
     theme: DEFAULT_PINK_THEME,
   },
   {
-    id: "sweet-peach",
-    labelZh: "🎀 蜜桃粉明亮模式",
-    labelEn: "🎀 Sweet Peach Light Mode",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Sweet Peach Light",
-      accent: "#db2777",
-      primary: "#be185d",
-      primaryHover: "#9d174d",
-      selection: "rgba(219, 39, 119, 0.18)",
-      onAccent: "#ffffff",
-      surface: "#fdf2f8", // Entire app background in soft pink
-      editorBg: "#fff5f9", // Editor in blush pink
-      raised: "#fce7f3", // Panels in light pink
-      border: "#fbcfe8",
-      hover: "#f9a8d4",
-      textColor: "#831843",
-      mutedColor: "#9d174d",
-      syntax: {
-        keyword: "#be185d",
-        controlKeyword: "#9d174d",
-        string: "#b45309",
-        number: "#047857",
-        comment: "#4b5563",
-        function: "#db2777",
-        variable: "#1d4ed8",
-        type: "#0e7490",
-        operator: "#db2777",
-        delimiter: "#475569",
-        lineHighlight: "#fce7f3",
-        cursor: "#be185d",
-      },
-    },
-  },
-  {
-    id: "lavender-purple",
-    labelZh: "💜 幻夜紫羅蘭全境",
-    labelEn: "💜 Lavender Violet Immersion",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Lavender Violet Immersion",
-      accent: "#c084fc",
-      primary: "#9333ea",
-      primaryHover: "#a855f7",
-      selection: "rgba(192, 132, 252, 0.32)",
-      surface: "#1e142a", // Entire app in deep violet
-      editorBg: "#170e22",
-      raised: "#2b1d3d",
-      border: "#473065",
-      hover: "#35244a",
-      textColor: "#f5f3ff",
-      mutedColor: "#c4b5fd",
-      syntax: {
-        keyword: "#c084fc",
-        controlKeyword: "#d8b4fe",
-        string: "#fed7aa",
-        number: "#a7f3d0",
-        comment: "#86efac",
-        function: "#f0abfc",
-        variable: "#38bdf8",
-        type: "#818cf8",
-        operator: "#c084fc",
-        cursor: "#c084fc",
-        lineHighlight: "#251936",
-      },
-    },
-  },
-  {
-    id: "deep-ocean",
-    labelZh: "🌊 深海蔚藍全境",
-    labelEn: "🌊 Deep Ocean Blue Immersion",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Deep Ocean Blue Immersion",
-      accent: "#38bdf8",
-      primary: "#0284c7",
-      primaryHover: "#7dd3fc",
-      selection: "rgba(56, 189, 248, 0.32)",
-      surface: "#0d1b2a", // Entire app in deep ocean blue
-      editorBg: "#091420",
-      raised: "#172a3e",
-      border: "#284869",
-      hover: "#1f3750",
-      textColor: "#f0f9ff",
-      mutedColor: "#7dd3fc",
-      syntax: {
-        keyword: "#38bdf8",
-        controlKeyword: "#7dd3fc",
-        string: "#fde047",
-        number: "#a7f3d0",
-        comment: "#6ee7b7",
-        function: "#67e8f9",
-        variable: "#93c5fd",
-        type: "#bfdbfe",
-        operator: "#38bdf8",
-        cursor: "#38bdf8",
-        lineHighlight: "#122336",
-      },
-    },
-  },
-  {
-    id: "emerald-mint",
-    labelZh: "🍃 翠綠薄荷森全境",
-    labelEn: "🍃 Emerald Forest Immersion",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Emerald Forest Immersion",
-      accent: "#34d399",
-      primary: "#059669",
-      primaryHover: "#6ee7b7",
-      selection: "rgba(52, 211, 153, 0.32)",
-      surface: "#0f221a", // Entire app in forest green
-      editorBg: "#0a1a13",
-      raised: "#19362a",
-      border: "#2a5743",
-      hover: "#204435",
-      textColor: "#ecfdf5",
-      mutedColor: "#6ee7b7",
-      syntax: {
-        keyword: "#34d399",
-        controlKeyword: "#6ee7b7",
-        string: "#fef08a",
-        number: "#bae6fd",
-        comment: "#a7f3d0",
-        function: "#5eead4",
-        variable: "#fcd34d",
-        type: "#6ee7b7",
-        operator: "#34d399",
-        cursor: "#34d399",
-        lineHighlight: "#142c22",
-      },
-    },
-  },
-  {
-    id: "coral-sunset",
-    labelZh: "🍊 日落落霞橙全境",
-    labelEn: "🍊 Sunset Coral Immersion",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Sunset Coral Immersion",
-      accent: "#fb923c",
-      primary: "#ea580c",
-      primaryHover: "#fdba74",
-      selection: "rgba(251, 146, 60, 0.32)",
-      surface: "#2b1810", // Entire app in sunset coral
-      editorBg: "#21110a",
-      raised: "#3d2317",
-      border: "#5e3725",
-      hover: "#492a1c",
-      textColor: "#fff7ed",
-      mutedColor: "#fdba74",
-      syntax: {
-        keyword: "#fb923c",
-        controlKeyword: "#f97316",
-        string: "#fde047",
-        number: "#86efac",
-        comment: "#cbd5e1",
-        function: "#fdba74",
-        variable: "#fed7aa",
-        type: "#f472b6",
-        operator: "#fb923c",
-        cursor: "#fb923c",
-        lineHighlight: "#331c13",
-      },
-    },
-  },
-  {
-    id: "cyberpunk-neon",
-    labelZh: "🌌 賽博霓虹全境",
-    labelEn: "🌌 Cyberpunk Neon Immersion",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Cyberpunk Neon",
-      accent: "#f43f5e",
-      primary: "#06b6d4",
-      primaryHover: "#22d3ee",
-      selection: "rgba(244, 63, 94, 0.38)",
-      surface: "#0d0f18",
-      editorBg: "#07080e",
-      raised: "#181a28",
-      border: "#2f334e",
-      hover: "#222538",
-      textColor: "#f8fafc",
-      mutedColor: "#94a3b8",
-      syntax: {
-        keyword: "#06b6d4",
-        controlKeyword: "#f43f5e",
-        string: "#facc15",
-        number: "#a855f7",
-        comment: "#4ade80",
-        function: "#ec4899",
-        variable: "#38bdf8",
-        type: "#fb923c",
-        operator: "#f43f5e",
-        cursor: "#22d3ee",
-        lineHighlight: "#141724",
-      },
-    },
-  },
-  {
     id: "classic-obsidian",
-    labelZh: "🌑 標準深色模式（曜石黑）",
-    labelEn: "🌑 Standard Dark Mode (Obsidian)",
+    labelZh: "🖤 極致黑白 (曜石黑/極簡白)",
+    labelEn: "🖤 Classic Monochrome (Obsidian/White)",
+    accent: "#88acff",
+    darkTheme: {
+      ...DEFAULT_PINK_THEME,
+      mode: "custom",
+      name: "Obsidian Pure Dark (黑曜石深色)",
+      accent: "#88acff",
+      primary: "#3768dc",
+      primaryHover: "#4678ed",
+      selection: "rgba(136, 172, 255, 0.28)",
+      surface: "#121212",
+      editorBg: "#0a0a0a",
+      raised: "#1e1e1e",
+      border: "#2e2e2e",
+      hover: "#262626",
+      textColor: "#e5e5e5",
+      mutedColor: "#a3a3a3",
+      syntax: {
+        keyword: "#569CD6",
+        controlKeyword: "#C586C0",
+        string: "#CE9178",
+        number: "#B5CEA8",
+        comment: "#6A9955",
+        function: "#DCDCAA",
+        variable: "#9CDCFE",
+        type: "#4EC9B0",
+        operator: "#E6EAF0",
+        cursor: "#88acff",
+        lineHighlight: "#181818",
+      },
+    },
+    lightTheme: {
+      ...DEFAULT_PINK_THEME,
+      mode: "custom",
+      name: "Minimalist Pure Light (極簡純白)",
+      accent: "#2563eb",
+      primary: "#2563eb",
+      primaryHover: "#1d4ed8",
+      selection: "rgba(37, 99, 235, 0.15)",
+      surface: "#f8fafc",
+      editorBg: "#ffffff",
+      raised: "#f1f5f9",
+      border: "#e2e8f0",
+      hover: "#e2e8f0",
+      textColor: "#0f172a",
+      mutedColor: "#64748b",
+      syntax: {
+        keyword: "#0000ff",
+        controlKeyword: "#af00db",
+        string: "#a31515",
+        number: "#098658",
+        comment: "#008000",
+        function: "#795e26",
+        variable: "#001080",
+        type: "#267f99",
+        operator: "#1e2933",
+        cursor: "#2563eb",
+        lineHighlight: "#f1f5f9",
+      },
+    },
     theme: {
       ...DEFAULT_PINK_THEME,
       mode: "custom",
-      name: "Obsidian Pure Dark",
+      name: "Obsidian Pure Dark (黑曜石深色)",
       accent: "#88acff",
       primary: "#3768dc",
       primaryHover: "#4678ed",
@@ -709,36 +584,457 @@ export const THEME_COLOR_PRESETS: {
     },
   },
   {
-    id: "classic-light",
-    labelZh: "☀️ 標準淺色模式（極簡純白）",
-    labelEn: "☀️ Standard Light Mode (Clean White)",
+    id: "lavender-purple",
+    labelZh: "💜 幻夜紫羅蘭 (深紫/薰衣草)",
+    labelEn: "💜 Lavender Violet (Deep/Bloom)",
+    accent: "#c084fc",
+    darkTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Lavender Violet Immersion (幻夜紫羅蘭深色)",
+      accent: "#c084fc",
+      primary: "#9333ea",
+      primaryHover: "#a855f7",
+      selection: "rgba(192, 132, 252, 0.32)",
+      surface: "#1e142a",
+      editorBg: "#170e22",
+      raised: "#2b1d3d",
+      border: "#473065",
+      hover: "#35244a",
+      textColor: "#f5f3ff",
+      mutedColor: "#c4b5fd",
+      syntax: {
+        keyword: "#c084fc",
+        controlKeyword: "#d8b4fe",
+        string: "#fed7aa",
+        number: "#a7f3d0",
+        comment: "#86efac",
+        function: "#f0abfc",
+        variable: "#38bdf8",
+        type: "#818cf8",
+        operator: "#c084fc",
+        cursor: "#c084fc",
+        lineHighlight: "#251936",
+      },
+    },
+    lightTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Lavender Bloom Light (薰衣草明亮)",
+      accent: "#9333ea",
+      primary: "#7e22ce",
+      primaryHover: "#6b21a8",
+      selection: "rgba(147, 51, 234, 0.18)",
+      surface: "#faf5ff",
+      editorBg: "#ffffff",
+      raised: "#f3e8ff",
+      border: "#e9d5ff",
+      hover: "#e9d5ff",
+      textColor: "#3b0764",
+      mutedColor: "#6b21a8",
+      syntax: {
+        keyword: "#7e22ce",
+        controlKeyword: "#9333ea",
+        string: "#b45309",
+        number: "#047857",
+        comment: "#6b7280",
+        function: "#a855f7",
+        variable: "#2563eb",
+        type: "#0e7490",
+        operator: "#7e22ce",
+        delimiter: "#475569",
+        lineHighlight: "#f3e8ff",
+        cursor: "#9333ea",
+      },
+    },
     theme: {
       ...DEFAULT_PINK_THEME,
-      mode: "custom",
-      name: "Minimalist Pure Light",
-      accent: "#2563eb",
-      primary: "#2563eb",
-      primaryHover: "#1d4ed8",
-      selection: "rgba(37, 99, 235, 0.15)",
+      name: "Lavender Violet Immersion (幻夜紫羅蘭深色)",
+      accent: "#c084fc",
+      primary: "#9333ea",
+      primaryHover: "#a855f7",
+      selection: "rgba(192, 132, 252, 0.32)",
+      surface: "#1e142a",
+      editorBg: "#170e22",
+      raised: "#2b1d3d",
+      border: "#473065",
+      hover: "#35244a",
+      textColor: "#f5f3ff",
+      mutedColor: "#c4b5fd",
+      syntax: {
+        keyword: "#c084fc",
+        controlKeyword: "#d8b4fe",
+        string: "#fed7aa",
+        number: "#a7f3d0",
+        comment: "#86efac",
+        function: "#f0abfc",
+        variable: "#38bdf8",
+        type: "#818cf8",
+        operator: "#c084fc",
+        cursor: "#c084fc",
+        lineHighlight: "#251936",
+      },
+    },
+  },
+  {
+    id: "deep-ocean",
+    labelZh: "🌊 深海蔚藍 (海藍/天青)",
+    labelEn: "🌊 Deep Ocean Blue (Deep/Azure)",
+    accent: "#38bdf8",
+    darkTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Deep Ocean Blue Immersion (深海蔚藍深色)",
+      accent: "#38bdf8",
+      primary: "#0284c7",
+      primaryHover: "#7dd3fc",
+      selection: "rgba(56, 189, 248, 0.32)",
+      surface: "#0d1b2a",
+      editorBg: "#091420",
+      raised: "#172a3e",
+      border: "#284869",
+      hover: "#1f3750",
+      textColor: "#f0f9ff",
+      mutedColor: "#7dd3fc",
+      syntax: {
+        keyword: "#38bdf8",
+        controlKeyword: "#7dd3fc",
+        string: "#fde047",
+        number: "#a7f3d0",
+        comment: "#6ee7b7",
+        function: "#67e8f9",
+        variable: "#93c5fd",
+        type: "#bfdbfe",
+        operator: "#38bdf8",
+        cursor: "#38bdf8",
+        lineHighlight: "#122336",
+      },
+    },
+    lightTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Sky Azure Light (天青蔚藍明亮)",
+      accent: "#0284c7",
+      primary: "#0369a1",
+      primaryHover: "#075985",
+      selection: "rgba(2, 132, 199, 0.18)",
+      surface: "#f0f9ff",
+      editorBg: "#ffffff",
+      raised: "#e0f2fe",
+      border: "#bae6fd",
+      hover: "#bae6fd",
+      textColor: "#082f49",
+      mutedColor: "#0369a1",
+      syntax: {
+        keyword: "#0284c7",
+        controlKeyword: "#0369a1",
+        string: "#d97706",
+        number: "#059669",
+        comment: "#64748b",
+        function: "#0284c7",
+        variable: "#2563eb",
+        type: "#0d9488",
+        operator: "#0284c7",
+        delimiter: "#334155",
+        lineHighlight: "#e0f2fe",
+        cursor: "#0284c7",
+      },
+    },
+    theme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Deep Ocean Blue Immersion (深海蔚藍深色)",
+      accent: "#38bdf8",
+      primary: "#0284c7",
+      primaryHover: "#7dd3fc",
+      selection: "rgba(56, 189, 248, 0.32)",
+      surface: "#0d1b2a",
+      editorBg: "#091420",
+      raised: "#172a3e",
+      border: "#284869",
+      hover: "#1f3750",
+      textColor: "#f0f9ff",
+      mutedColor: "#7dd3fc",
+      syntax: {
+        keyword: "#38bdf8",
+        controlKeyword: "#7dd3fc",
+        string: "#fde047",
+        number: "#a7f3d0",
+        comment: "#6ee7b7",
+        function: "#67e8f9",
+        variable: "#93c5fd",
+        type: "#bfdbfe",
+        operator: "#38bdf8",
+        cursor: "#38bdf8",
+        lineHighlight: "#122336",
+      },
+    },
+  },
+  {
+    id: "emerald-mint",
+    labelZh: "🍃 翠綠薄荷森 (森林/薄荷)",
+    labelEn: "🍃 Emerald Forest (Forest/Mint)",
+    accent: "#34d399",
+    darkTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Emerald Forest Immersion (翠綠薄荷森深色)",
+      accent: "#34d399",
+      primary: "#059669",
+      primaryHover: "#6ee7b7",
+      selection: "rgba(52, 211, 153, 0.32)",
+      surface: "#0f221a",
+      editorBg: "#0a1a13",
+      raised: "#19362a",
+      border: "#2a5743",
+      hover: "#204435",
+      textColor: "#ecfdf5",
+      mutedColor: "#6ee7b7",
+      syntax: {
+        keyword: "#34d399",
+        controlKeyword: "#6ee7b7",
+        string: "#fef08a",
+        number: "#bae6fd",
+        comment: "#a7f3d0",
+        function: "#5eead4",
+        variable: "#fcd34d",
+        type: "#6ee7b7",
+        operator: "#34d399",
+        cursor: "#34d399",
+        lineHighlight: "#142c22",
+      },
+    },
+    lightTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Fresh Mint Light (清新薄荷明亮)",
+      accent: "#059669",
+      primary: "#047857",
+      primaryHover: "#065f46",
+      selection: "rgba(5, 150, 105, 0.18)",
+      surface: "#f0fdf4",
+      editorBg: "#ffffff",
+      raised: "#dcfce7",
+      border: "#bbf7d0",
+      hover: "#bbf7d0",
+      textColor: "#064e3b",
+      mutedColor: "#047857",
+      syntax: {
+        keyword: "#059669",
+        controlKeyword: "#047857",
+        string: "#d97706",
+        number: "#0284c7",
+        comment: "#64748b",
+        function: "#059669",
+        variable: "#0d9488",
+        type: "#16a34a",
+        operator: "#059669",
+        delimiter: "#334155",
+        lineHighlight: "#dcfce7",
+        cursor: "#059669",
+      },
+    },
+    theme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Emerald Forest Immersion (翠綠薄荷森深色)",
+      accent: "#34d399",
+      primary: "#059669",
+      primaryHover: "#6ee7b7",
+      selection: "rgba(52, 211, 153, 0.32)",
+      surface: "#0f221a",
+      editorBg: "#0a1a13",
+      raised: "#19362a",
+      border: "#2a5743",
+      hover: "#204435",
+      textColor: "#ecfdf5",
+      mutedColor: "#6ee7b7",
+      syntax: {
+        keyword: "#34d399",
+        controlKeyword: "#6ee7b7",
+        string: "#fef08a",
+        number: "#bae6fd",
+        comment: "#a7f3d0",
+        function: "#5eead4",
+        variable: "#fcd34d",
+        type: "#6ee7b7",
+        operator: "#34d399",
+        cursor: "#34d399",
+        lineHighlight: "#142c22",
+      },
+    },
+  },
+  {
+    id: "coral-sunset",
+    labelZh: "🍊 日落落霞橙 (落霞/暖橘)",
+    labelEn: "🍊 Sunset Coral (Sunset/Warm)",
+    accent: "#fb923c",
+    darkTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Sunset Coral Immersion (日落落霞橙深色)",
+      accent: "#fb923c",
+      primary: "#ea580c",
+      primaryHover: "#fdba74",
+      selection: "rgba(251, 146, 60, 0.32)",
+      surface: "#2b1810",
+      editorBg: "#21110a",
+      raised: "#3d2317",
+      border: "#5e3725",
+      hover: "#492a1c",
+      textColor: "#fff7ed",
+      mutedColor: "#fdba74",
+      syntax: {
+        keyword: "#fb923c",
+        controlKeyword: "#f97316",
+        string: "#fde047",
+        number: "#86efac",
+        comment: "#cbd5e1",
+        function: "#fdba74",
+        variable: "#fed7aa",
+        type: "#f472b6",
+        operator: "#fb923c",
+        cursor: "#fb923c",
+        lineHighlight: "#331c13",
+      },
+    },
+    lightTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Warm Coral Light (暖陽落霞明亮)",
+      accent: "#ea580c",
+      primary: "#c2410c",
+      primaryHover: "#9a3412",
+      selection: "rgba(234, 88, 12, 0.18)",
+      surface: "#fff7ed",
+      editorBg: "#ffffff",
+      raised: "#ffedd5",
+      border: "#fed7aa",
+      hover: "#fed7aa",
+      textColor: "#7c2d12",
+      mutedColor: "#c2410c",
+      syntax: {
+        keyword: "#ea580c",
+        controlKeyword: "#c2410c",
+        string: "#b45309",
+        number: "#047857",
+        comment: "#78716c",
+        function: "#ea580c",
+        variable: "#2563eb",
+        type: "#d97706",
+        operator: "#ea580c",
+        delimiter: "#44403c",
+        lineHighlight: "#ffedd5",
+        cursor: "#ea580c",
+      },
+    },
+    theme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Sunset Coral Immersion (日落落霞橙深色)",
+      accent: "#fb923c",
+      primary: "#ea580c",
+      primaryHover: "#fdba74",
+      selection: "rgba(251, 146, 60, 0.32)",
+      surface: "#2b1810",
+      editorBg: "#21110a",
+      raised: "#3d2317",
+      border: "#5e3725",
+      hover: "#492a1c",
+      textColor: "#fff7ed",
+      mutedColor: "#fdba74",
+      syntax: {
+        keyword: "#fb923c",
+        controlKeyword: "#f97316",
+        string: "#fde047",
+        number: "#86efac",
+        comment: "#cbd5e1",
+        function: "#fdba74",
+        variable: "#fed7aa",
+        type: "#f472b6",
+        operator: "#fb923c",
+        cursor: "#fb923c",
+        lineHighlight: "#331c13",
+      },
+    },
+  },
+  {
+    id: "cyberpunk-neon",
+    labelZh: "🌌 賽博霓虹 (深冷/冰青)",
+    labelEn: "🌌 Cyberpunk Neon (Neon/Ice)",
+    accent: "#f43f5e",
+    darkTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Cyberpunk Neon (賽博霓虹深色)",
+      accent: "#f43f5e",
+      primary: "#06b6d4",
+      primaryHover: "#22d3ee",
+      selection: "rgba(244, 63, 94, 0.38)",
+      surface: "#0d0f18",
+      editorBg: "#07080e",
+      raised: "#181a28",
+      border: "#2f334e",
+      hover: "#222538",
+      textColor: "#f8fafc",
+      mutedColor: "#94a3b8",
+      syntax: {
+        keyword: "#06b6d4",
+        controlKeyword: "#f43f5e",
+        string: "#facc15",
+        number: "#a855f7",
+        comment: "#4ade80",
+        function: "#ec4899",
+        variable: "#38bdf8",
+        type: "#fb923c",
+        operator: "#f43f5e",
+        cursor: "#22d3ee",
+        lineHighlight: "#141724",
+      },
+    },
+    lightTheme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Cyber Ice Light (冰晶霓虹明亮)",
+      accent: "#e11d48",
+      primary: "#0891b2",
+      primaryHover: "#0e7490",
+      selection: "rgba(225, 29, 72, 0.18)",
       surface: "#f8fafc",
       editorBg: "#ffffff",
       raised: "#f1f5f9",
       border: "#e2e8f0",
       hover: "#e2e8f0",
       textColor: "#0f172a",
-      mutedColor: "#64748b",
+      mutedColor: "#475569",
       syntax: {
-        keyword: "#0000ff",
-        controlKeyword: "#af00db",
-        string: "#a31515",
-        number: "#098658",
-        comment: "#008000",
-        function: "#795e26",
-        variable: "#001080",
-        type: "#267f99",
-        operator: "#1e2933",
-        cursor: "#2563eb",
+        keyword: "#0891b2",
+        controlKeyword: "#e11d48",
+        string: "#ca8a04",
+        number: "#7c3aed",
+        comment: "#64748b",
+        function: "#db2777",
+        variable: "#0284c7",
+        type: "#ea580c",
+        operator: "#e11d48",
+        delimiter: "#334155",
         lineHighlight: "#f1f5f9",
+        cursor: "#0891b2",
+      },
+    },
+    theme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Cyberpunk Neon (賽博霓虹深色)",
+      accent: "#f43f5e",
+      primary: "#06b6d4",
+      primaryHover: "#22d3ee",
+      selection: "rgba(244, 63, 94, 0.38)",
+      surface: "#0d0f18",
+      editorBg: "#07080e",
+      raised: "#181a28",
+      border: "#2f334e",
+      hover: "#222538",
+      textColor: "#f8fafc",
+      mutedColor: "#94a3b8",
+      syntax: {
+        keyword: "#06b6d4",
+        controlKeyword: "#f43f5e",
+        string: "#facc15",
+        number: "#a855f7",
+        comment: "#4ade80",
+        function: "#ec4899",
+        variable: "#38bdf8",
+        type: "#fb923c",
+        operator: "#f43f5e",
+        cursor: "#22d3ee",
+        lineHighlight: "#141724",
       },
     },
   },
@@ -1517,10 +1813,16 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               }}
             >
               {THEME_COLOR_PRESETS.map((preset) => {
+                const isCurrentDark = isColorDark(theme.surface || "#281724");
+                const activeVariant = isCurrentDark ? preset.darkTheme : preset.lightTheme;
+                const altVariant = !isCurrentDark ? preset.darkTheme : preset.lightTheme;
                 const isSelected =
-                  theme.name === preset.labelZh ||
-                  theme.name === preset.labelEn ||
-                  theme.name === preset.theme.name;
+                  theme.name === preset.darkTheme.name ||
+                  theme.name === preset.lightTheme.name ||
+                  theme.accent.toLowerCase() === preset.accent.toLowerCase() ||
+                  theme.name.includes(preset.labelZh) ||
+                  theme.name.includes(preset.labelEn);
+
                 return (
                   <button
                     key={preset.id}
@@ -1550,29 +1852,72 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                       <strong style={{ fontSize: "13px" }}>
                         {locale === "zh-TW" ? preset.labelZh : preset.labelEn}
                       </strong>
-                      <span
-                        style={{
-                          width: "14px",
-                          height: "14px",
-                          borderRadius: "50%",
-                          backgroundColor: preset.theme.accent,
-                          boxShadow: "0 0 4px rgba(0,0,0,0.3)",
-                        }}
-                      />
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: isCurrentDark ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.7)",
+                            color: "var(--text)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {isCurrentDark ? "🌙 深色" : "☀️ 淺色"}
+                        </span>
+                        <span
+                          style={{
+                            width: "14px",
+                            height: "14px",
+                            borderRadius: "50%",
+                            backgroundColor: preset.accent,
+                            boxShadow: "0 0 4px rgba(0,0,0,0.3)",
+                          }}
+                        />
+                      </div>
                     </div>
-                    {/* Color Swatch Bars */}
-                    <div
-                      style={{
-                        display: "flex",
-                        height: "16px",
-                        borderRadius: "4px",
-                        overflow: "hidden",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
-                      <div style={{ flex: 2, background: preset.theme.surface }} title="Surface" />
-                      <div style={{ flex: 3, background: preset.theme.editorBg }} title="Editor" />
-                      <div style={{ flex: 1, background: preset.theme.accent }} title="Accent" />
+                    {/* 2-in-1 Dual Swatch Preview Bars */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          height: "14px",
+                          borderRadius: "4px",
+                          overflow: "hidden",
+                          border: isSelected
+                            ? "1.5px solid var(--accent)"
+                            : "1px solid var(--border)",
+                        }}
+                      >
+                        <div
+                          style={{ flex: 2, background: activeVariant.surface }}
+                          title="Surface"
+                        />
+                        <div
+                          style={{ flex: 3, background: activeVariant.editorBg }}
+                          title="Editor"
+                        />
+                        <div style={{ flex: 1, background: activeVariant.accent }} title="Accent" />
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          height: "7px",
+                          borderRadius: "3px",
+                          overflow: "hidden",
+                          opacity: 0.65,
+                          border: "1px dashed var(--border)",
+                        }}
+                        title={
+                          isCurrentDark
+                            ? t("切換至淺色模式之配色預覽", "Light mode variant preview")
+                            : t("切換至深色模式之配色預覽", "Dark mode variant preview")
+                        }
+                      >
+                        <div style={{ flex: 2, background: altVariant.surface }} />
+                        <div style={{ flex: 3, background: altVariant.editorBg }} />
+                        <div style={{ flex: 1, background: altVariant.accent }} />
+                      </div>
                     </div>
                   </button>
                 );

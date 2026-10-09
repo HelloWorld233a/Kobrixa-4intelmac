@@ -11,6 +11,7 @@ import {
   rgbToHsl,
   toggleThemeMode,
   DEFAULT_PINK_THEME,
+  THEME_COLOR_PRESETS,
 } from "./custom-theme.js";
 
 describe("custom-theme color algorithms", () => {
@@ -86,11 +87,35 @@ describe("custom-theme color algorithms", () => {
 
   it("toggles between sakura pink and sweet peach", () => {
     const lightPink = toggleThemeMode(DEFAULT_PINK_THEME, "light");
-    expect(lightPink.name).toBe("Sweet Peach Light");
+    expect(lightPink.name).toContain("Sweet Peach");
     expect(isColorDark(lightPink.surface!)).toBe(false);
 
     const darkPink = toggleThemeMode(lightPink, "dark");
     expect(darkPink.name).toBe(DEFAULT_PINK_THEME.name);
     expect(isColorDark(darkPink.surface!)).toBe(true);
+  });
+
+  it("ensures all 2-in-1 presets contain valid dark and light mode themes", () => {
+    expect(THEME_COLOR_PRESETS.length).toBeGreaterThanOrEqual(7);
+
+    for (const preset of THEME_COLOR_PRESETS) {
+      expect(preset.darkTheme).toBeDefined();
+      expect(preset.lightTheme).toBeDefined();
+
+      // Dark theme surface must be dark
+      expect(isColorDark(preset.darkTheme.surface!)).toBe(true);
+      // Light theme surface must be light
+      expect(isColorDark(preset.lightTheme.surface!)).toBe(false);
+
+      // Toggling darkTheme with 'light' should give its lightTheme
+      const toLight = toggleThemeMode(preset.darkTheme, "light");
+      expect(toLight.name).toBe(preset.lightTheme.name);
+      expect(isColorDark(toLight.surface!)).toBe(false);
+
+      // Toggling lightTheme with 'dark' should give its darkTheme
+      const toDark = toggleThemeMode(preset.lightTheme, "dark");
+      expect(toDark.name).toBe(preset.darkTheme.name);
+      expect(isColorDark(toDark.surface!)).toBe(true);
+    }
   });
 });

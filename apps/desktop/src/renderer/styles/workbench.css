@@ -1043,7 +1043,13 @@ summary:focus-visible {
 }
 .preferences button {
   min-width: 32px;
+  height: 32px;
   padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  box-sizing: border-box;
 }
 .run-button {
   min-height: 34px;

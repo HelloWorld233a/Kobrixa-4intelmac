@@ -27,11 +27,6 @@ import type { FilePreferencesState } from "./file-settings.js";
 import type { Theme } from "./theme.js";
 import type { UpdatePreferences } from "../../shared/updates.js";
 import { Icon } from "../components/icon.js";
-import { Picker } from "../components/picker.js";
-const languageOptions: { value: Locale; label: string }[] = [
-  { value: "zh-TW", label: "繁體中文" },
-  { value: "en", label: "English" },
-];
 export const settingsCopy = {
   en: {
     title: "Settings",
@@ -138,14 +133,15 @@ export function SettingsQuickControls({
 
   return (
     <>
-      <Picker
-        label={t.language}
-        locale={settings.locale}
-        triggerContent={<Icon name="language" />}
-        value={settings.locale}
-        options={languageOptions}
-        onChange={(value) => onChange("locale", value)}
-      />
+      <button
+        type="button"
+        className="language-trigger"
+        aria-label={settings.locale === "zh-TW" ? "切換至 English" : "切換至繁體中文"}
+        title={settings.locale === "zh-TW" ? "切換至 English" : "切換至繁體中文"}
+        onClick={() => onChange("locale", settings.locale === "zh-TW" ? "en" : "zh-TW")}
+      >
+        <Icon name="language" />
+      </button>
       {!hasWallpaper && (
         <button
           aria-label={resolvedTheme === "dark" ? t.light : t.dark}
