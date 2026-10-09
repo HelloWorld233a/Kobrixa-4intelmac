@@ -17,6 +17,7 @@ export interface SyntaxThemeConfig {
 }
 
 export interface CustomThemeConfig {
+  mode?: "custom" | "standard";
   name: string;
   accent: string;
   primary?: string;
@@ -24,7 +25,7 @@ export interface CustomThemeConfig {
   selection?: string;
   onAccent?: string;
 
-  // Overall UI Background & Surfaces
+  // Overall UI Background & Surfaces (Entire Application)
   surface?: string;
   editorBg?: string;
   raised?: string;
@@ -46,22 +47,43 @@ export interface CustomThemeConfig {
   blur?: number; // 0 to 24px
 }
 
+export function isColorDark(hexColor: string): boolean {
+  if (!hexColor) return true;
+  const cleanHex = hexColor.replace("#", "").trim();
+  if (cleanHex.length !== 6 && cleanHex.length !== 3) return true;
+  const r = parseInt(
+    cleanHex.length === 3 ? cleanHex[0]! + cleanHex[0]! : cleanHex.slice(0, 2),
+    16,
+  );
+  const g = parseInt(
+    cleanHex.length === 3 ? cleanHex[1]! + cleanHex[1]! : cleanHex.slice(2, 4),
+    16,
+  );
+  const b = parseInt(
+    cleanHex.length === 3 ? cleanHex[2]! + cleanHex[2]! : cleanHex.slice(4, 6),
+    16,
+  );
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.55;
+}
+
 export const DEFAULT_PINK_THEME: CustomThemeConfig = {
-  name: "Sakura Pink (櫻花粉)",
+  mode: "custom",
+  name: "Sakura Pink (櫻花粉全境沉浸)",
   accent: "#ec4899",
   primary: "#db2777",
   primaryHover: "#f472b6",
-  selection: "rgba(244, 114, 182, 0.28)",
+  selection: "rgba(244, 114, 182, 0.35)",
   onAccent: "#ffffff",
 
-  surface: "#1f242d",
-  editorBg: "#181d24",
-  raised: "#282f3a",
-  border: "#3d4756",
-  hover: "#2e3744",
+  surface: "#281724", // Entire app background in rich pink
+  editorBg: "#1e101b", // Code editor in deep pink
+  raised: "#382032", // Panels and cards in berry pink
+  border: "#562e4c", // Pink border
+  hover: "#3f253a",
 
-  textColor: "#f3e8ee",
-  mutedColor: "#b8a5b0",
+  textColor: "#fdf2f8",
+  mutedColor: "#d4a5be",
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", system-ui, sans-serif',
   codeFontFamily: '"JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace',
@@ -69,15 +91,15 @@ export const DEFAULT_PINK_THEME: CustomThemeConfig = {
   syntax: {
     keyword: "#f472b6",
     controlKeyword: "#fb7185",
-    string: "#fbcfe8",
+    string: "#fed7aa",
     number: "#cbd5e1",
     comment: "#86efac",
     function: "#f9a8d4",
-    variable: "#fed7aa",
+    variable: "#fde047",
     type: "#a5f3fc",
     operator: "#f472b6",
     delimiter: "#e2e8f0",
-    lineHighlight: "#252b36",
+    lineHighlight: "#331b2d",
     cursor: "#ec4899",
   },
 
@@ -85,6 +107,85 @@ export const DEFAULT_PINK_THEME: CustomThemeConfig = {
   bgOpacity: 0.85,
   blur: 8,
 };
+
+export function generateThemeFromBaseColor(
+  baseHex: string,
+  name = "自訂全域色彩",
+): CustomThemeConfig {
+  const cleanHex = baseHex.replace("#", "").trim();
+  if (cleanHex.length !== 6 && cleanHex.length !== 3) {
+    return DEFAULT_PINK_THEME;
+  }
+  const r = parseInt(
+    cleanHex.length === 3 ? cleanHex[0]! + cleanHex[0]! : cleanHex.slice(0, 2),
+    16,
+  );
+  const g = parseInt(
+    cleanHex.length === 3 ? cleanHex[1]! + cleanHex[1]! : cleanHex.slice(2, 4),
+    16,
+  );
+  const b = parseInt(
+    cleanHex.length === 3 ? cleanHex[2]! + cleanHex[2]! : cleanHex.slice(4, 6),
+    16,
+  );
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const isDark = luminance < 0.55;
+
+  const er = isDark ? Math.max(0, Math.floor(r * 0.75)) : Math.min(255, Math.floor(r * 1.05 + 10));
+  const eg = isDark ? Math.max(0, Math.floor(g * 0.75)) : Math.min(255, Math.floor(g * 1.05 + 10));
+  const eb = isDark ? Math.max(0, Math.floor(b * 0.75)) : Math.min(255, Math.floor(b * 1.05 + 10));
+  const editorBg = `#${er.toString(16).padStart(2, "0")}${eg.toString(16).padStart(2, "0")}${eb.toString(16).padStart(2, "0")}`;
+
+  const rr = isDark ? Math.min(255, Math.floor(r * 1.35 + 15)) : Math.max(0, Math.floor(r * 0.92));
+  const rg = isDark ? Math.min(255, Math.floor(g * 1.35 + 15)) : Math.max(0, Math.floor(g * 0.92));
+  const rb = isDark ? Math.min(255, Math.floor(b * 1.35 + 15)) : Math.max(0, Math.floor(b * 0.92));
+  const raised = `#${rr.toString(16).padStart(2, "0")}${rg.toString(16).padStart(2, "0")}${rb.toString(16).padStart(2, "0")}`;
+
+  const br = isDark ? Math.min(255, Math.floor(r * 1.8 + 25)) : Math.max(0, Math.floor(r * 0.8));
+  const bg = isDark ? Math.min(255, Math.floor(g * 1.8 + 25)) : Math.max(0, Math.floor(g * 0.8));
+  const bb = isDark ? Math.min(255, Math.floor(b * 1.8 + 25)) : Math.max(0, Math.floor(b * 0.8));
+  const border = `#${br.toString(16).padStart(2, "0")}${bg.toString(16).padStart(2, "0")}${bb.toString(16).padStart(2, "0")}`;
+
+  const textColor = isDark ? "#fdf2f8" : "#1e101b";
+  const mutedColor = isDark ? "#d4a5be" : "#6b475d";
+
+  const accent = isDark ? "#f472b6" : "#db2777";
+  const primary = isDark ? "#ec4899" : "#be185d";
+
+  return {
+    mode: "custom",
+    name,
+    accent,
+    primary,
+    primaryHover: isDark ? "#f472b6" : "#9d174d",
+    selection: isDark ? "rgba(244, 114, 182, 0.35)" : "rgba(219, 39, 119, 0.18)",
+    onAccent: "#ffffff",
+    surface: baseHex,
+    editorBg,
+    raised,
+    border,
+    hover: isDark ? raised : border,
+    textColor,
+    mutedColor,
+    syntax: isDark
+      ? DEFAULT_PINK_THEME.syntax!
+      : {
+          keyword: "#be185d",
+          controlKeyword: "#9d174d",
+          string: "#b45309",
+          number: "#047857",
+          comment: "#4b5563",
+          function: "#db2777",
+          variable: "#1d4ed8",
+          type: "#0e7490",
+          operator: "#db2777",
+          delimiter: "#475569",
+          lineHighlight: "#fce7f3",
+          cursor: "#be185d",
+        },
+  };
+}
 
 export const THEME_COLOR_PRESETS: {
   id: string;
@@ -94,120 +195,195 @@ export const THEME_COLOR_PRESETS: {
 }[] = [
   {
     id: "sakura-pink",
-    labelZh: "🌸 櫻花粉（預設）",
-    labelEn: "🌸 Sakura Pink (Default)",
+    labelZh: "🌸 櫻花粉全境（預設）",
+    labelEn: "🌸 Sakura Pink Immersion (Default)",
     theme: DEFAULT_PINK_THEME,
   },
   {
-    id: "barbie-pink",
-    labelZh: "💖 芭比亮粉",
-    labelEn: "💖 Barbie Pink",
+    id: "sweet-peach",
+    labelZh: "🎀 蜜桃粉明亮模式",
+    labelEn: "🎀 Sweet Peach Light Mode",
     theme: {
       ...DEFAULT_PINK_THEME,
-      name: "Barbie Pink",
-      accent: "#f43f5e",
-      primary: "#e11d48",
-      primaryHover: "#fb7185",
-      selection: "rgba(244, 63, 94, 0.28)",
-      surface: "#211f26",
-      editorBg: "#19171d",
+      name: "Sweet Peach Light",
+      accent: "#db2777",
+      primary: "#be185d",
+      primaryHover: "#9d174d",
+      selection: "rgba(219, 39, 119, 0.18)",
+      onAccent: "#ffffff",
+      surface: "#fdf2f8", // Entire app background in soft pink
+      editorBg: "#fff5f9", // Editor in blush pink
+      raised: "#fce7f3", // Panels in light pink
+      border: "#fbcfe8",
+      hover: "#f9a8d4",
+      textColor: "#831843",
+      mutedColor: "#9d174d",
       syntax: {
-        ...DEFAULT_PINK_THEME.syntax,
-        keyword: "#fb7185",
-        controlKeyword: "#f43f5e",
-        string: "#fda4af",
-        function: "#f472b6",
-        cursor: "#f43f5e",
+        keyword: "#be185d",
+        controlKeyword: "#9d174d",
+        string: "#b45309",
+        number: "#047857",
+        comment: "#4b5563",
+        function: "#db2777",
+        variable: "#1d4ed8",
+        type: "#0e7490",
+        operator: "#db2777",
+        delimiter: "#475569",
+        lineHighlight: "#fce7f3",
+        cursor: "#be185d",
       },
     },
   },
   {
     id: "lavender-purple",
-    labelZh: "💜 夢幻薰衣草",
-    labelEn: "💜 Lavender Purple",
+    labelZh: "💜 幻夜紫羅蘭全境",
+    labelEn: "💜 Lavender Violet Immersion",
     theme: {
       ...DEFAULT_PINK_THEME,
-      name: "Lavender Purple",
-      accent: "#a855f7",
+      name: "Lavender Violet Immersion",
+      accent: "#c084fc",
       primary: "#9333ea",
-      primaryHover: "#c084fc",
-      selection: "rgba(168, 85, 247, 0.28)",
-      surface: "#201e2c",
-      editorBg: "#171523",
+      primaryHover: "#a855f7",
+      selection: "rgba(192, 132, 252, 0.32)",
+      surface: "#1e142a", // Entire app in deep violet
+      editorBg: "#170e22",
+      raised: "#2b1d3d",
+      border: "#473065",
+      hover: "#35244a",
+      textColor: "#f5f3ff",
+      mutedColor: "#c4b5fd",
       syntax: {
-        ...DEFAULT_PINK_THEME.syntax,
         keyword: "#c084fc",
         controlKeyword: "#d8b4fe",
-        string: "#f0abfc",
-        function: "#a855f7",
+        string: "#fed7aa",
+        number: "#a7f3d0",
+        comment: "#86efac",
+        function: "#f0abfc",
+        variable: "#38bdf8",
         type: "#818cf8",
-        cursor: "#a855f7",
+        operator: "#c084fc",
+        cursor: "#c084fc",
+        lineHighlight: "#251936",
       },
     },
   },
   {
-    id: "sky-blue",
-    labelZh: "💙 澄澈晴空藍",
-    labelEn: "💙 Sky Blue",
+    id: "deep-ocean",
+    labelZh: "🌊 深海蔚藍全境",
+    labelEn: "🌊 Deep Ocean Blue Immersion",
     theme: {
       ...DEFAULT_PINK_THEME,
-      name: "Sky Blue",
+      name: "Deep Ocean Blue Immersion",
       accent: "#38bdf8",
       primary: "#0284c7",
       primaryHover: "#7dd3fc",
-      selection: "rgba(56, 189, 248, 0.28)",
-      surface: "#1a2530",
-      editorBg: "#131c25",
+      selection: "rgba(56, 189, 248, 0.32)",
+      surface: "#0d1b2a", // Entire app in deep ocean blue
+      editorBg: "#091420",
+      raised: "#172a3e",
+      border: "#284869",
+      hover: "#1f3750",
+      textColor: "#f0f9ff",
+      mutedColor: "#7dd3fc",
       syntax: {
-        ...DEFAULT_PINK_THEME.syntax,
         keyword: "#38bdf8",
         controlKeyword: "#7dd3fc",
-        string: "#bae6fd",
+        string: "#fde047",
+        number: "#a7f3d0",
+        comment: "#6ee7b7",
         function: "#67e8f9",
-        type: "#93c5fd",
+        variable: "#93c5fd",
+        type: "#bfdbfe",
+        operator: "#38bdf8",
         cursor: "#38bdf8",
+        lineHighlight: "#122336",
       },
     },
   },
   {
     id: "emerald-mint",
-    labelZh: "🍃 翡翠薄荷綠",
-    labelEn: "🍃 Mint Emerald",
+    labelZh: "🍃 翠綠薄荷森全境",
+    labelEn: "🍃 Emerald Forest Immersion",
     theme: {
       ...DEFAULT_PINK_THEME,
-      name: "Mint Emerald",
+      name: "Emerald Forest Immersion",
       accent: "#34d399",
       primary: "#059669",
       primaryHover: "#6ee7b7",
-      selection: "rgba(52, 211, 153, 0.28)",
-      surface: "#182622",
-      editorBg: "#121d1a",
+      selection: "rgba(52, 211, 153, 0.32)",
+      surface: "#0f221a", // Entire app in forest green
+      editorBg: "#0a1a13",
+      raised: "#19362a",
+      border: "#2a5743",
+      hover: "#204435",
+      textColor: "#ecfdf5",
+      mutedColor: "#6ee7b7",
       syntax: {
-        ...DEFAULT_PINK_THEME.syntax,
         keyword: "#34d399",
         controlKeyword: "#6ee7b7",
-        string: "#a7f3d0",
+        string: "#fef08a",
+        number: "#bae6fd",
+        comment: "#a7f3d0",
         function: "#5eead4",
+        variable: "#fcd34d",
         type: "#6ee7b7",
+        operator: "#34d399",
         cursor: "#34d399",
+        lineHighlight: "#142c22",
+      },
+    },
+  },
+  {
+    id: "coral-sunset",
+    labelZh: "🍊 日落落霞橙全境",
+    labelEn: "🍊 Sunset Coral Immersion",
+    theme: {
+      ...DEFAULT_PINK_THEME,
+      name: "Sunset Coral Immersion",
+      accent: "#fb923c",
+      primary: "#ea580c",
+      primaryHover: "#fdba74",
+      selection: "rgba(251, 146, 60, 0.32)",
+      surface: "#2b1810", // Entire app in sunset coral
+      editorBg: "#21110a",
+      raised: "#3d2317",
+      border: "#5e3725",
+      hover: "#492a1c",
+      textColor: "#fff7ed",
+      mutedColor: "#fdba74",
+      syntax: {
+        keyword: "#fb923c",
+        controlKeyword: "#f97316",
+        string: "#fde047",
+        number: "#86efac",
+        comment: "#cbd5e1",
+        function: "#fdba74",
+        variable: "#fed7aa",
+        type: "#f472b6",
+        operator: "#fb923c",
+        cursor: "#fb923c",
+        lineHighlight: "#331c13",
       },
     },
   },
   {
     id: "cyberpunk-neon",
-    labelZh: "🌌 賽博霓虹",
-    labelEn: "🌌 Cyberpunk Neon",
+    labelZh: "🌌 賽博霓虹全境",
+    labelEn: "🌌 Cyberpunk Neon Immersion",
     theme: {
       ...DEFAULT_PINK_THEME,
       name: "Cyberpunk Neon",
       accent: "#f43f5e",
       primary: "#06b6d4",
       primaryHover: "#22d3ee",
-      selection: "rgba(244, 63, 94, 0.35)",
-      surface: "#111827",
-      editorBg: "#0b0f19",
-      border: "#374151",
-      textColor: "#f9fafb",
+      selection: "rgba(244, 63, 94, 0.38)",
+      surface: "#0d0f18",
+      editorBg: "#07080e",
+      raised: "#181a28",
+      border: "#2f334e",
+      hover: "#222538",
+      textColor: "#f8fafc",
+      mutedColor: "#94a3b8",
       syntax: {
         keyword: "#06b6d4",
         controlKeyword: "#f43f5e",
@@ -219,47 +395,29 @@ export const THEME_COLOR_PRESETS: {
         type: "#fb923c",
         operator: "#f43f5e",
         cursor: "#22d3ee",
+        lineHighlight: "#141724",
       },
     },
   },
   {
-    id: "coral-orange",
-    labelZh: "🍊 珊瑚暖橙",
-    labelEn: "🍊 Coral Orange",
+    id: "classic-obsidian",
+    labelZh: "🌑 標準深色模式（曜石黑）",
+    labelEn: "🌑 Standard Dark Mode (Obsidian)",
     theme: {
       ...DEFAULT_PINK_THEME,
-      name: "Coral Orange",
-      accent: "#fb923c",
-      primary: "#ea580c",
-      primaryHover: "#fdba74",
-      selection: "rgba(251, 146, 60, 0.28)",
-      surface: "#28201a",
-      editorBg: "#1f1813",
-      syntax: {
-        ...DEFAULT_PINK_THEME.syntax,
-        keyword: "#fb923c",
-        controlKeyword: "#f97316",
-        string: "#fed7aa",
-        function: "#fdba74",
-        cursor: "#fb923c",
-      },
-    },
-  },
-  {
-    id: "classic-blue",
-    labelZh: "🌊 經典鈷藍",
-    labelEn: "🌊 Cobalt Blue",
-    theme: {
-      ...DEFAULT_PINK_THEME,
-      name: "Classic Cobalt",
+      mode: "standard",
+      name: "Obsidian Pure Dark",
       accent: "#88acff",
       primary: "#3768dc",
       primaryHover: "#4678ed",
       selection: "rgba(136, 172, 255, 0.28)",
-      surface: "#1e2933",
-      editorBg: "#18212b",
-      raised: "#25323f",
-      border: "#364451",
+      surface: "#121212",
+      editorBg: "#0a0a0a",
+      raised: "#1e1e1e",
+      border: "#2e2e2e",
+      hover: "#262626",
+      textColor: "#e5e5e5",
+      mutedColor: "#a3a3a3",
       syntax: {
         keyword: "#569CD6",
         controlKeyword: "#C586C0",
@@ -271,6 +429,41 @@ export const THEME_COLOR_PRESETS: {
         type: "#4EC9B0",
         operator: "#E6EAF0",
         cursor: "#88acff",
+        lineHighlight: "#181818",
+      },
+    },
+  },
+  {
+    id: "classic-light",
+    labelZh: "☀️ 標準淺色模式（極簡純白）",
+    labelEn: "☀️ Standard Light Mode (Clean White)",
+    theme: {
+      ...DEFAULT_PINK_THEME,
+      mode: "standard",
+      name: "Minimalist Pure Light",
+      accent: "#2563eb",
+      primary: "#2563eb",
+      primaryHover: "#1d4ed8",
+      selection: "rgba(37, 99, 235, 0.15)",
+      surface: "#f8fafc",
+      editorBg: "#ffffff",
+      raised: "#f1f5f9",
+      border: "#e2e8f0",
+      hover: "#e2e8f0",
+      textColor: "#0f172a",
+      mutedColor: "#64748b",
+      syntax: {
+        keyword: "#0000ff",
+        controlKeyword: "#af00db",
+        string: "#a31515",
+        number: "#098658",
+        comment: "#008000",
+        function: "#795e26",
+        variable: "#001080",
+        type: "#267f99",
+        operator: "#1e2933",
+        cursor: "#2563eb",
+        lineHighlight: "#f1f5f9",
       },
     },
   },
@@ -318,7 +511,7 @@ export function deriveColorVariants(hexColor: string): {
   const hb = Math.min(255, Math.floor(b * 1.15));
   const primaryHover = `#${hr.toString(16).padStart(2, "0")}${hg.toString(16).padStart(2, "0")}${hb.toString(16).padStart(2, "0")}`;
 
-  const selection = `rgba(${r}, ${g}, ${b}, 0.28)`;
+  const selection = `rgba(${r}, ${g}, ${b}, 0.32)`;
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   const onAccent = luminance > 0.65 ? "#18212b" : "#ffffff";
 
@@ -352,7 +545,7 @@ export function saveCustomTheme(config: CustomThemeConfig): void {
   try {
     window.localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(config));
   } catch {
-    // quota or private mode
+    // quota
   }
   applyCustomTheme(config);
   window.dispatchEvent(new CustomEvent("kobrixa:theme-change", { detail: config }));
@@ -362,27 +555,6 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
   if (typeof document === "undefined") return;
   const root = document.documentElement;
 
-  // Accent & Button colors
-  root.style.setProperty("--accent", config.accent);
-  root.style.setProperty("--primary", config.primary ?? config.accent);
-  root.style.setProperty("--primary-hover", config.primaryHover ?? config.accent);
-  root.style.setProperty("--selection", config.selection ?? "rgba(244, 114, 182, 0.28)");
-  root.style.setProperty("--on-accent", config.onAccent ?? "#ffffff");
-
-  // Overall UI Background & Panels
-  if (config.surface) root.style.setProperty("--surface", config.surface);
-  if (config.editorBg) root.style.setProperty("--editor", config.editorBg);
-  if (config.raised) root.style.setProperty("--raised", config.raised);
-  if (config.border) root.style.setProperty("--border", config.border);
-  if (config.hover) root.style.setProperty("--hover", config.hover);
-
-  // Typography & Text
-  if (config.textColor) root.style.setProperty("--text", config.textColor);
-  if (config.mutedColor) root.style.setProperty("--muted", config.mutedColor);
-  if (config.fontFamily) root.style.setProperty("--font-sans", config.fontFamily);
-  if (config.codeFontFamily) root.style.setProperty("--font-mono", config.codeFontFamily);
-
-  // Dynamic style tag for font overrides and wallpaper
   let styleEl = document.getElementById("kobrixa-custom-theme-style") as HTMLStyleElement | null;
   if (!styleEl) {
     styleEl = document.createElement("style");
@@ -395,12 +567,48 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
     ${config.codeFontFamily ? `.monaco-editor, .monaco-editor textarea, pre, code { font-family: ${config.codeFontFamily} !important; }` : ""}
   `;
 
-  if (config.backgroundImage) {
-    root.dataset.hasWallpaper = "true";
-    const opacity = config.bgOpacity ?? 0.85;
-    const blur = config.blur ?? 8;
-    styleEl.textContent = `
-      ${fontRules}
+  // When standard mode is selected, remove custom theme data attribute and custom overrides!
+  if (config.mode === "standard") {
+    delete root.dataset.customTheme;
+    delete root.dataset.hasWallpaper;
+    styleEl.textContent = fontRules;
+    return;
+  }
+
+  root.dataset.customTheme = "true";
+
+  // Set CSS variables on root
+  root.style.setProperty("--accent", config.accent);
+  root.style.setProperty("--primary", config.primary ?? config.accent);
+  root.style.setProperty("--primary-hover", config.primaryHover ?? config.accent);
+  root.style.setProperty("--selection", config.selection ?? "rgba(244, 114, 182, 0.32)");
+  root.style.setProperty("--on-accent", config.onAccent ?? "#ffffff");
+
+  if (config.surface) root.style.setProperty("--surface", config.surface);
+  if (config.editorBg) root.style.setProperty("--editor", config.editorBg);
+  if (config.raised) root.style.setProperty("--raised", config.raised);
+  if (config.border) root.style.setProperty("--border", config.border);
+  if (config.hover) root.style.setProperty("--hover", config.hover);
+
+  if (config.textColor) root.style.setProperty("--text", config.textColor);
+  if (config.mutedColor) root.style.setProperty("--muted", config.mutedColor);
+  if (config.fontFamily) root.style.setProperty("--font-sans", config.fontFamily);
+  if (config.codeFontFamily) root.style.setProperty("--font-mono", config.codeFontFamily);
+
+  const surface = config.surface || "#281724";
+  const editorBg = config.editorBg || "#1e101b";
+  const raised = config.raised || "#382032";
+  const border = config.border || "#562e4c";
+  const hover = config.hover || "#3f253a";
+  const text = config.textColor || "#fdf2f8";
+  const muted = config.mutedColor || "#d4a5be";
+  const accent = config.accent || "#ec4899";
+  const primary = config.primary || "#db2777";
+  const primaryHover = config.primaryHover || "#f472b6";
+  const selection = config.selection || "rgba(244, 114, 182, 0.32)";
+
+  const wallpaperCss = config.backgroundImage
+    ? `
       :root[data-has-wallpaper="true"] .app-shell {
         background-image: url("${config.backgroundImage}") !important;
         background-size: cover !important;
@@ -412,34 +620,95 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
       :root[data-has-wallpaper="true"] .center,
       :root[data-has-wallpaper="true"] .sidebar,
       :root[data-has-wallpaper="true"] .topbar,
-      :root[data-has-wallpaper="true"] footer {
-        background: rgba(30, 41, 51, ${opacity}) !important;
-        backdrop-filter: blur(${blur}px) !important;
-        -webkit-backdrop-filter: blur(${blur}px) !important;
+      :root[data-has-wallpaper="true"] footer,
+      :root[data-has-wallpaper="true"] .settings-page,
+      :root[data-has-wallpaper="true"] .settings-body,
+      :root[data-has-wallpaper="true"] .settings-content {
+        background: rgba(40, 23, 36, ${config.bgOpacity ?? 0.85}) !important;
+        backdrop-filter: blur(${config.blur ?? 8}px) !important;
+        -webkit-backdrop-filter: blur(${config.blur ?? 8}px) !important;
       }
-      :root[data-has-wallpaper="true"][data-theme="light"] .workspace,
-      :root[data-has-wallpaper="true"][data-theme="light"] .center,
-      :root[data-has-wallpaper="true"][data-theme="light"] .sidebar,
-      :root[data-has-wallpaper="true"][data-theme="light"] .topbar,
-      :root[data-has-wallpaper="true"][data-theme="light"] footer {
-        background: rgba(245, 240, 231, ${opacity}) !important;
-      }
-      :root[data-has-wallpaper="true"] .editor-stage,
-      :root[data-has-wallpaper="true"] .editor {
-        background: rgba(24, 33, 43, ${Math.min(1, opacity + 0.06)}) !important;
-      }
-      :root[data-has-wallpaper="true"][data-theme="light"] .editor-stage,
-      :root[data-has-wallpaper="true"][data-theme="light"] .editor {
-        background: rgba(253, 250, 244, ${Math.min(1, opacity + 0.06)}) !important;
-      }
-    `;
+    `
+    : "";
+
+  styleEl.textContent = `
+    ${fontRules}
+    :root[data-custom-theme="true"],
+    :root[data-custom-theme="true"][data-theme="dark"],
+    :root[data-custom-theme="true"][data-theme="light"] {
+      --surface: ${surface} !important;
+      --editor: ${editorBg} !important;
+      --raised: ${raised} !important;
+      --border: ${border} !important;
+      --hover: ${hover} !important;
+      --text: ${text} !important;
+      --muted: ${muted} !important;
+      --accent: ${accent} !important;
+      --primary: ${primary} !important;
+      --primary-hover: ${primaryHover} !important;
+      --selection: ${selection} !important;
+    }
+
+    :root[data-custom-theme="true"] body,
+    :root[data-custom-theme="true"] html,
+    :root[data-custom-theme="true"] #root,
+    :root[data-custom-theme="true"] .app-shell,
+    :root[data-custom-theme="true"] .workspace,
+    :root[data-custom-theme="true"] .center,
+    :root[data-custom-theme="true"] .sidebar,
+    :root[data-custom-theme="true"] .topbar,
+    :root[data-custom-theme="true"] footer,
+    :root[data-custom-theme="true"] .settings-page,
+    :root[data-custom-theme="true"] .settings-body,
+    :root[data-custom-theme="true"] .settings-content,
+    :root[data-custom-theme="true"] .settings-categories,
+    :root[data-custom-theme="true"] .editor-toolbar,
+    :root[data-custom-theme="true"] .problems,
+    :root[data-custom-theme="true"] .tabs,
+    :root[data-custom-theme="true"] .project-tabs,
+    :root[data-custom-theme="true"] .device-panel,
+    :root[data-custom-theme="true"] .bottom-tabs {
+      background-color: var(--surface) !important;
+      color: var(--text) !important;
+    }
+
+    :root[data-custom-theme="true"] .editor-stage,
+    :root[data-custom-theme="true"] .editor,
+    :root[data-custom-theme="true"] .monaco-editor,
+    :root[data-custom-theme="true"] .monaco-editor-background {
+      background-color: var(--editor) !important;
+    }
+
+    :root[data-custom-theme="true"] .tab.active,
+    :root[data-custom-theme="true"] .project-tab[aria-selected="true"] {
+      background-color: var(--editor) !important;
+      color: var(--text) !important;
+    }
+
+    :root[data-custom-theme="true"] .setting-entry,
+    :root[data-custom-theme="true"] .card,
+    :root[data-custom-theme="true"] dialog,
+    :root[data-custom-theme="true"] .modal,
+    :root[data-custom-theme="true"] input,
+    :root[data-custom-theme="true"] select,
+    :root[data-custom-theme="true"] textarea,
+    :root[data-custom-theme="true"] .picker {
+      background-color: var(--raised) !important;
+      border-color: var(--border) !important;
+      color: var(--text) !important;
+    }
+
+    ${wallpaperCss}
+  `;
+
+  if (config.backgroundImage) {
+    root.dataset.hasWallpaper = "true";
   } else {
     delete root.dataset.hasWallpaper;
-    styleEl.textContent = fontRules;
   }
 }
 
-// Automatically apply custom theme (default pink) on initial load
+// Automatically apply// Automatically apply custom theme (default pink) on initial load
 if (typeof window !== "undefined") {
   applyCustomTheme();
 }
@@ -448,7 +717,9 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
   const t = (zh: string, en: string) => (locale === "zh-TW" ? zh : en);
   const [theme, setTheme] = useState<CustomThemeConfig>(() => loadCustomTheme());
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"colors" | "syntax" | "fonts" | "import">("colors");
+  const [activeTab, setActiveTab] = useState<
+    "presets" | "background" | "syntax" | "fonts" | "import"
+  >("presets");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -491,7 +762,24 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
   const handleSelectPreset = (preset: (typeof THEME_COLOR_PRESETS)[number]) => {
     setTheme(preset.theme);
     saveCustomTheme(preset.theme);
-    setStatusMessage(t(`已套用主題：${preset.labelZh}`, `Applied theme: ${preset.labelEn}`));
+    setStatusMessage(
+      t(`已切換全境主題：${preset.labelZh}`, `Applied full immersion theme: ${preset.labelEn}`),
+    );
+  };
+
+  const handleBaseColorChange = (baseColor: string) => {
+    const generated = generateThemeFromBaseColor(
+      baseColor,
+      t("自訂色彩全域主題", "Custom Overall Theme"),
+    );
+    setTheme(generated);
+    saveCustomTheme(generated);
+    setStatusMessage(
+      t(
+        `已由底色 ${baseColor} 自動生成並套用整機色彩風格！`,
+        `Generated and applied overall UI theme from base color ${baseColor}!`,
+      ),
+    );
   };
 
   const handleFilesChosen = (files: FileList | null) => {
@@ -529,10 +817,8 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
             const content = e.target?.result as string;
             const parsed = JSON.parse(content) as Record<string, unknown>;
 
-            // Extract Name
             if (typeof parsed.name === "string") pendingTheme.name = parsed.name;
 
-            // Extract Accent & Core Colors
             const accent = (parsed.accent || parsed.accentColor || parsed.color) as
               string | undefined;
             if (accent && typeof accent === "string") {
@@ -544,7 +830,6 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               pendingTheme.onAccent = (parsed.onAccent as string) || derived.onAccent;
             }
 
-            // Extract Overall UI colors
             if (typeof parsed.surface === "string") pendingTheme.surface = parsed.surface;
             if (
               typeof parsed.editorBg === "string" ||
@@ -556,7 +841,6 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
             if (typeof parsed.border === "string") pendingTheme.border = parsed.border;
             if (typeof parsed.hover === "string") pendingTheme.hover = parsed.hover;
 
-            // Extract Typography & Fonts
             if (typeof parsed.textColor === "string" || typeof parsed.foreground === "string") {
               pendingTheme.textColor = (parsed.textColor || parsed.foreground) as string;
             }
@@ -566,7 +850,6 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               pendingTheme.codeFontFamily = (parsed.codeFontFamily || parsed.font) as string;
             }
 
-            // Extract Syntax Tokens
             const syntaxObj = (parsed.syntax || parsed.tokens || parsed.syntaxTokens) as
               Record<string, string> | undefined;
             if (syntaxObj && typeof syntaxObj === "object") {
@@ -576,7 +859,6 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               };
             }
 
-            // Extract Wallpaper
             if (
               typeof parsed.backgroundImage === "string" ||
               typeof parsed.wallpaper === "string"
@@ -636,7 +918,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
     setTheme(DEFAULT_PINK_THEME);
     saveCustomTheme(DEFAULT_PINK_THEME);
     setStatusMessage(
-      t("已還原為預設櫻花粉色主題！🌸", "Restored to default Sakura Pink theme! 🌸"),
+      t("已還原為預設櫻花粉色全境主題！🌸", "Restored to default Sakura Pink immersion theme! 🌸"),
     );
   };
 
@@ -653,11 +935,11 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 18px",
+          padding: "16px 20px",
           background:
-            "linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(244, 114, 182, 0.05) 100%)",
+            "linear-gradient(135deg, rgba(236, 72, 153, 0.22) 0%, rgba(244, 114, 182, 0.08) 100%)",
           border: "1px solid var(--accent)",
-          borderRadius: "10px",
+          borderRadius: "12px",
         }}
       >
         <div>
@@ -666,7 +948,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               style={{
                 background: "var(--accent)",
                 color: "var(--on-accent)",
-                padding: "2px 8px",
+                padding: "2px 10px",
                 borderRadius: "99px",
                 fontSize: "12px",
                 fontWeight: 700,
@@ -674,14 +956,17 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
             >
               We love 14
             </span>
-            <strong style={{ fontSize: "15px" }}>
-              {t("高級主題與代碼語法色彩系統", "Advanced Theme & Syntax Highlighting Engine")}
+            <strong style={{ fontSize: "16px" }}>
+              {t(
+                "全域全境主題系統（非僅黑白模式）",
+                "Total Immersion Theme Engine (Beyond Light & Dark)",
+              )}
             </strong>
           </div>
           <span style={{ fontSize: "13px", color: "var(--muted)" }}>
             {t(
-              "預設主題為粉色。支援自訂全域色彩、代碼語法 Token 色彩、字體與背景圖片。",
-              "Default theme is Pink. Customize UI colors, syntax token colors, fonts and wallpaper images.",
+              "支援徹底改變整個應用程式的背景色（側邊欄、編輯器、工作區、標題欄全盤同步），支援粉色及任意自訂全域色彩。",
+              "Transform the entire app background (sidebar, editor, workspace, tabs, panels) in full pink or any custom color.",
             )}
           </span>
         </div>
@@ -689,17 +974,17 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
           type="button"
           onClick={handleResetPink}
           style={{
-            padding: "6px 12px",
+            padding: "8px 14px",
             border: "1px solid var(--accent)",
             color: "var(--accent)",
             background: "transparent",
             borderRadius: "6px",
-            fontSize: "12px",
+            fontSize: "13px",
             cursor: "pointer",
-            fontWeight: 600,
+            fontWeight: 650,
           }}
         >
-          {t("還原預設粉色", "Reset Pink Theme")}
+          {t("還原預設全境粉色", "Reset Pink Immersion")}
         </button>
       </div>
 
@@ -707,7 +992,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
         <div
           role="status"
           style={{
-            padding: "8px 12px",
+            padding: "8px 14px",
             borderRadius: "6px",
             background: "var(--selection)",
             border: "1px solid var(--accent)",
@@ -723,28 +1008,36 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           gap: "8px",
           borderBottom: "1px solid var(--border)",
           paddingBottom: "8px",
         }}
       >
         {[
-          { key: "colors" as const, label: t("整體外觀與色彩", "Overall Colors") },
-          { key: "syntax" as const, label: t("代碼語法色彩", "Syntax Highlighting") },
-          { key: "fonts" as const, label: t("字體與文字", "Fonts & Typography") },
-          { key: "import" as const, label: t("檔案匯入與匯出", "Import & Export") },
+          {
+            key: "presets" as const,
+            label: t("🎨 全域主題模式（粉色／多色彩）", "🎨 Full Immersion Presets"),
+          },
+          {
+            key: "background" as const,
+            label: t("🖼️ 整體背景與底色調整", "🖼️ Overall Background & Surfaces"),
+          },
+          { key: "syntax" as const, label: t("💻 代碼語法類型著色", "💻 Syntax Highlighting") },
+          { key: "fonts" as const, label: t("🔤 字體與字體顏色", "🔤 Fonts & Typography") },
+          { key: "import" as const, label: t("📁 檔案匯入／匯出", "📁 Import & Export") },
         ].map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: "6px 14px",
-              borderRadius: "6px",
+              padding: "7px 16px",
+              borderRadius: "8px",
               border: activeTab === tab.key ? "1px solid var(--accent)" : "1px solid transparent",
               background: activeTab === tab.key ? "var(--selection)" : "transparent",
               color: activeTab === tab.key ? "var(--accent)" : "var(--muted)",
-              fontWeight: activeTab === tab.key ? 700 : 500,
+              fontWeight: activeTab === tab.key ? 750 : 500,
               fontSize: "13px",
               cursor: "pointer",
             }}
@@ -754,89 +1047,194 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
         ))}
       </div>
 
-      {/* TAB 1: Overall Colors */}
-      {activeTab === "colors" && (
+      {/* TAB 1: Total Immersion Presets */}
+      {activeTab === "presets" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
-            <h4 style={{ margin: "0 0 8px 0", fontSize: "13px", color: "var(--text)" }}>
-              {t("精選主題預設風格", "Curated Theme Presets")}
+            <h4
+              style={{
+                margin: "0 0 10px 0",
+                fontSize: "14px",
+                color: "var(--text)",
+                fontWeight: 650,
+              }}
+            >
+              {t(
+                "點擊即時切換整個應用程式的完整配色風格：",
+                "Click to switch the entire application's color theme:",
+              )}
             </h4>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "12px",
+              }}
+            >
               {THEME_COLOR_PRESETS.map((preset) => {
-                const isSelected = theme.name === preset.labelZh || theme.name === preset.labelEn;
+                const isSelected =
+                  theme.name === preset.labelZh ||
+                  theme.name === preset.labelEn ||
+                  theme.name === preset.theme.name;
                 return (
                   <button
                     key={preset.id}
                     type="button"
                     onClick={() => handleSelectPreset(preset)}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
+                      display: "flex",
+                      flexDirection: "column",
                       gap: "8px",
-                      padding: "6px 12px",
-                      borderRadius: "20px",
+                      padding: "12px 14px",
+                      borderRadius: "10px",
                       border: isSelected ? "2px solid var(--accent)" : "1px solid var(--border)",
                       background: isSelected ? "var(--selection)" : "var(--raised)",
                       color: isSelected ? "var(--accent)" : "var(--text)",
-                      fontWeight: isSelected ? 700 : 500,
-                      fontSize: "13px",
+                      textAlign: "left",
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <span
+                    <div
                       style={{
-                        width: "12px",
-                        height: "12px",
-                        borderRadius: "50%",
-                        backgroundColor: preset.theme.accent,
-                        boxShadow: "0 0 3px rgba(0,0,0,0.3)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
                       }}
-                    />
-                    {locale === "zh-TW" ? preset.labelZh : preset.labelEn}
+                    >
+                      <strong style={{ fontSize: "13px" }}>
+                        {locale === "zh-TW" ? preset.labelZh : preset.labelEn}
+                      </strong>
+                      <span
+                        style={{
+                          width: "14px",
+                          height: "14px",
+                          borderRadius: "50%",
+                          backgroundColor: preset.theme.accent,
+                          boxShadow: "0 0 4px rgba(0,0,0,0.3)",
+                        }}
+                      />
+                    </div>
+                    {/* Color Swatch Bars */}
+                    <div
+                      style={{
+                        display: "flex",
+                        height: "16px",
+                        borderRadius: "4px",
+                        overflow: "hidden",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      <div style={{ flex: 2, background: preset.theme.surface }} title="Surface" />
+                      <div style={{ flex: 3, background: preset.theme.editorBg }} title="Editor" />
+                      <div style={{ flex: 1, background: preset.theme.accent }} title="Accent" />
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
 
+          {/* Quick One-Click Whole-App Base Color Generator */}
+          <div
+            style={{
+              padding: "14px 18px",
+              background: "var(--raised)",
+              border: "1px solid var(--border)",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "14px",
+            }}
+          >
+            <div>
+              <strong style={{ fontSize: "14px", display: "block" }}>
+                {t("自選底色一鍵生成全體背景", "One-Click Whole-App Theme Generator")}
+              </strong>
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                {t(
+                  "選擇任意底色，自動換算並深度套用到全體工作區、側邊欄、編輯器與文字！",
+                  "Pick any color; automatically scales to workspace, sidebar, editor & typography.",
+                )}
+              </span>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input
+                type="color"
+                value={(theme.surface || "#281724").startsWith("#") ? theme.surface! : "#281724"}
+                onChange={(e) => handleBaseColorChange(e.target.value)}
+                style={{
+                  width: "42px",
+                  height: "34px",
+                  padding: "2px",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  background: "transparent",
+                }}
+              />
+              <span style={{ fontSize: "12px", fontWeight: 650, color: "var(--accent)" }}>
+                {t("選擇顏色", "Pick Color")}
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: Overall Background & Surfaces */}
+      {activeTab === "background" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
+            {t(
+              "個別精確調整應用程式各個區塊的背景色彩，全域即時生效：",
+              "Fine-tune background colors for each individual area of the application:",
+            )}
+          </p>
+
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: "12px",
-              marginTop: "8px",
             }}
           >
             {[
               {
-                label: t("強調主色 (Accent)", "Accent Color"),
-                field: "accent" as const,
-                val: theme.accent,
-              },
-              {
-                label: t("工作區背景 (Surface)", "Surface Background"),
+                label: t(
+                  "全域底色 (側邊欄、標題欄、工作區)",
+                  "Overall Surface (Sidebar, Topbar, Workspace)",
+                ),
                 field: "surface" as const,
-                val: theme.surface || "#1f242d",
+                val: theme.surface || "#281724",
               },
               {
-                label: t("編輯器背景 (Editor)", "Editor Background"),
+                label: t("代碼編輯器主背景 (Editor Background)", "Code Editor Background"),
                 field: "editorBg" as const,
-                val: theme.editorBg || "#181d24",
+                val: theme.editorBg || "#1e101b",
               },
               {
-                label: t("面板卡片背景 (Raised)", "Raised Panel"),
+                label: t(
+                  "面板卡片與輸入框底色 (Raised Panel)",
+                  "Raised Card, Dialog & Input Background",
+                ),
                 field: "raised" as const,
-                val: theme.raised || "#282f3a",
+                val: theme.raised || "#382032",
               },
               {
-                label: t("邊框顏色 (Border)", "Border Color"),
+                label: t("邊框與分隔線色彩 (Border Color)", "Borders & Dividers Color"),
                 field: "border" as const,
-                val: theme.border || "#3d4756",
+                val: theme.border || "#562e4c",
               },
               {
-                label: t("懸停底色 (Hover)", "Hover Background"),
-                field: "hover" as const,
-                val: theme.hover || "#2e3744",
+                label: t("強調色彩 (Accent Color)", "Accent Highlight Color"),
+                field: "accent" as const,
+                val: theme.accent || "#ec4899",
+              },
+              {
+                label: t("主要按鈕色彩 (Primary Button)", "Primary Button Color"),
+                field: "primary" as const,
+                val: theme.primary || "#db2777",
               },
             ].map((item) => (
               <label
@@ -845,7 +1243,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "10px 14px",
+                  padding: "12px 16px",
                   background: "var(--raised)",
                   border: "1px solid var(--border)",
                   borderRadius: "8px",
@@ -860,8 +1258,8 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                     value={item.val.startsWith("#") ? item.val : "#ec4899"}
                     onChange={(e) => updateThemeField(item.field, e.target.value)}
                     style={{
-                      width: "32px",
-                      height: "26px",
+                      width: "34px",
+                      height: "28px",
                       padding: "1px",
                       border: "1px solid var(--border)",
                       borderRadius: "4px",
@@ -877,38 +1275,38 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
         </div>
       )}
 
-      {/* TAB 2: Syntax Token Colors */}
+      {/* TAB 3: Syntax Token Colors */}
       {activeTab === "syntax" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
             {t(
-              "自訂程式碼編輯器中各類型語法元素的顯示色彩（JSON key：syntax）：",
-              "Customize syntax token colors in the code editor:",
+              "自訂程式碼編輯器中各種語法 Token 的顯示顏色（可於 JSON 中的 syntax 欄位設定）：",
+              "Customize syntax token colors in the code editor (configurable in JSON 'syntax' block):",
             )}
           </p>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: "12px",
             }}
           >
             {[
               {
                 token: "keyword" as const,
-                label: t("關鍵字 (Dim, Sub, As)", "Keywords (Dim, Sub, As)"),
+                label: t("關鍵字 (Dim, Sub, As, Const)", "Keywords (Dim, Sub, As, Const)"),
                 val: s.keyword || "#f472b6",
               },
               {
                 token: "controlKeyword" as const,
-                label: t("控制流程 (If, While, For)", "Control Flow (If, While, For)"),
+                label: t("控制流程 (If, Else, While, For)", "Control Flow (If, Else, While, For)"),
                 val: s.controlKeyword || "#fb7185",
               },
               {
                 token: "string" as const,
-                label: t('字串文字 ("text")', 'Strings ("text")'),
-                val: s.string || "#fbcfe8",
+                label: t('字串文字 ("Hello World")', 'Strings ("Hello World")'),
+                val: s.string || "#fed7aa",
               },
               {
                 token: "number" as const,
@@ -917,38 +1315,38 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               },
               {
                 token: "comment" as const,
-                label: t("程式碼註解 (' 注釋)", "Comments (' remark)"),
+                label: t("程式碼註解 (' 注釋內容)", "Comments (' remark content)"),
                 val: s.comment || "#86efac",
               },
               {
                 token: "function" as const,
-                label: t("函式方法 (LCD.Clear)", "Functions & Methods"),
+                label: t("函式方法 (LCD.Clear, Motor.Start)", "Functions & Methods"),
                 val: s.function || "#f9a8d4",
               },
               {
                 token: "variable" as const,
-                label: t("變數識別碼 (speed, x)", "Variables & Identifiers"),
-                val: s.variable || "#fed7aa",
+                label: t("變數與參數 (speed, message)", "Variables & Parameters"),
+                val: s.variable || "#fde047",
               },
               {
                 token: "type" as const,
-                label: t("資料型別 (Integer, String)", "Types (Integer, String)"),
+                label: t("資料型別 (Integer, String)", "Data Types (Integer, String)"),
                 val: s.type || "#a5f3fc",
               },
               {
                 token: "operator" as const,
-                label: t("運算子 (+, -, =, <)", "Operators (+, -, =, <)"),
+                label: t("運算子 (+, -, =, <, >)", "Operators (+, -, =, <, >)"),
                 val: s.operator || "#f472b6",
               },
               {
                 token: "cursor" as const,
-                label: t("編輯器游標 (Cursor)", "Editor Cursor"),
+                label: t("編輯器游標色彩 (Cursor)", "Editor Cursor"),
                 val: s.cursor || "#ec4899",
               },
               {
                 token: "lineHighlight" as const,
-                label: t("當前行高亮底色", "Line Highlight Background"),
-                val: s.lineHighlight || "#252b36",
+                label: t("目前行高亮底色 (Line Highlight)", "Line Highlight Background"),
+                val: s.lineHighlight || "#331b2d",
               },
             ].map((item) => (
               <label
@@ -989,13 +1387,13 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
         </div>
       )}
 
-      {/* TAB 3: Fonts & Typography */}
+      {/* TAB 4: Fonts & Typography */}
       {activeTab === "fonts" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: "12px",
             }}
           >
@@ -1004,24 +1402,24 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "10px 14px",
+                padding: "12px 16px",
                 background: "var(--raised)",
                 border: "1px solid var(--border)",
                 borderRadius: "8px",
                 fontSize: "13px",
               }}
             >
-              <span>{t("主要文字顏色 (Text)", "Main Text Color")}</span>
+              <span>{t("主要文字顏色 (Main Text Color)", "Main Text Color")}</span>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <input
                   type="color"
                   value={
-                    (theme.textColor || "#f3e8ee").startsWith("#") ? theme.textColor! : "#f3e8ee"
+                    (theme.textColor || "#fdf2f8").startsWith("#") ? theme.textColor! : "#fdf2f8"
                   }
                   onChange={(e) => updateThemeField("textColor", e.target.value)}
                   style={{
-                    width: "32px",
-                    height: "26px",
+                    width: "34px",
+                    height: "28px",
                     padding: "1px",
                     border: "1px solid var(--border)",
                     borderRadius: "4px",
@@ -1029,7 +1427,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                   }}
                 />
                 <code style={{ fontSize: "11px", color: "var(--muted)" }}>
-                  {theme.textColor || "#f3e8ee"}
+                  {theme.textColor || "#fdf2f8"}
                 </code>
               </div>
             </label>
@@ -1039,24 +1437,24 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "10px 14px",
+                padding: "12px 16px",
                 background: "var(--raised)",
                 border: "1px solid var(--border)",
                 borderRadius: "8px",
                 fontSize: "13px",
               }}
             >
-              <span>{t("次要提示顏色 (Muted)", "Muted Text Color")}</span>
+              <span>{t("次要提示顏色 (Muted Color)", "Muted Subtitle Color")}</span>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <input
                   type="color"
                   value={
-                    (theme.mutedColor || "#b8a5b0").startsWith("#") ? theme.mutedColor! : "#b8a5b0"
+                    (theme.mutedColor || "#d4a5be").startsWith("#") ? theme.mutedColor! : "#d4a5be"
                   }
                   onChange={(e) => updateThemeField("mutedColor", e.target.value)}
                   style={{
-                    width: "32px",
-                    height: "26px",
+                    width: "34px",
+                    height: "28px",
                     padding: "1px",
                     border: "1px solid var(--border)",
                     borderRadius: "4px",
@@ -1064,7 +1462,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                   }}
                 />
                 <code style={{ fontSize: "11px", color: "var(--muted)" }}>
-                  {theme.mutedColor || "#b8a5b0"}
+                  {theme.mutedColor || "#d4a5be"}
                 </code>
               </div>
             </label>
@@ -1072,7 +1470,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
 
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <h4 style={{ margin: "0", fontSize: "13px", color: "var(--text)" }}>
-              {t("程式碼字體 (Code Monospace Font)", "Code Editor Monospace Font")}
+              {t("程式碼等寬字體 (Code Monospace Font)", "Code Monospace Font")}
             </h4>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
               {[
@@ -1143,102 +1541,186 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
         </div>
       )}
 
-      {/* LIVE CODE PREVIEW (Shown in all tabs) */}
+      {/* LIVE CODE PREVIEW (Shown across tabs) */}
       <section style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         <h4 style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
-          {t("即時代碼語法渲染預覽效果", "Live Code Syntax Highlighting Preview")}
+          {t(
+            "即時代碼語法與整體底色預覽 (Live Code Preview)",
+            "Live Code Syntax & Background Preview",
+          )}
         </h4>
         <div
           style={{
-            padding: "16px 20px",
+            padding: "18px 22px",
             borderRadius: "10px",
-            background: theme.editorBg || "#181d24",
-            border: `1px solid ${theme.border || "#3d4756"}`,
+            background: theme.editorBg || "#1e101b",
+            border: `1px solid ${theme.border || "#562e4c"}`,
             fontFamily: theme.codeFontFamily || '"JetBrains Mono", monospace',
             fontSize: "13px",
-            lineHeight: 1.6,
-            color: theme.textColor || "#f3e8ee",
+            lineHeight: 1.65,
+            color: theme.textColor || "#fdf2f8",
             overflowX: "auto",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.3)",
           }}
         >
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>1</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              1
+            </span>
             <span style={{ color: s.comment || "#86efac" }}>
-              ' We love 14 - Basic Plus Syntax Preview
+              ' We love 14 - Total Immersion Theme Preview
             </span>
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>2</span>
-            <span style={{ color: s.keyword || "#f472b6", fontWeight: 650 }}>Sub</span>{" "}
-            <span style={{ color: s.function || "#f9a8d4", fontWeight: 650 }}>Main</span>()
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              2
+            </span>
+            <span style={{ color: s.keyword || "#f472b6", fontWeight: 700 }}>Sub</span>{" "}
+            <span style={{ color: s.function || "#f9a8d4", fontWeight: 700 }}>Main</span>()
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>3</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              3
+            </span>
             {"  "}
             <span style={{ color: s.keyword || "#f472b6" }}>Dim</span>{" "}
-            <span style={{ color: s.variable || "#fed7aa" }}>speed</span>{" "}
+            <span style={{ color: s.variable || "#fde047" }}>speed</span>{" "}
             <span style={{ color: s.keyword || "#f472b6" }}>As</span>{" "}
             <span style={{ color: s.type || "#a5f3fc" }}>Integer</span>{" "}
             <span style={{ color: s.operator || "#f472b6" }}>=</span>{" "}
             <span style={{ color: s.number || "#cbd5e1" }}>75</span>
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>4</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              4
+            </span>
             {"  "}
             <span style={{ color: s.keyword || "#f472b6" }}>Dim</span>{" "}
-            <span style={{ color: s.variable || "#fed7aa" }}>message</span>{" "}
+            <span style={{ color: s.variable || "#fde047" }}>message</span>{" "}
             <span style={{ color: s.keyword || "#f472b6" }}>As</span>{" "}
             <span style={{ color: s.type || "#a5f3fc" }}>String</span>{" "}
             <span style={{ color: s.operator || "#f472b6" }}>=</span>{" "}
-            <span style={{ color: s.string || "#fbcfe8" }}>"Kobrixa 14 ARM Edition"</span>
+            <span style={{ color: s.string || "#fed7aa" }}>"Kobrixa 14 ARM Edition"</span>
           </div>
           <div
             style={{
-              background: s.lineHighlight || "#252b36",
+              background: s.lineHighlight || "#331b2d",
               padding: "2px 0",
-              borderRadius: "3px",
+              borderRadius: "4px",
             }}
           >
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>5</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              5
+            </span>
             {"  "}
-            <span style={{ color: s.controlKeyword || "#fb7185", fontWeight: 650 }}>If</span>{" "}
-            <span style={{ color: s.variable || "#fed7aa" }}>speed</span>{" "}
+            <span style={{ color: s.controlKeyword || "#fb7185", fontWeight: 700 }}>If</span>{" "}
+            <span style={{ color: s.variable || "#fde047" }}>speed</span>{" "}
             <span style={{ color: s.operator || "#f472b6" }}>&gt;</span>{" "}
             <span style={{ color: s.number || "#cbd5e1" }}>50</span>{" "}
-            <span style={{ color: s.controlKeyword || "#fb7185", fontWeight: 650 }}>Then</span>
+            <span style={{ color: s.controlKeyword || "#fb7185", fontWeight: 700 }}>Then</span>
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>6</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              6
+            </span>
             {"    "}
             <span style={{ color: s.function || "#f9a8d4" }}>LCD.Clear</span>()
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>7</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              7
+            </span>
             {"    "}
             <span style={{ color: s.function || "#f9a8d4" }}>Motor.Start</span>(
-            <span style={{ color: s.string || "#fbcfe8" }}>"A"</span>
+            <span style={{ color: s.string || "#fed7aa" }}>"A"</span>
             <span style={{ color: s.delimiter || "#e2e8f0" }}>,</span>{" "}
-            <span style={{ color: s.variable || "#fed7aa" }}>speed</span>)
+            <span style={{ color: s.variable || "#fde047" }}>speed</span>)
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>8</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              8
+            </span>
             {"  "}
-            <span style={{ color: s.controlKeyword || "#fb7185", fontWeight: 650 }}>End If</span>
+            <span style={{ color: s.controlKeyword || "#fb7185", fontWeight: 700 }}>End If</span>
           </div>
           <div>
-            <span style={{ color: "#697a8b", marginRight: "16px", userSelect: "none" }}>9</span>
-            <span style={{ color: s.keyword || "#f472b6", fontWeight: 650 }}>End Sub</span>
+            <span
+              style={{
+                color: theme.mutedColor || "#d4a5be",
+                opacity: 0.6,
+                marginRight: "16px",
+                userSelect: "none",
+              }}
+            >
+              9
+            </span>
+            <span style={{ color: s.keyword || "#f472b6", fontWeight: 700 }}>End Sub</span>
           </div>
         </div>
       </section>
 
-      {/* TAB 4: Import / Export / Wallpaper */}
+      {/* TAB 5: Import / Export / Wallpaper */}
       {activeTab === "import" && (
         <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
             {t(
-              "支援匯入完整自訂主題 JSON（包含代碼語法色彩、全域底色與字體）以及背景圖片：",
+              "支援匯入自訂主題 JSON（包含代碼語法色彩、全域底色與字體）以及背景圖片：",
               "Import custom theme JSON (including syntax tokens, UI colors, fonts) and wallpaper images:",
             )}
           </p>
