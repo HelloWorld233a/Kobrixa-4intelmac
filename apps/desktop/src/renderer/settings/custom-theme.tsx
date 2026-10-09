@@ -45,6 +45,7 @@ export interface CustomThemeConfig {
   backgroundImage?: string | null;
   bgOpacity?: number; // 0.5 to 0.98
   blur?: number; // 0 to 24px
+  bgScope?: "full" | "titlebar"; // "full" = entire app + editor; "titlebar" = top header only
 }
 
 export function hexToRgb(hexColor: string): [number, number, number] {
@@ -199,10 +200,13 @@ export const DEFAULT_PINK_THEME: CustomThemeConfig = {
 export function generateThemeFromBaseColor(
   baseHex: string,
   name = "自訂全域色彩",
+  targetMode: "dark" | "light" = "dark",
 ): CustomThemeConfig {
   const cleanHex = baseHex.replace("#", "").trim();
   if (cleanHex.length !== 6 && cleanHex.length !== 3) {
-    return DEFAULT_PINK_THEME;
+    return targetMode === "light"
+      ? (THEME_COLOR_PRESETS.find((p) => p.id === "sweet-peach")?.theme ?? DEFAULT_PINK_THEME)
+      : DEFAULT_PINK_THEME;
   }
   const [r, g, b] = hexToRgb(baseHex);
   const [h, s, l] = rgbToHsl(r, g, b);
@@ -212,9 +216,64 @@ export function generateThemeFromBaseColor(
   const accent = baseHex;
   // High-contrast text on accent: use dark text if accent is bright (prevents white-on-white)
   const onAccent = luminance > 0.5 ? "#0f172a" : "#ffffff";
-  const primary = hslToHex(h, Math.min(1, s * 0.95), Math.max(0.25, Math.min(0.65, l * 0.9)));
-  const primaryHover = hslToHex(h, Math.min(1, s * 1.05), Math.max(0.35, Math.min(0.85, l * 1.15)));
-  const selection = hexToRgba(baseHex, 0.32);
+  const primary = hslToHex(
+    h,
+    Math.min(1, s * 0.95),
+    targetMode === "light"
+      ? Math.max(0.3, Math.min(0.55, l * 0.85))
+      : Math.max(0.25, Math.min(0.65, l * 0.9)),
+  );
+  const primaryHover = hslToHex(
+    h,
+    Math.min(1, s * 1.05),
+    targetMode === "light"
+      ? Math.max(0.25, Math.min(0.48, l * 0.75))
+      : Math.max(0.35, Math.min(0.85, l * 1.15)),
+  );
+  const selection = hexToRgba(baseHex, targetMode === "light" ? 0.22 : 0.32);
+
+  if (targetMode === "light") {
+    const surface = hslToHex(h, Math.min(0.2, s * 0.25), 0.96);
+    const editorBg = "#ffffff";
+    const raised = hslToHex(h, Math.min(0.22, s * 0.28), 0.92);
+    const border = hslToHex(h, Math.min(0.3, s * 0.35), 0.82);
+    const hover = hslToHex(h, Math.min(0.25, s * 0.3), 0.88);
+    const textColor = "#0f172a";
+    const mutedColor = hslToHex(h, Math.min(0.45, s * 0.5), 0.45);
+
+    const syntax: SyntaxThemeConfig = {
+      keyword: hslToHex(h, Math.min(1, s * 1.1), 0.38),
+      controlKeyword: hslToHex((h + 30) % 360, 0.85, 0.4),
+      string: hslToHex((h + 60) % 360, 0.9, 0.35),
+      number: hslToHex((h + 120) % 360, 0.8, 0.35),
+      comment: "#64748b",
+      function: hslToHex((h + 300) % 360, 0.85, 0.38),
+      variable: hslToHex((h + 180) % 360, 0.85, 0.38),
+      type: hslToHex((h + 210) % 360, 0.8, 0.38),
+      operator: hslToHex(h, s, 0.35),
+      delimiter: "#334155",
+      lineHighlight: hslToHex(h, Math.min(0.18, s * 0.22), 0.94),
+      cursor: baseHex,
+    };
+
+    return {
+      mode: "custom",
+      name,
+      accent,
+      primary,
+      primaryHover,
+      selection,
+      onAccent,
+      surface,
+      editorBg,
+      raised,
+      border,
+      hover,
+      textColor,
+      mutedColor,
+      syntax,
+    };
+  }
 
   // Pull background surfaces dark ("背景要拉黑") based on the hue of the chosen color
   const bgSat = Math.min(0.42, Math.max(0.1, s * 0.4));
@@ -261,6 +320,92 @@ export function generateThemeFromBaseColor(
     mutedColor,
     syntax,
   };
+}
+
+export function toggleThemeMode(
+  currentTheme: CustomThemeConfig,
+  targetMode?: "dark" | "light",
+): CustomThemeConfig {
+  const isCurrentDark = isColorDark(currentTheme.surface || "#281724");
+  const nextIsDark = targetMode !== undefined ? targetMode === "dark" : !isCurrentDark;
+
+  // Direct known preset pairs
+  if (nextIsDark) {
+    if (currentTheme.name.includes("Sweet Peach") || currentTheme.name.includes("蜜桃粉")) {
+      return {
+        ...DEFAULT_PINK_THEME,
+        backgroundImage: currentTheme.backgroundImage ?? null,
+        ...(typeof currentTheme.bgOpacity === "number"
+          ? { bgOpacity: currentTheme.bgOpacity }
+          : {}),
+        ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+        ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+      };
+    }
+    if (currentTheme.name.includes("Pure Light") || currentTheme.name.includes("極簡純白")) {
+      const obsidian = THEME_COLOR_PRESETS.find((p) => p.id === "classic-obsidian")?.theme;
+      if (obsidian) {
+        return {
+          ...obsidian,
+          backgroundImage: currentTheme.backgroundImage ?? null,
+          ...(typeof currentTheme.bgOpacity === "number"
+            ? { bgOpacity: currentTheme.bgOpacity }
+            : {}),
+          ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+          ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+        };
+      }
+    }
+    const darkTheme = generateThemeFromBaseColor(currentTheme.accent, currentTheme.name, "dark");
+    return {
+      ...darkTheme,
+      ...(currentTheme.fontFamily ? { fontFamily: currentTheme.fontFamily } : {}),
+      ...(currentTheme.codeFontFamily ? { codeFontFamily: currentTheme.codeFontFamily } : {}),
+      backgroundImage: currentTheme.backgroundImage ?? null,
+      ...(typeof currentTheme.bgOpacity === "number" ? { bgOpacity: currentTheme.bgOpacity } : {}),
+      ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+      ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+    };
+  } else {
+    if (currentTheme.name.includes("Sakura Pink") || currentTheme.name.includes("櫻花粉")) {
+      const peach = THEME_COLOR_PRESETS.find((p) => p.id === "sweet-peach")?.theme;
+      if (peach) {
+        return {
+          ...peach,
+          backgroundImage: currentTheme.backgroundImage ?? null,
+          ...(typeof currentTheme.bgOpacity === "number"
+            ? { bgOpacity: currentTheme.bgOpacity }
+            : {}),
+          ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+          ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+        };
+      }
+    }
+    if (currentTheme.name.includes("Obsidian") || currentTheme.name.includes("曜石黑")) {
+      const light = THEME_COLOR_PRESETS.find((p) => p.id === "classic-light")?.theme;
+      if (light) {
+        return {
+          ...light,
+          backgroundImage: currentTheme.backgroundImage ?? null,
+          ...(typeof currentTheme.bgOpacity === "number"
+            ? { bgOpacity: currentTheme.bgOpacity }
+            : {}),
+          ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+          ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+        };
+      }
+    }
+    const lightTheme = generateThemeFromBaseColor(currentTheme.accent, currentTheme.name, "light");
+    return {
+      ...lightTheme,
+      ...(currentTheme.fontFamily ? { fontFamily: currentTheme.fontFamily } : {}),
+      ...(currentTheme.codeFontFamily ? { codeFontFamily: currentTheme.codeFontFamily } : {}),
+      backgroundImage: currentTheme.backgroundImage ?? null,
+      ...(typeof currentTheme.bgOpacity === "number" ? { bgOpacity: currentTheme.bgOpacity } : {}),
+      ...(typeof currentTheme.blur === "number" ? { blur: currentTheme.blur } : {}),
+      ...(currentTheme.bgScope ? { bgScope: currentTheme.bgScope } : {}),
+    };
+  }
 }
 
 export async function extractDominantColorFromImage(imageUrl: string): Promise<string> {
@@ -707,8 +852,26 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
   const raisedRgba = hexToRgba(raised, Math.min(0.95, (config.bgOpacity ?? 0.82) + 0.08));
   const blurPx = `${config.blur ?? 10}px`;
 
+  const isTitlebarOnly = config.bgScope === "titlebar";
   const wallpaperCss = config.backgroundImage
-    ? `
+    ? isTitlebarOnly
+      ? `
+      :root[data-has-wallpaper="true"][data-wallpaper-scope="titlebar"] .topbar {
+        background-image: url("${config.backgroundImage}") !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        backdrop-filter: blur(${blurPx}) !important;
+        -webkit-backdrop-filter: blur(${blurPx}) !important;
+      }
+      :root[data-has-wallpaper="true"][data-wallpaper-scope="titlebar"] body,
+      :root[data-has-wallpaper="true"][data-wallpaper-scope="titlebar"] #root,
+      :root[data-has-wallpaper="true"][data-wallpaper-scope="titlebar"] .app-shell {
+        background-image: none !important;
+        background-color: var(--surface) !important;
+      }
+    `
+      : `
       :root[data-has-wallpaper="true"] body,
       :root[data-has-wallpaper="true"] #root,
       :root[data-has-wallpaper="true"] .app-shell {
@@ -726,6 +889,7 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
       :root[data-has-wallpaper="true"] .files-panel,
       :root[data-has-wallpaper="true"] .project-tree,
       :root[data-has-wallpaper="true"] .settings-page,
+      :root[data-has-wallpaper="true"] .settings-heading,
       :root[data-has-wallpaper="true"] .settings-body,
       :root[data-has-wallpaper="true"] .settings-content,
       :root[data-has-wallpaper="true"] .settings-categories,
@@ -862,8 +1026,10 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
 
   if (config.backgroundImage) {
     root.dataset.hasWallpaper = "true";
+    root.dataset.wallpaperScope = config.bgScope ?? "full";
   } else {
     delete root.dataset.hasWallpaper;
+    delete root.dataset.wallpaperScope;
   }
 }
 
@@ -1061,6 +1227,9 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
             }
             if (typeof parsed.blur === "number") {
               pendingTheme.blur = Math.max(0, Math.min(30, parsed.blur));
+            }
+            if (parsed.bgScope === "full" || parsed.bgScope === "titlebar") {
+              pendingTheme.bgScope = parsed.bgScope;
             }
 
             jsonProcessed = true;
@@ -1260,19 +1429,86 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
       {activeTab === "presets" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
-            <h4
+            <div
               style={{
-                margin: "0 0 10px 0",
-                fontSize: "14px",
-                color: "var(--text)",
-                fontWeight: 650,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "10px",
+                flexWrap: "wrap",
+                gap: "8px",
               }}
             >
-              {t(
-                "點擊即時切換整個應用程式的完整配色風格：",
-                "Click to switch the entire application's color theme:",
-              )}
-            </h4>
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  color: "var(--text)",
+                  fontWeight: 650,
+                }}
+              >
+                {t(
+                  "點擊即時切換整個應用程式的完整配色風格：",
+                  "Click to switch the entire application's color theme:",
+                )}
+              </h4>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toggled = toggleThemeMode(theme, "dark");
+                    setTheme(toggled);
+                    saveCustomTheme(toggled);
+                    setStatusMessage(t("已切換為深色沉浸模式", "Switched to dark immersion mode"));
+                  }}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "6px",
+                    border: isColorDark(theme.surface || "#281724")
+                      ? "2px solid var(--accent)"
+                      : "1px solid var(--border)",
+                    background: isColorDark(theme.surface || "#281724")
+                      ? "var(--selection)"
+                      : "var(--raised)",
+                    color: isColorDark(theme.surface || "#281724")
+                      ? "var(--accent)"
+                      : "var(--text)",
+                    fontSize: "12px",
+                    fontWeight: 650,
+                    cursor: "pointer",
+                  }}
+                >
+                  🌙 {t("深色模式", "Dark Mode")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toggled = toggleThemeMode(theme, "light");
+                    setTheme(toggled);
+                    saveCustomTheme(toggled);
+                    setStatusMessage(t("已切換為明亮淺色模式", "Switched to clean light mode"));
+                  }}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "6px",
+                    border: !isColorDark(theme.surface || "#281724")
+                      ? "2px solid var(--accent)"
+                      : "1px solid var(--border)",
+                    background: !isColorDark(theme.surface || "#281724")
+                      ? "var(--selection)"
+                      : "var(--raised)",
+                    color: !isColorDark(theme.surface || "#281724")
+                      ? "var(--accent)"
+                      : "var(--text)",
+                    fontSize: "12px",
+                    fontWeight: 650,
+                    cursor: "pointer",
+                  }}
+                >
+                  ☀️ {t("淺色模式", "Light Mode")}
+                </button>
+              </div>
+            </div>
             <div
               style={{
                 display: "grid",
@@ -1609,6 +1845,51 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                   >
                     {t("移除背景圖片", "Remove Wallpaper")}
                   </button>
+                </div>
+              </div>
+
+              {/* Wallpaper Scope Selector */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 650, color: "var(--text)" }}>
+                  {t("桌布圖片套用範圍：", "Wallpaper Application Scope:")}
+                </span>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {[
+                    {
+                      value: "full" as const,
+                      label: t(
+                        "🌄 全體視窗與代碼編輯器（全境毛玻璃穿透）",
+                        "Full App & Editor (Frosted Glass Immersion)",
+                      ),
+                    },
+                    {
+                      value: "titlebar" as const,
+                      label: t("🏷️ 僅頂部標題列（Titlebar Only）", "Titlebar / Header Only"),
+                    },
+                  ].map((scope) => {
+                    const isSelected = (theme.bgScope ?? "full") === scope.value;
+                    return (
+                      <button
+                        key={scope.value}
+                        type="button"
+                        onClick={() => updateThemeField("bgScope", scope.value)}
+                        style={{
+                          padding: "6px 14px",
+                          borderRadius: "6px",
+                          border: isSelected
+                            ? "2px solid var(--accent)"
+                            : "1px solid var(--border)",
+                          background: isSelected ? "var(--selection)" : "var(--raised)",
+                          color: isSelected ? "var(--accent)" : "var(--text)",
+                          fontSize: "12px",
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {scope.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

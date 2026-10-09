@@ -3,8 +3,8 @@ import {
   CustomThemePanel,
   loadCustomTheme,
   saveCustomTheme,
-  THEME_COLOR_PRESETS,
-  isColorDark,
+  toggleThemeMode,
+  type CustomThemeConfig,
 } from "./custom-theme.js";
 import type { UpdateState } from "../../shared/updates.js";
 import { SettingSelect, SettingToggle } from "./setting-field.js";
@@ -123,6 +123,19 @@ export function SettingsQuickControls({
   shortcut: string;
 }): React.JSX.Element {
   const t = settingsCopy[settings.locale];
+  const [customTheme, setCustomTheme] = useState<CustomThemeConfig>(() => loadCustomTheme());
+
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<CustomThemeConfig>;
+      if (customEvent.detail) setCustomTheme(customEvent.detail);
+    };
+    window.addEventListener("kobrixa:theme-change", handleThemeChange);
+    return () => window.removeEventListener("kobrixa:theme-change", handleThemeChange);
+  }, []);
+
+  const hasWallpaper = Boolean(customTheme.backgroundImage);
+
   return (
     <>
       <Picker
@@ -133,28 +146,25 @@ export function SettingsQuickControls({
         options={languageOptions}
         onChange={(value) => onChange("locale", value)}
       />
-      <button
-        aria-label={resolvedTheme === "dark" ? t.light : t.dark}
-        title={resolvedTheme === "dark" ? t.light : t.dark}
-        onClick={() => {
-          const next = resolvedTheme === "dark" ? "light" : "dark";
-          onChange("theme", next);
-          try {
-            const currentCustom = loadCustomTheme();
-            if (next === "light" && isColorDark(currentCustom.surface || "#281724")) {
-              const peach = THEME_COLOR_PRESETS.find((p) => p.id === "sweet-peach")?.theme;
-              if (peach) saveCustomTheme(peach);
-            } else if (next === "dark" && !isColorDark(currentCustom.surface || "#fdf2f8")) {
-              const sakura = THEME_COLOR_PRESETS.find((p) => p.id === "sakura-pink")?.theme;
-              if (sakura) saveCustomTheme(sakura);
+      {!hasWallpaper && (
+        <button
+          aria-label={resolvedTheme === "dark" ? t.light : t.dark}
+          title={resolvedTheme === "dark" ? t.light : t.dark}
+          onClick={() => {
+            const next = resolvedTheme === "dark" ? "light" : "dark";
+            onChange("theme", next);
+            try {
+              const current = loadCustomTheme();
+              const toggled = toggleThemeMode(current, next);
+              saveCustomTheme(toggled);
+            } catch {
+              // ignore
             }
-          } catch {
-            // ignore
-          }
-        }}
-      >
-        <Icon name={resolvedTheme === "dark" ? "sun" : "moon"} />
-      </button>
+          }}
+        >
+          <Icon name={resolvedTheme === "dark" ? "sun" : "moon"} />
+        </button>
+      )}
       <button
         className="settings-trigger"
         aria-label={t.title}

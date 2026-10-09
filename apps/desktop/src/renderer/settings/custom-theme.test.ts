@@ -9,6 +9,8 @@ import {
   isColorDark,
   rgbToHex,
   rgbToHsl,
+  toggleThemeMode,
+  DEFAULT_PINK_THEME,
 } from "./custom-theme.js";
 
 describe("custom-theme color algorithms", () => {
@@ -63,11 +65,32 @@ describe("custom-theme color algorithms", () => {
     expect(theme.textColor).toBe("#f8fafc"); // Crisp light text on dark surfaces
   });
 
-  it("pulls background dark even when given pure white", () => {
-    const theme = generateThemeFromBaseColor("#ffffff", "White Base");
-    expect(theme.accent).toBe("#ffffff");
-    expect(theme.onAccent).toBe("#0f172a");
-    expect(isColorDark(theme.surface!)).toBe(true);
-    expect(isColorDark(theme.editorBg!)).toBe(true);
+  it("generates light variant for green without losing accent", () => {
+    const theme = generateThemeFromBaseColor("#22c55e", "Green Light", "light");
+    expect(theme.accent).toBe("#22c55e");
+    expect(isColorDark(theme.surface!)).toBe(false);
+    expect(theme.textColor).toBe("#0f172a"); // Dark text on light background
+    expect(theme.editorBg).toBe("#ffffff");
+  });
+
+  it("toggles between dark and light without jumping back to pink for custom colors", () => {
+    const darkGreen = generateThemeFromBaseColor("#22c55e", "Green Dark", "dark");
+    const lightGreen = toggleThemeMode(darkGreen, "light");
+    expect(lightGreen.accent).toBe("#22c55e");
+    expect(isColorDark(lightGreen.surface!)).toBe(false);
+
+    const backToDark = toggleThemeMode(lightGreen, "dark");
+    expect(backToDark.accent).toBe("#22c55e");
+    expect(isColorDark(backToDark.surface!)).toBe(true);
+  });
+
+  it("toggles between sakura pink and sweet peach", () => {
+    const lightPink = toggleThemeMode(DEFAULT_PINK_THEME, "light");
+    expect(lightPink.name).toBe("Sweet Peach Light");
+    expect(isColorDark(lightPink.surface!)).toBe(false);
+
+    const darkPink = toggleThemeMode(lightPink, "dark");
+    expect(darkPink.name).toBe(DEFAULT_PINK_THEME.name);
+    expect(isColorDark(darkPink.surface!)).toBe(true);
   });
 });

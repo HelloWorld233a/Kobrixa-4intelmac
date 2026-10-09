@@ -41,7 +41,7 @@ self.MonacoEnvironment = {
 
 export function defineKobrixaMonacoThemes(custom?: CustomThemeConfig): void {
   const cfg = custom ?? loadCustomTheme();
-  const hasWallpaper = Boolean(cfg.backgroundImage);
+  const hasWallpaper = Boolean(cfg.backgroundImage) && (cfg.bgScope ?? "full") === "full";
   for (const theme of ["light", "dark"] as const) {
     const isDarkEditor = isColorDark(cfg.editorBg || "#1e101b");
     monaco.editor.defineTheme(`kobrixa-${theme}`, {
