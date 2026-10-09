@@ -47,10 +47,10 @@ export interface CustomThemeConfig {
   blur?: number; // 0 to 24px
 }
 
-export function isColorDark(hexColor: string): boolean {
-  if (!hexColor) return true;
+export function hexToRgb(hexColor: string): [number, number, number] {
+  if (!hexColor) return [0, 0, 0];
   const cleanHex = hexColor.replace("#", "").trim();
-  if (cleanHex.length !== 6 && cleanHex.length !== 3) return true;
+  if (cleanHex.length !== 6 && cleanHex.length !== 3) return [0, 0, 0];
   const r = parseInt(
     cleanHex.length === 3 ? cleanHex[0]! + cleanHex[0]! : cleanHex.slice(0, 2),
     16,
@@ -63,8 +63,96 @@ export function isColorDark(hexColor: string): boolean {
     cleanHex.length === 3 ? cleanHex[2]! + cleanHex[2]! : cleanHex.slice(4, 6),
     16,
   );
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance < 0.55;
+  return [Number.isNaN(r) ? 0 : r, Number.isNaN(g) ? 0 : g, Number.isNaN(b) ? 0 : b];
+}
+
+export function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (val: number) =>
+    Math.round(Math.max(0, Math.min(255, val)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${clamp(r)}${clamp(g)}${clamp(b)}`;
+}
+
+export function hexToRgba(hexColor: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hexColor);
+  const safeAlpha = Math.max(0, Math.min(1, alpha));
+  return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
+}
+
+export function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === rNorm) {
+      h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
+    } else if (max === gNorm) {
+      h = ((bNorm - rNorm) / d + 2) / 6;
+    } else {
+      h = ((rNorm - gNorm) / d + 4) / 6;
+    }
+  }
+  return [Math.round(h * 360), s, l];
+}
+
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const normH = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((normH / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (normH >= 0 && normH < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (normH >= 60 && normH < 120) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (normH >= 120 && normH < 180) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (normH >= 180 && normH < 240) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (normH >= 240 && normH < 300) {
+    r = x;
+    g = 0;
+    b = c;
+  } else {
+    r = c;
+    g = 0;
+    b = x;
+  }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+export function hslToHex(h: number, s: number, l: number): string {
+  const [r, g, b] = hslToRgb(h, s, l);
+  return rgbToHex(r, g, b);
+}
+
+export function getLuminance(hexColor: string): number {
+  const [r, g, b] = hexToRgb(hexColor);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+export function isColorDark(hexColor: string): boolean {
+  return getLuminance(hexColor) < 0.55;
 }
 
 export const DEFAULT_PINK_THEME: CustomThemeConfig = {
@@ -116,75 +204,117 @@ export function generateThemeFromBaseColor(
   if (cleanHex.length !== 6 && cleanHex.length !== 3) {
     return DEFAULT_PINK_THEME;
   }
-  const r = parseInt(
-    cleanHex.length === 3 ? cleanHex[0]! + cleanHex[0]! : cleanHex.slice(0, 2),
-    16,
-  );
-  const g = parseInt(
-    cleanHex.length === 3 ? cleanHex[1]! + cleanHex[1]! : cleanHex.slice(2, 4),
-    16,
-  );
-  const b = parseInt(
-    cleanHex.length === 3 ? cleanHex[2]! + cleanHex[2]! : cleanHex.slice(4, 6),
-    16,
-  );
+  const [r, g, b] = hexToRgb(baseHex);
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const luminance = getLuminance(baseHex);
 
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const isDark = luminance < 0.55;
+  // The chosen base color becomes the accent highlight
+  const accent = baseHex;
+  // High-contrast text on accent: use dark text if accent is bright (prevents white-on-white)
+  const onAccent = luminance > 0.50 ? "#0f172a" : "#ffffff";
+  const primary = hslToHex(h, Math.min(1, s * 0.95), Math.max(0.25, Math.min(0.65, l * 0.9)));
+  const primaryHover = hslToHex(h, Math.min(1, s * 1.05), Math.max(0.35, Math.min(0.85, l * 1.15)));
+  const selection = hexToRgba(baseHex, 0.32);
 
-  const er = isDark ? Math.max(0, Math.floor(r * 0.75)) : Math.min(255, Math.floor(r * 1.05 + 10));
-  const eg = isDark ? Math.max(0, Math.floor(g * 0.75)) : Math.min(255, Math.floor(g * 1.05 + 10));
-  const eb = isDark ? Math.max(0, Math.floor(b * 0.75)) : Math.min(255, Math.floor(b * 1.05 + 10));
-  const editorBg = `#${er.toString(16).padStart(2, "0")}${eg.toString(16).padStart(2, "0")}${eb.toString(16).padStart(2, "0")}`;
+  // Pull background surfaces dark ("背景要拉黑") based on the hue of the chosen color
+  const bgSat = Math.min(0.42, Math.max(0.10, s * 0.40));
+  const surface = hslToHex(h, bgSat, 0.11);
+  const editorBg = hslToHex(h, bgSat * 0.85, 0.07);
+  const raised = hslToHex(h, bgSat * 1.1, 0.16);
+  const border = hslToHex(h, bgSat * 1.25, 0.25);
+  const hover = hslToHex(h, bgSat * 1.15, 0.20);
 
-  const rr = isDark ? Math.min(255, Math.floor(r * 1.35 + 15)) : Math.max(0, Math.floor(r * 0.92));
-  const rg = isDark ? Math.min(255, Math.floor(g * 1.35 + 15)) : Math.max(0, Math.floor(g * 0.92));
-  const rb = isDark ? Math.min(255, Math.floor(b * 1.35 + 15)) : Math.max(0, Math.floor(b * 0.92));
-  const raised = `#${rr.toString(16).padStart(2, "0")}${rg.toString(16).padStart(2, "0")}${rb.toString(16).padStart(2, "0")}`;
+  // High contrast text on dark background surfaces
+  const textColor = "#f8fafc";
+  const mutedColor = hslToHex(h, Math.min(0.45, s * 0.5), 0.72);
 
-  const br = isDark ? Math.min(255, Math.floor(r * 1.8 + 25)) : Math.max(0, Math.floor(r * 0.8));
-  const bg = isDark ? Math.min(255, Math.floor(g * 1.8 + 25)) : Math.max(0, Math.floor(g * 0.8));
-  const bb = isDark ? Math.min(255, Math.floor(b * 1.8 + 25)) : Math.max(0, Math.floor(b * 0.8));
-  const border = `#${br.toString(16).padStart(2, "0")}${bg.toString(16).padStart(2, "0")}${bb.toString(16).padStart(2, "0")}`;
-
-  const textColor = isDark ? "#fdf2f8" : "#1e101b";
-  const mutedColor = isDark ? "#d4a5be" : "#6b475d";
-
-  const accent = isDark ? "#f472b6" : "#db2777";
-  const primary = isDark ? "#ec4899" : "#be185d";
+  // Harmonized code syntax tokens
+  const syntax: SyntaxThemeConfig = {
+    keyword: baseHex,
+    controlKeyword: hslToHex((h + 30) % 360, 0.85, 0.68),
+    string: hslToHex((h + 60) % 360, 0.85, 0.75),
+    number: hslToHex((h + 120) % 360, 0.75, 0.75),
+    comment: hslToHex(h, 0.25, 0.55),
+    function: hslToHex((h + 300) % 360, 0.85, 0.72),
+    variable: hslToHex((h + 180) % 360, 0.85, 0.75),
+    type: hslToHex((h + 210) % 360, 0.80, 0.75),
+    operator: baseHex,
+    delimiter: "#e2e8f0",
+    lineHighlight: hslToHex(h, bgSat, 0.14),
+    cursor: baseHex,
+  };
 
   return {
     mode: "custom",
     name,
     accent,
     primary,
-    primaryHover: isDark ? "#f472b6" : "#9d174d",
-    selection: isDark ? "rgba(244, 114, 182, 0.35)" : "rgba(219, 39, 119, 0.18)",
-    onAccent: "#ffffff",
-    surface: baseHex,
+    primaryHover,
+    selection,
+    onAccent,
+    surface,
     editorBg,
     raised,
     border,
-    hover: isDark ? raised : border,
+    hover,
     textColor,
     mutedColor,
-    syntax: isDark
-      ? DEFAULT_PINK_THEME.syntax!
-      : {
-          keyword: "#be185d",
-          controlKeyword: "#9d174d",
-          string: "#b45309",
-          number: "#047857",
-          comment: "#4b5563",
-          function: "#db2777",
-          variable: "#1d4ed8",
-          type: "#0e7490",
-          operator: "#db2777",
-          delimiter: "#475569",
-          lineHighlight: "#fce7f3",
-          cursor: "#be185d",
-        },
+    syntax,
   };
+}
+
+export async function extractDominantColorFromImage(imageUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !imageUrl) {
+      resolve("#ec4899");
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          resolve("#ec4899");
+          return;
+        }
+        const w = 48;
+        const h = 48;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h).data;
+
+        let bestColor = "#ec4899";
+        let bestScore = -1;
+
+        for (let i = 0; i < imgData.length; i += 4) {
+          const r = imgData[i]!;
+          const g = imgData[i + 1]!;
+          const b = imgData[i + 2]!;
+          const a = imgData[i + 3]!;
+          if (a < 128) continue;
+
+          const [, sVal, lVal] = rgbToHsl(r, g, b);
+          // Prioritize colorful pixels (high saturation, pleasant medium lightness)
+          const satScore = sVal * 2.8;
+          const lightScore = 1.0 - Math.abs(lVal - 0.55) * 2;
+          const score = satScore + lightScore;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestColor = rgbToHex(r, g, b);
+          }
+        }
+        resolve(bestColor);
+      } catch {
+        resolve("#ec4899");
+      }
+    };
+    img.onerror = () => resolve("#ec4899");
+    img.src = imageUrl;
+  });
 }
 
 export const THEME_COLOR_PRESETS: {
@@ -478,42 +608,13 @@ export function deriveColorVariants(hexColor: string): {
   selection: string;
   onAccent: string;
 } {
-  const cleanHex = hexColor.replace("#", "").trim();
-  if (cleanHex.length !== 6 && cleanHex.length !== 3) {
-    return {
-      accent: hexColor,
-      primary: hexColor,
-      primaryHover: hexColor,
-      selection: "rgba(244, 114, 182, 0.28)",
-      onAccent: "#ffffff",
-    };
-  }
-  const r = parseInt(
-    cleanHex.length === 3 ? cleanHex[0]! + cleanHex[0]! : cleanHex.slice(0, 2),
-    16,
-  );
-  const g = parseInt(
-    cleanHex.length === 3 ? cleanHex[1]! + cleanHex[1]! : cleanHex.slice(2, 4),
-    16,
-  );
-  const b = parseInt(
-    cleanHex.length === 3 ? cleanHex[2]! + cleanHex[2]! : cleanHex.slice(4, 6),
-    16,
-  );
-
-  const pr = Math.max(0, Math.floor(r * 0.85));
-  const pg = Math.max(0, Math.floor(g * 0.85));
-  const pb = Math.max(0, Math.floor(b * 0.85));
-  const primary = `#${pr.toString(16).padStart(2, "0")}${pg.toString(16).padStart(2, "0")}${pb.toString(16).padStart(2, "0")}`;
-
-  const hr = Math.min(255, Math.floor(r * 1.15));
-  const hg = Math.min(255, Math.floor(g * 1.15));
-  const hb = Math.min(255, Math.floor(b * 1.15));
-  const primaryHover = `#${hr.toString(16).padStart(2, "0")}${hg.toString(16).padStart(2, "0")}${hb.toString(16).padStart(2, "0")}`;
-
-  const selection = `rgba(${r}, ${g}, ${b}, 0.32)`;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const onAccent = luminance > 0.65 ? "#18212b" : "#ffffff";
+  const [r, g, b] = hexToRgb(hexColor);
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const luminance = getLuminance(hexColor);
+  const onAccent = luminance > 0.50 ? "#0f172a" : "#ffffff";
+  const primary = hslToHex(h, Math.min(1, s * 0.95), Math.max(0.25, Math.min(0.65, l * 0.9)));
+  const primaryHover = hslToHex(h, Math.min(1, s * 1.05), Math.max(0.35, Math.min(0.85, l * 1.15)));
+  const selection = hexToRgba(hexColor, 0.32);
 
   return { accent: hexColor, primary, primaryHover, selection, onAccent };
 }
@@ -601,26 +702,74 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
   const primaryHover = config.primaryHover || "#f472b6";
   const selection = config.selection || "rgba(244, 114, 182, 0.32)";
 
+  const surfaceRgba = hexToRgba(surface, config.bgOpacity ?? 0.82);
+  const editorRgba = hexToRgba(editorBg, Math.max(0.40, (config.bgOpacity ?? 0.82) - 0.06));
+  const raisedRgba = hexToRgba(raised, Math.min(0.95, (config.bgOpacity ?? 0.82) + 0.08));
+  const blurPx = `${config.blur ?? 10}px`;
+
   const wallpaperCss = config.backgroundImage
     ? `
+      :root[data-has-wallpaper="true"] body,
+      :root[data-has-wallpaper="true"] #root,
       :root[data-has-wallpaper="true"] .app-shell {
         background-image: url("${config.backgroundImage}") !important;
         background-size: cover !important;
         background-position: center !important;
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
+        background-color: transparent !important;
       }
       :root[data-has-wallpaper="true"] .workspace,
-      :root[data-has-wallpaper="true"] .center,
       :root[data-has-wallpaper="true"] .sidebar,
       :root[data-has-wallpaper="true"] .topbar,
       :root[data-has-wallpaper="true"] footer,
+      :root[data-has-wallpaper="true"] .files-panel,
+      :root[data-has-wallpaper="true"] .project-tree,
       :root[data-has-wallpaper="true"] .settings-page,
       :root[data-has-wallpaper="true"] .settings-body,
-      :root[data-has-wallpaper="true"] .settings-content {
-        background: rgba(40, 23, 36, ${config.bgOpacity ?? 0.85}) !important;
-        backdrop-filter: blur(${config.blur ?? 8}px) !important;
-        -webkit-backdrop-filter: blur(${config.blur ?? 8}px) !important;
+      :root[data-has-wallpaper="true"] .settings-content,
+      :root[data-has-wallpaper="true"] .settings-categories,
+      :root[data-has-wallpaper="true"] .device-panel,
+      :root[data-has-wallpaper="true"] .tool-content,
+      :root[data-has-wallpaper="true"] .problem-list,
+      :root[data-has-wallpaper="true"] .activity-list,
+      :root[data-has-wallpaper="true"] .bottom-tabs {
+        background: ${surfaceRgba} !important;
+        backdrop-filter: blur(${blurPx}) !important;
+        -webkit-backdrop-filter: blur(${blurPx}) !important;
+      }
+      :root[data-has-wallpaper="true"] .center,
+      :root[data-has-wallpaper="true"] .editor-stage,
+      :root[data-has-wallpaper="true"] .editor,
+      :root[data-has-wallpaper="true"] .welcome {
+        background: ${editorRgba} !important;
+        backdrop-filter: blur(${blurPx}) !important;
+        -webkit-backdrop-filter: blur(${blurPx}) !important;
+      }
+      :root[data-has-wallpaper="true"] .monaco-editor,
+      :root[data-has-wallpaper="true"] .monaco-editor .overflow-guard,
+      :root[data-has-wallpaper="true"] .monaco-editor .monaco-scrollable-element,
+      :root[data-has-wallpaper="true"] .monaco-editor .lines-content,
+      :root[data-has-wallpaper="true"] .monaco-editor-background,
+      :root[data-has-wallpaper="true"] .monaco-editor .margin,
+      :root[data-has-wallpaper="true"] .monaco-editor .margin-view-overlays,
+      :root[data-has-wallpaper="true"] .monaco-editor .glyph-margin {
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+      :root[data-has-wallpaper="true"] .card,
+      :root[data-has-wallpaper="true"] .setting-entry,
+      :root[data-has-wallpaper="true"] dialog,
+      :root[data-has-wallpaper="true"] .modal,
+      :root[data-has-wallpaper="true"] .modal-card {
+        background: ${raisedRgba} !important;
+        backdrop-filter: blur(${blurPx}) !important;
+        -webkit-backdrop-filter: blur(${blurPx}) !important;
+      }
+      :root[data-has-wallpaper="true"] .tab.active,
+      :root[data-has-wallpaper="true"] .project-tab[aria-selected="true"] {
+        background: ${editorRgba} !important;
+        color: var(--text) !important;
       }
     `
     : "";
@@ -728,7 +877,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
   const [theme, setTheme] = useState<CustomThemeConfig>(() => loadCustomTheme());
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [activeTab, setActiveTab] = useState<
-    "presets" | "background" | "syntax" | "fonts" | "import"
+    "presets" | "background" | "wallpaper" | "syntax" | "fonts" | "import"
   >("presets");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -782,12 +931,42 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
       baseColor,
       t("自訂色彩全域主題", "Custom Overall Theme"),
     );
-    setTheme(generated);
-    saveCustomTheme(generated);
+    const updated: CustomThemeConfig = {
+      ...generated,
+      backgroundImage: theme.backgroundImage ?? null,
+      ...(typeof theme.bgOpacity === "number" ? { bgOpacity: theme.bgOpacity } : {}),
+      ...(typeof theme.blur === "number" ? { blur: theme.blur } : {}),
+    };
+    setTheme(updated);
+    saveCustomTheme(updated);
     setStatusMessage(
       t(
-        `已由底色 ${baseColor} 自動生成並套用整機色彩風格！`,
-        `Generated and applied overall UI theme from base color ${baseColor}!`,
+        `已將背景拉黑並將強調色設為 ${baseColor}，套用整機色彩風格！`,
+        `Pulled background dark and set accent highlight to ${baseColor}!`,
+      ),
+    );
+  };
+
+  const handleExtractColorFromWallpaper = async () => {
+    if (!theme.backgroundImage) return;
+    setStatusMessage(t("正在從背景圖片提取色彩…", "Extracting dominant color from wallpaper…"));
+    const extractedColor = await extractDominantColorFromImage(theme.backgroundImage);
+    const generated = generateThemeFromBaseColor(
+      extractedColor,
+      t("桌布自動配搭主題", "Wallpaper Harmonized Theme"),
+    );
+    const updated: CustomThemeConfig = {
+      ...generated,
+      backgroundImage: theme.backgroundImage ?? null,
+      ...(typeof theme.bgOpacity === "number" ? { bgOpacity: theme.bgOpacity } : {}),
+      ...(typeof theme.blur === "number" ? { blur: theme.blur } : {}),
+    };
+    setTheme(updated);
+    saveCustomTheme(updated);
+    setStatusMessage(
+      t(
+        `已成功從桌布提取色彩 ${extractedColor}，並將背景拉黑、強調色套用至全境！🎨`,
+        `Extracted color ${extractedColor} from wallpaper, pulled backgrounds dark, and applied full immersion theme! 🎨`,
       ),
     );
   };
@@ -805,7 +984,7 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
       saveCustomTheme(pendingTheme);
       const messages: string[] = [];
       if (jsonProcessed) messages.push(t("已匯入主題 JSON 設定", "Imported theme JSON config"));
-      if (imageProcessed) messages.push(t("已載入主題背景圖片", "Loaded theme wallpaper image"));
+      if (imageProcessed) messages.push(t("已載入主題背景圖片並同步配色", "Loaded wallpaper & harmonized theme"));
       setStatusMessage(messages.join(" · ") || t("檔案處理完成", "Files processed successfully"));
     };
 
@@ -893,11 +1072,26 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
         reader.readAsText(file);
       } else if (isImage) {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const dataUrl = e.target?.result as string;
           if (dataUrl) {
             pendingTheme.backgroundImage = dataUrl;
             imageProcessed = true;
+            try {
+              const dominant = await extractDominantColorFromImage(dataUrl);
+              const generated = generateThemeFromBaseColor(
+                dominant,
+                locale === "zh-TW" ? "桌布自動配搭主題" : "Wallpaper Harmonized Theme",
+              );
+              Object.assign(pendingTheme, {
+                ...generated,
+                backgroundImage: dataUrl,
+                bgOpacity: pendingTheme.bgOpacity ?? 0.82,
+                blur: pendingTheme.blur ?? 10,
+              });
+            } catch {
+              // fallback
+            }
           }
           checkDone();
         };
@@ -1033,6 +1227,10 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
             key: "background" as const,
             label: t("🖼️ 整體背景與底色調整", "🖼️ Overall Background & Surfaces"),
           },
+          {
+            key: "wallpaper" as const,
+            label: t("🌄 背景圖片與毛玻璃效果", "🌄 Wallpaper & Frosted Glass"),
+          },
           { key: "syntax" as const, label: t("💻 代碼語法類型著色", "💻 Syntax Highlighting") },
           { key: "fonts" as const, label: t("🔤 字體與字體顏色", "🔤 Fonts & Typography") },
           { key: "import" as const, label: t("📁 檔案匯入／匯出", "📁 Import & Export") },
@@ -1160,19 +1358,19 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
           >
             <div>
               <strong style={{ fontSize: "14px", display: "block" }}>
-                {t("自選底色一鍵生成全體背景", "One-Click Whole-App Theme Generator")}
+                {t("自選強調色一鍵拉黑背景全境風格", "One-Click Theme Generator (Dark Surface & Custom Accent)")}
               </strong>
               <span style={{ fontSize: "12px", color: "var(--muted)" }}>
                 {t(
-                  "選擇任意底色，自動換算並深度套用到全體工作區、側邊欄、編輯器與文字！",
-                  "Pick any color; automatically scales to workspace, sidebar, editor & typography.",
+                  "選擇任意顏色，自動將工作區與編輯器背景拉黑帶淡色調，強調色即時同步，文字高對比不反白！",
+                  "Pick any color; automatically pulls backgrounds dark and matches accent highlight without white-on-white text.",
                 )}
               </span>
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
               <input
                 type="color"
-                value={(theme.surface || "#281724").startsWith("#") ? theme.surface! : "#281724"}
+                value={(theme.accent || "#ec4899").startsWith("#") ? theme.accent! : "#ec4899"}
                 onChange={(e) => handleBaseColorChange(e.target.value)}
                 style={{
                   width: "42px",
@@ -1282,6 +1480,205 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* TAB: Wallpaper & Frosted Glass Backdrop */}
+      {activeTab === "wallpaper" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div>
+            <h4
+              style={{
+                margin: "0 0 6px 0",
+                fontSize: "14px",
+                color: "var(--text)",
+                fontWeight: 650,
+              }}
+            >
+              {t(
+                "全體毛玻璃透明效果與自訂背景桌布",
+                "Full Frosted Glass Backdrop & Custom Wallpaper",
+              )}
+            </h4>
+            <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
+              {t(
+                "為代碼編輯器、側邊欄、標題欄與全境視窗套用現代質感毛玻璃模糊效果。上傳桌布後，支援一鍵智慧提取主色彩，並自動拉黑背景與同步強調色！",
+                "Apply frosted glass blur effect to code editor, sidebar, and all panels. Supports auto-extracting colors from wallpaper to pull backgrounds dark and sync accent highlights!",
+              )}
+            </p>
+          </div>
+
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleFilesChosen(e.dataTransfer.files);
+            }}
+            style={{
+              border: "2px dashed var(--border)",
+              borderRadius: "10px",
+              padding: "24px",
+              textAlign: "center",
+              background: "var(--raised)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "10px",
+              cursor: "pointer",
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <span style={{ fontSize: "32px" }}>🌄</span>
+            <strong style={{ fontSize: "14px" }}>
+              {t("點擊選取或拖曳背景圖片至此處", "Click to select or drag and drop wallpaper here")}
+            </strong>
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+              {t(
+                "支援格式：PNG、JPG、JPEG、WebP、SVG、GIF（載入後自動套用編輯器與全視窗毛玻璃）",
+                "Supported formats: PNG, JPG, WebP, SVG, GIF (auto-applies editor & panel frosted glass)",
+              )}
+            </span>
+          </div>
+
+          {theme.backgroundImage && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+                padding: "16px",
+                background: "var(--raised)",
+                border: "1px solid var(--border)",
+                borderRadius: "10px",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}
+              >
+                <strong style={{ fontSize: "14px" }}>
+                  {t("目前背景桌布與毛玻璃配置", "Current Wallpaper & Frosted Glass Settings")}
+                </strong>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={handleExtractColorFromWallpaper}
+                    style={{
+                      background: "var(--accent)",
+                      color: "var(--on-accent)",
+                      border: "none",
+                      borderRadius: "6px",
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 650,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    <span>🎨</span>
+                    <span>{t("根據此圖片自動生成主題配色", "Auto-extract Theme Color")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateThemeField("backgroundImage", null)}
+                    style={{
+                      color: "var(--error, #ef4444)",
+                      border: "1px solid var(--border)",
+                      background: "transparent",
+                      borderRadius: "6px",
+                      padding: "6px 10px",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t("移除背景圖片", "Remove Wallpaper")}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    width: "160px",
+                    height: "100px",
+                    borderRadius: "8px",
+                    backgroundImage: `url("${theme.backgroundImage}")`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    border: "1px solid var(--border)",
+                    flexShrink: 0,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+                  }}
+                />
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minWidth: "260px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      fontSize: "13px",
+                      color: "var(--text)",
+                    }}
+                  >
+                    <span style={{ minWidth: "130px" }}>
+                      {t("面板與編輯器透明度：", "Panel & Editor Opacity:")}
+                    </span>
+                    <input
+                      type="range"
+                      min="0.4"
+                      max="0.95"
+                      step="0.05"
+                      value={theme.bgOpacity ?? 0.82}
+                      onChange={(e) => updateThemeField("bgOpacity", parseFloat(e.target.value))}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ minWidth: "45px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                      {Math.round((theme.bgOpacity ?? 0.82) * 100)}%
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      fontSize: "13px",
+                      color: "var(--text)",
+                    }}
+                  >
+                    <span style={{ minWidth: "130px" }}>
+                      {t("背景毛玻璃模糊度：", "Backdrop Blur:")}
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="25"
+                      step="1"
+                      value={theme.blur ?? 10}
+                      onChange={(e) => updateThemeField("blur", parseInt(e.target.value, 10))}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ minWidth: "45px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                      {theme.blur ?? 10}px
+                    </span>
+                  </label>
+
+                  <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+                    {t(
+                      "💡 提示：編輯器主視窗已啟用穿透毛玻璃效果，可自由調低透明度以透出背景圖片！",
+                      "💡 Tip: Code editor has frosted glass enabled; reduce opacity to let wallpaper show through!",
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

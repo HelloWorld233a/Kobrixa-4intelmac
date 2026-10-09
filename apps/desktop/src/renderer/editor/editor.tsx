@@ -41,6 +41,7 @@ self.MonacoEnvironment = {
 
 export function defineKobrixaMonacoThemes(custom?: CustomThemeConfig): void {
   const cfg = custom ?? loadCustomTheme();
+  const hasWallpaper = Boolean(cfg.backgroundImage);
   for (const theme of ["light", "dark"] as const) {
     const isDarkEditor = isColorDark(cfg.editorBg || "#1e101b");
     monaco.editor.defineTheme(`kobrixa-${theme}`, {
@@ -48,8 +49,12 @@ export function defineKobrixaMonacoThemes(custom?: CustomThemeConfig): void {
       inherit: true,
       rules: basicPlusThemeRules(isDarkEditor, cfg.syntax),
       colors: {
-        "editor.background": cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff"),
-        "editorGutter.background": cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff"),
+        "editor.background": hasWallpaper
+          ? "#00000000"
+          : (cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff")),
+        "editorGutter.background": hasWallpaper
+          ? "#00000000"
+          : (cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff")),
         "editor.foreground": cfg.textColor || (isDarkEditor ? "#fdf2f8" : "#1e101b"),
         "editorLineNumber.foreground": cfg.mutedColor || (isDarkEditor ? "#d4a5be" : "#9d174d"),
         "editorLineNumber.activeForeground": cfg.accent || "#ec4899",
