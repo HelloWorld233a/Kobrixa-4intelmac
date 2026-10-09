@@ -211,18 +211,18 @@ export function generateThemeFromBaseColor(
   // The chosen base color becomes the accent highlight
   const accent = baseHex;
   // High-contrast text on accent: use dark text if accent is bright (prevents white-on-white)
-  const onAccent = luminance > 0.50 ? "#0f172a" : "#ffffff";
+  const onAccent = luminance > 0.5 ? "#0f172a" : "#ffffff";
   const primary = hslToHex(h, Math.min(1, s * 0.95), Math.max(0.25, Math.min(0.65, l * 0.9)));
   const primaryHover = hslToHex(h, Math.min(1, s * 1.05), Math.max(0.35, Math.min(0.85, l * 1.15)));
   const selection = hexToRgba(baseHex, 0.32);
 
   // Pull background surfaces dark ("背景要拉黑") based on the hue of the chosen color
-  const bgSat = Math.min(0.42, Math.max(0.10, s * 0.40));
+  const bgSat = Math.min(0.42, Math.max(0.1, s * 0.4));
   const surface = hslToHex(h, bgSat, 0.11);
   const editorBg = hslToHex(h, bgSat * 0.85, 0.07);
   const raised = hslToHex(h, bgSat * 1.1, 0.16);
   const border = hslToHex(h, bgSat * 1.25, 0.25);
-  const hover = hslToHex(h, bgSat * 1.15, 0.20);
+  const hover = hslToHex(h, bgSat * 1.15, 0.2);
 
   // High contrast text on dark background surfaces
   const textColor = "#f8fafc";
@@ -237,7 +237,7 @@ export function generateThemeFromBaseColor(
     comment: hslToHex(h, 0.25, 0.55),
     function: hslToHex((h + 300) % 360, 0.85, 0.72),
     variable: hslToHex((h + 180) % 360, 0.85, 0.75),
-    type: hslToHex((h + 210) % 360, 0.80, 0.75),
+    type: hslToHex((h + 210) % 360, 0.8, 0.75),
     operator: baseHex,
     delimiter: "#e2e8f0",
     lineHighlight: hslToHex(h, bgSat, 0.14),
@@ -611,7 +611,7 @@ export function deriveColorVariants(hexColor: string): {
   const [r, g, b] = hexToRgb(hexColor);
   const [h, s, l] = rgbToHsl(r, g, b);
   const luminance = getLuminance(hexColor);
-  const onAccent = luminance > 0.50 ? "#0f172a" : "#ffffff";
+  const onAccent = luminance > 0.5 ? "#0f172a" : "#ffffff";
   const primary = hslToHex(h, Math.min(1, s * 0.95), Math.max(0.25, Math.min(0.65, l * 0.9)));
   const primaryHover = hslToHex(h, Math.min(1, s * 1.05), Math.max(0.35, Math.min(0.85, l * 1.15)));
   const selection = hexToRgba(hexColor, 0.32);
@@ -703,7 +703,7 @@ export function applyCustomTheme(config: CustomThemeConfig = loadCustomTheme()):
   const selection = config.selection || "rgba(244, 114, 182, 0.32)";
 
   const surfaceRgba = hexToRgba(surface, config.bgOpacity ?? 0.82);
-  const editorRgba = hexToRgba(editorBg, Math.max(0.40, (config.bgOpacity ?? 0.82) - 0.06));
+  const editorRgba = hexToRgba(editorBg, Math.max(0.4, (config.bgOpacity ?? 0.82) - 0.06));
   const raisedRgba = hexToRgba(raised, Math.min(0.95, (config.bgOpacity ?? 0.82) + 0.08));
   const blurPx = `${config.blur ?? 10}px`;
 
@@ -984,7 +984,8 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
       saveCustomTheme(pendingTheme);
       const messages: string[] = [];
       if (jsonProcessed) messages.push(t("已匯入主題 JSON 設定", "Imported theme JSON config"));
-      if (imageProcessed) messages.push(t("已載入主題背景圖片並同步配色", "Loaded wallpaper & harmonized theme"));
+      if (imageProcessed)
+        messages.push(t("已載入主題背景圖片並同步配色", "Loaded wallpaper & harmonized theme"));
       setStatusMessage(messages.join(" · ") || t("檔案處理完成", "Files processed successfully"));
     };
 
@@ -1358,7 +1359,10 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
           >
             <div>
               <strong style={{ fontSize: "14px", display: "block" }}>
-                {t("自選強調色一鍵拉黑背景全境風格", "One-Click Theme Generator (Dark Surface & Custom Accent)")}
+                {t(
+                  "自選強調色一鍵拉黑背景全境風格",
+                  "One-Click Theme Generator (Dark Surface & Custom Accent)",
+                )}
               </strong>
               <span style={{ fontSize: "12px", color: "var(--muted)" }}>
                 {t(
@@ -1557,7 +1561,13 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
               }}
             >
               <div
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
               >
                 <strong style={{ fontSize: "14px" }}>
                   {t("目前背景桌布與毛玻璃配置", "Current Wallpaper & Frosted Glass Settings")}
@@ -1616,7 +1626,15 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                     boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
                   }}
                 />
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minWidth: "260px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                    flex: 1,
+                    minWidth: "260px",
+                  }}
+                >
                   <label
                     style={{
                       display: "flex",
@@ -1638,7 +1656,13 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                       onChange={(e) => updateThemeField("bgOpacity", parseFloat(e.target.value))}
                       style={{ flex: 1 }}
                     />
-                    <span style={{ minWidth: "45px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                    <span
+                      style={{
+                        minWidth: "45px",
+                        textAlign: "right",
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    >
                       {Math.round((theme.bgOpacity ?? 0.82) * 100)}%
                     </span>
                   </label>
@@ -1664,7 +1688,13 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
                       onChange={(e) => updateThemeField("blur", parseInt(e.target.value, 10))}
                       style={{ flex: 1 }}
                     />
-                    <span style={{ minWidth: "45px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                    <span
+                      style={{
+                        minWidth: "45px",
+                        textAlign: "right",
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    >
                       {theme.blur ?? 10}px
                     </span>
                   </label>

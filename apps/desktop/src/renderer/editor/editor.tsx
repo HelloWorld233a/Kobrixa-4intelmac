@@ -51,10 +51,10 @@ export function defineKobrixaMonacoThemes(custom?: CustomThemeConfig): void {
       colors: {
         "editor.background": hasWallpaper
           ? "#00000000"
-          : (cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff")),
+          : cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff"),
         "editorGutter.background": hasWallpaper
           ? "#00000000"
-          : (cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff")),
+          : cfg.editorBg || (isDarkEditor ? "#1e101b" : "#ffffff"),
         "editor.foreground": cfg.textColor || (isDarkEditor ? "#fdf2f8" : "#1e101b"),
         "editorLineNumber.foreground": cfg.mutedColor || (isDarkEditor ? "#d4a5be" : "#9d174d"),
         "editorLineNumber.activeForeground": cfg.accent || "#ec4899",
