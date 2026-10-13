@@ -1,4 +1,5 @@
 import { UpdatesPanel } from "../updates/updates.js";
+import { PluginsPanel } from "../plugins/plugins-panel.js";
 import {
   CustomThemePanel,
   loadCustomTheme,
@@ -237,7 +238,7 @@ export function SettingsPanel({
   onInstallUpdate(): void;
   keyboard: KeyboardSettings;
   requestedCategory: {
-    category: "appearance" | "theme" | "shortcuts" | "updates";
+    category: "appearance" | "theme" | "plugins" | "shortcuts" | "updates";
     request: number;
   };
   settings: Settings;
@@ -250,7 +251,9 @@ export function SettingsPanel({
 }): React.JSX.Element {
   const t = settingsCopy[settings.locale];
   const local = (zh: string, en: string) => (settings.locale === "zh-TW" ? zh : en);
-  const [category, setCategory] = useState<SettingsCategory | "all" | "shortcuts">("appearance");
+  const [category, setCategory] = useState<SettingsCategory | "all" | "shortcuts" | "plugins">(
+    "appearance",
+  );
   const [query, setQuery] = useState("");
   const [modified, setModified] = useState(false);
   const [defaults] = useState(() => defaultSettings(navigator.language));
@@ -452,7 +455,7 @@ export function SettingsPanel({
             </button>
           )}
         </div>
-        {category !== "shortcuts" && category !== "theme" && (
+        {category !== "shortcuts" && category !== "theme" && category !== "plugins" && (
           <p role="status">
             {local(`顯示 ${entries.length} 項設定`, `${entries.length} settings`)}
           </p>
@@ -510,6 +513,7 @@ export function SettingsPanel({
               "all",
               "appearance",
               "theme",
+              "plugins",
               "editor",
               "saving",
               "fileHistory",
@@ -528,13 +532,17 @@ export function SettingsPanel({
                 ? local("全部設定", "All settings")
                 : value === "shortcuts"
                   ? t.shortcuts
-                  : localText(CATEGORY_LABELS[value], settings.locale)}
+                  : value === "plugins"
+                    ? local("外掛與插件", "Plugins & Extensions")
+                    : localText(CATEGORY_LABELS[value], settings.locale)}
             </button>
           ))}
         </nav>
         <div className="settings-content" ref={content}>
           {category === "shortcuts" ? (
             active && <ShortcutsPanel keyboard={keyboard} locale={settings.locale} />
+          ) : category === "plugins" ? (
+            active && <PluginsPanel locale={settings.locale} />
           ) : (
             <>
               {entries.length === 0 && category !== "theme" && (
@@ -544,6 +552,14 @@ export function SettingsPanel({
                     "No matching settings. Try another keyword or clear the filters.",
                   )}
                 </p>
+              )}
+              {category === "all" && (
+                <section key="plugins" aria-labelledby="settings-plugins">
+                  <h2 id="settings-plugins">
+                    {local("外掛與插件 (.kbr)", "Plugins & Extensions (.kbr)")}
+                  </h2>
+                  <PluginsPanel locale={settings.locale} />
+                </section>
               )}
               {(Object.keys(CATEGORY_LABELS) as SettingsCategory[]).map((group) => {
                 if (group === "theme") {

@@ -5,9 +5,11 @@ import "./styles/index.css";
 import { applyAppearance } from "./settings/settings.js";
 import { settingsStore } from "./settings/settings-state.js";
 import { initializeEditorServices } from "./editor/monaco-services.js";
+import { initAllPlugins } from "./plugins/plugin-manager.js";
 
 initializeEditorServices();
 applyAppearance(settingsStore.getSnapshot().values, document.documentElement);
+initAllPlugins();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
