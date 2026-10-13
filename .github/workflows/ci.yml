@@ -3,7 +3,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, love14]
   pull_request:
   workflow_dispatch:
     inputs:

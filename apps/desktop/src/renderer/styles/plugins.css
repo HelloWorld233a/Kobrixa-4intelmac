@@ -1,4 +1,4 @@
-/* Kobrixa-4intelmac .kbr 插件管理介面樣式 */
+/* Kobrixa-4intelmac .kbr (TypeScript) 插件管理介面與插件專屬設置樣式 */
 
 .kbr-plugins-panel {
   display: flex;
@@ -57,6 +57,16 @@
 .kbr-btn-primary:hover {
   background: var(--primary-hover, #f472b6);
   border-color: var(--primary-hover, #f472b6);
+}
+
+.kbr-btn-settings {
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.kbr-btn-settings:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: #38bdf8;
 }
 
 .kbr-btn-danger {
@@ -157,6 +167,7 @@
 
 .kbr-plugin-title-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -180,13 +191,21 @@
   color: var(--muted, #d4a5be);
 }
 
+.kbr-badge-ts {
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  font-family: var(--font-mono, monospace);
+}
+
 .kbr-badge-status-running {
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.kbr-badge-status-stopped {
+.kbr-badge-status-stopped,
+.kbr-badge-status-idle {
   background: rgba(148, 163, 184, 0.15);
   color: #94a3b8;
   border: 1px solid rgba(148, 163, 184, 0.3);
@@ -228,6 +247,7 @@
 
 .kbr-card-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -235,7 +255,7 @@
   padding-top: 10px;
 }
 
-/* 編輯 Modal 樣式 */
+/* 編輯與插件設置 Modal 樣式 */
 .kbr-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -261,6 +281,10 @@
   overflow: hidden;
 }
 
+.kbr-settings-modal {
+  width: 680px;
+}
+
 .kbr-modal-header {
   display: flex;
   align-items: center;
@@ -284,6 +308,63 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.kbr-plugin-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kbr-settings-banner {
+  font-size: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: var(--text, #fdf2f8);
+  line-height: 1.5;
+}
+
+.kbr-setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--raised, #382032);
+  border: 1px solid var(--border, #562e4c);
+  border-radius: 8px;
+}
+
+.kbr-setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.kbr-setting-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #fdf2f8);
+}
+
+.kbr-setting-key {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--muted, #d4a5be);
+  font-weight: 400;
+}
+
+.kbr-setting-desc {
+  font-size: 12px;
+  color: var(--muted, #d4a5be);
+}
+
+.kbr-setting-control {
+  display: flex;
+  align-items: center;
 }
 
 .kbr-form-row {
@@ -326,7 +407,7 @@
 
 .kbr-code-editor {
   width: 100%;
-  height: 300px;
+  height: 320px;
   padding: 12px;
   font-family: var(--font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
@@ -386,6 +467,10 @@
   color: var(--muted, #d4a5be);
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .kbr-dropzone:hover,
