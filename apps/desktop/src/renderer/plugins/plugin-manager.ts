@@ -201,6 +201,27 @@ function removeInterfaceBlocks(code: string): string {
 }
 
 /**
+ * 將視覺化編輯的 PluginSettingField[] 同步寫回腳本的 `export const settingsSchema` 區塊
+ */
+export function syncSettingsSchemaIntoCode(code: string, schema: PluginSettingField[]): string {
+  const formattedSchema = JSON.stringify(schema, null, 2);
+  const blockCode = `export const settingsSchema: PluginSettingField[] = ${formattedSchema};`;
+
+  const existingRegex = /export\s+const\s+settingsSchema(?:\s*:\s*[^=]+)?\s*=\s*\[[\s\S]*?\];/;
+  if (existingRegex.test(code)) {
+    return code.replace(existingRegex, blockCode);
+  }
+
+  return `// ============================================================================
+// 🛠️ 插件設置區域 (Plugin Settings Schema)
+// 在此定義此插件可讓用家在「⚙️ 插件設置」介面修改的選項
+// ============================================================================
+${blockCode}
+
+${code}`;
+}
+
+/**
  * 檢查 TypeScript / JavaScript (.kbr) 插件語法是否正確
  * 支援 export function activate、export const settingsSchema、TypeScript 型別標註等
  */
@@ -306,7 +327,6 @@ export function setPluginSettingValue(
         }
       });
     } else if (manifest && manifest.enabled) {
-      // 若插件未註冊 onChange 監聽器，自動熱重載插件使新設置立即生效
       activatePlugin(manifest);
     }
   }
@@ -341,7 +361,7 @@ export function resetPluginSettings(pluginId: string): Record<string, PluginSett
   return defaults;
 }
 
-/** 讀取所有儲存的插件清單 */
+/** 讀取所有儲存的插件清單（自動升級舊版內建插件，確保 settingsSchema 與 TS 腳本存在） */
 export function loadSavedPlugins(): KobrixaPluginManifest[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -351,7 +371,27 @@ export function loadSavedPlugins(): KobrixaPluginManifest[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+      let migrated = false;
+      const upgraded = (parsed as KobrixaPluginManifest[]).map((item) => {
+        const builtin = BUILTIN_PLUGINS.find((b) => b.id === item.id);
+        if (
+          builtin &&
+          (item.version !== builtin.version ||
+            !item.settingsSchema ||
+            item.settingsSchema.length === 0)
+        ) {
+          migrated = true;
+          return {
+            ...builtin,
+            enabled: item.enabled,
+          };
+        }
+        return item;
+      });
+      if (migrated) {
+        savePlugins(upgraded);
+      }
+      return upgraded;
     }
     return [...BUILTIN_PLUGINS];
   } catch {
@@ -403,6 +443,57 @@ export function getPluginRuntimeStates(): PluginRuntimeState[] {
       settingsValues,
     };
   });
+}
+
+/**
+ * 智慧掛載與自動重連 DOM 輔助器：
+ * 當 App 剛啟動（React 尚未完成渲染 `.preferences` 或 `footer`）或切換畫面導致容器重繪時，
+ * 透過 MutationObserver 自動將插件元素掛載回目標容器中，徹底解決重開 App 需手動重啟插件的問題！
+ */
+function mountElementWithObserver(
+  containerSelector: string,
+  element: HTMLElement,
+  cleanupFns: (() => void)[],
+): () => void {
+  let disposed = false;
+
+  const tryMount = () => {
+    if (disposed) return;
+    const target = document.querySelector(containerSelector);
+    if (target) {
+      if (!target.contains(element)) {
+        target.appendChild(element);
+      }
+    } else if (containerSelector === "body" && document.body && !document.body.contains(element)) {
+      document.body.appendChild(element);
+    }
+  };
+
+  tryMount();
+
+  let observer: MutationObserver | null = null;
+  if (typeof MutationObserver !== "undefined" && document.body) {
+    observer = new MutationObserver(() => {
+      if (disposed) return;
+      const target = document.querySelector(containerSelector);
+      if (target && !target.contains(element)) {
+        target.appendChild(element);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  const cleanup = () => {
+    disposed = true;
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    element.remove();
+  };
+
+  cleanupFns.push(cleanup);
+  return cleanup;
 }
 
 /** 建立提供給插件的極致開放 Context */
@@ -460,37 +551,16 @@ function createPluginContext(
       addHeaderItem(id: string, element: HTMLElement) {
         element.dataset.kbrPlugin = manifest.id;
         element.dataset.kbrId = id;
-        const container = document.querySelector(".preferences") || document.body;
-        container.appendChild(element);
-
-        const cleanup = () => {
-          element.remove();
-        };
-        cleanupFns.push(cleanup);
-        return cleanup;
+        return mountElementWithObserver(".preferences", element, cleanupFns);
       },
       addStatusBarItem(id: string, element: HTMLElement) {
         element.dataset.kbrPlugin = manifest.id;
         element.dataset.kbrId = id;
-        const container = document.querySelector("footer") || document.body;
-        container.appendChild(element);
-
-        const cleanup = () => {
-          element.remove();
-        };
-        cleanupFns.push(cleanup);
-        return cleanup;
+        return mountElementWithObserver("footer", element, cleanupFns);
       },
       mountElement(containerSelector: string, element: HTMLElement) {
         element.dataset.kbrPlugin = manifest.id;
-        const target = document.querySelector(containerSelector) || document.body;
-        target.appendChild(element);
-
-        const cleanup = () => {
-          element.remove();
-        };
-        cleanupFns.push(cleanup);
-        return cleanup;
+        return mountElementWithObserver(containerSelector, element, cleanupFns);
       },
       showToast(message: string, type = "info") {
         const toast = document.createElement("div");
@@ -696,14 +766,24 @@ export function deletePlugin(pluginId: string): void {
   savePlugins(plugins);
 }
 
-/** 重新啟動/重載所有已啟用的插件 */
+/** 重新啟動/重載所有已啟用的插件（支援 DOM 渲染後自動執行與掛載） */
 export function initAllPlugins(): void {
-  const plugins = loadSavedPlugins();
-  plugins.forEach((p) => {
-    if (p.enabled) {
-      activatePlugin(p);
-    }
-  });
+  const runAll = () => {
+    const plugins = loadSavedPlugins();
+    plugins.forEach((p) => {
+      if (p.enabled) {
+        activatePlugin(p);
+      }
+    });
+  };
+
+  runAll();
+  // 若於頁面初次載入時呼叫，於下一幀 React 完成首屏渲染後確保所有狀態同步
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent(EVENT_CHANGE, { detail: loadSavedPlugins() }));
+    });
+  }
 }
 
 /** 恢復預設內建插件清單 */

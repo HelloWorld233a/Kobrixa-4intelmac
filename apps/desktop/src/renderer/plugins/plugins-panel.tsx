@@ -4,6 +4,7 @@ import type {
   KobrixaPluginManifest,
   PluginRuntimeState,
   PluginSettingField,
+  PluginSettingFieldType,
   PluginSettingValue,
 } from "./plugin-types.js";
 import {
@@ -18,6 +19,7 @@ import {
   resetToBuiltinPlugins,
   saveOrUpdatePlugin,
   setPluginSettingValue,
+  syncSettingsSchemaIntoCode,
   togglePlugin,
 } from "./plugin-manager.js";
 
@@ -59,26 +61,26 @@ const DEFAULT_PLUGIN_TEMPLATE: KobrixaPluginManifest = {
 // ============================================================================
 export const settingsSchema: PluginSettingField[] = [
   {
-    key: "bannerText",
-    label: "顯示文字 (Banner Text)",
-    type: "string",
-    default: "Hello from TypeScript .kbr!",
-    description: "插件啟動時彈出或顯示的自訂文字",
+    "key": "bannerText",
+    "label": "顯示文字 (Banner Text)",
+    "type": "string",
+    "default": "Hello from TypeScript .kbr!",
+    "description": "插件啟動時彈出或顯示的自訂文字"
   },
   {
-    key: "badgeColor",
-    label: "強調顏色 (Accent Color)",
-    type: "color",
-    default: "#ec4899",
-    description: "自訂元件的背景或邊框主題色",
+    "key": "badgeColor",
+    "label": "強調顏色 (Accent Color)",
+    "type": "color",
+    "default": "#ec4899",
+    "description": "自訂元件的背景或邊框主題色"
   },
   {
-    key: "enableToast",
-    label: "啟動時顯示通知 (Show Toast)",
-    type: "boolean",
-    default: true,
-    description: "是否在插件載入時彈出歡迎提示",
-  },
+    "key": "enableToast",
+    "label": "啟動時顯示通知 (Show Toast)",
+    "type": "boolean",
+    "default": true,
+    "description": "是否在插件載入時彈出歡迎提示"
+  }
 ];
 
 // ============================================================================
@@ -135,8 +137,8 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
     all: isZh ? "全部" : "All",
     enabled: isZh ? "已啟用" : "Enabled",
     disabled: isZh ? "已停用" : "Disabled",
-    settingsBtn: isZh ? "插件設置" : "Plugin Settings",
-    edit: isZh ? "編輯 TS 代碼" : "Edit TS Code",
+    edit: isZh ? "編輯代碼" : "Edit Code",
+    settingsBtn: isZh ? "設置" : "Settings",
     export: isZh ? "匯出 .kbr" : "Export .kbr",
     delete: isZh ? "刪除" : "Delete",
     confirmDelete: isZh ? "確定要刪除此插件嗎？" : "Are you sure you want to delete this plugin?",
@@ -390,7 +392,7 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
                           {" "}
                           ·{" "}
                           {isZh
-                            ? `🛠️ 內含 ${settingsSchema.length} 項可調設置`
+                            ? `🛠️ ${settingsSchema.length} 項可調設置`
                             : `🛠️ ${settingsSchema.length} configurable settings`}
                         </span>
                       )}
@@ -428,7 +430,16 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
                 </div>
               )}
 
+              {/* 按鈕順序：編輯代碼 -> 設置 (在編輯代碼與匯出中間) -> 匯出 .kbr -> 刪除 */}
               <div className="kbr-card-footer">
+                <button
+                  type="button"
+                  className="kbr-btn"
+                  onClick={() => setEditingPlugin({ ...manifest })}
+                >
+                  <span>✏️</span>
+                  {t.edit}
+                </button>
                 <button
                   type="button"
                   className="kbr-btn kbr-btn-settings"
@@ -437,14 +448,6 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
                   <span>⚙️</span>
                   {t.settingsBtn}
                   {settingsSchema.length > 0 ? ` (${settingsSchema.length})` : ""}
-                </button>
-                <button
-                  type="button"
-                  className="kbr-btn"
-                  onClick={() => setEditingPlugin({ ...manifest })}
-                >
-                  <span>✏️</span>
-                  {t.edit}
                 </button>
                 <button type="button" className="kbr-btn" onClick={() => handleExport(manifest)}>
                   <span>📤</span>
@@ -481,7 +484,7 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
         />
       )}
 
-      {/* 編輯/建立插件代碼 Modal */}
+      {/* 編輯/建立插件代碼 Modal（內含視覺化專屬設置區與 TS 腳本編輯器） */}
       {editingPlugin && (
         <PluginEditModal
           plugin={editingPlugin}
@@ -537,19 +540,19 @@ function PluginSettingsModal({
             <div className="kbr-dropzone">
               <p>
                 {isZh
-                  ? "此插件目前尚未在腳本的「🛠️ 插件設置區域 (settingsSchema)」定義可調項目。"
-                  : "This plugin has not defined any configurable fields in its settingsSchema section yet."}
+                  ? "此插件目前尚未定義可調設置項目。您可以點擊下方按鈕進入「編輯代碼」的專屬設置區新增！"
+                  : "This plugin has no configurable settings yet. Click below to add settings in the Edit Code modal!"}
               </p>
               <button type="button" className="kbr-btn kbr-btn-primary" onClick={onOpenCodeEditor}>
-                ✏️ {isZh ? "前往腳本新增設置項目" : "Add Settings in Script"}
+                ✏️ {isZh ? "前往「編輯代碼」新增專屬設置" : "Add Settings in Edit Code"}
               </button>
             </div>
           ) : (
             <div className="kbr-plugin-settings-list">
               <div className="kbr-settings-banner">
                 {isZh
-                  ? "💡 以下設置項目由插件腳本內的「🛠️ 插件設置區域 (export const settingsSchema)」自動生成，修改後立即生效！"
-                  : "💡 These settings are generated from the plugin script's `settingsSchema` region and take effect immediately!"}
+                  ? "💡 以下設置項目與「✏️ 編輯代碼」內的專屬設置區 (`settingsSchema`) 即時連動，修改後立即生效！"
+                  : "💡 These settings sync with the `settingsSchema` region in Edit Code and apply immediately!"}
               </div>
               {schema.map((field: PluginSettingField) => {
                 const currentVal = values[field.key] ?? field.default;
@@ -633,7 +636,7 @@ function PluginSettingsModal({
             </button>
           )}
           <button type="button" className="kbr-btn" onClick={onOpenCodeEditor}>
-            ✏️ {isZh ? "編輯腳本與設置定義" : "Edit Script & Schema"}
+            ✏️ {isZh ? "進入「編輯代碼」管理設置定義" : "Manage Schema in Edit Code"}
           </button>
           <button type="button" className="kbr-btn kbr-btn-primary" onClick={onClose}>
             {isZh ? "完成" : "Done"}
@@ -644,6 +647,10 @@ function PluginSettingsModal({
   );
 }
 
+/**
+ * 編輯代碼視窗 (PluginEditModal)
+ * 內建視覺化「🛠️ 插件專屬設置區 (Plugin Settings Schema & Values)」與 TypeScript 腳本編輯器雙向同步
+ */
 function PluginEditModal({
   plugin,
   locale,
@@ -656,10 +663,53 @@ function PluginEditModal({
   onClose(): void;
 }): React.JSX.Element {
   const isZh = locale === "zh-TW";
-  const [form, setForm] = useState<KobrixaPluginManifest>({ ...plugin });
+  const [form, setForm] = useState<KobrixaPluginManifest>(() => ({
+    ...plugin,
+    settingsSchema: extractPluginSettingsSchema(plugin),
+  }));
+  const [liveValues, setLiveValues] = useState<Record<string, PluginSettingValue>>(() =>
+    getPluginSettingsValues(plugin),
+  );
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const detectedSchema = extractPluginSettingsSchema(form);
+  const schemaList: PluginSettingField[] = form.settingsSchema ?? extractPluginSettingsSchema(form);
+
+  const updateSchemaAndSyncCode = (nextSchema: PluginSettingField[]) => {
+    const syncedCode = syncSettingsSchemaIntoCode(form.code, nextSchema);
+    setForm({
+      ...form,
+      settingsSchema: nextSchema,
+      code: syncedCode,
+    });
+  };
+
+  const handleAddSettingField = () => {
+    const newField: PluginSettingField = {
+      key: `option_${(schemaList.length + 1).toString()}`,
+      label: isZh
+        ? `自訂設置項目 ${schemaList.length + 1}`
+        : `Custom Option ${schemaList.length + 1}`,
+      type: "string",
+      default: isZh ? "預設值" : "default",
+      description: isZh ? "可讓用家在插件設置中修改的參數" : "Configurable plugin parameter",
+    };
+    updateSchemaAndSyncCode([...schemaList, newField]);
+  };
+
+  const handleUpdateSettingField = (index: number, patch: Partial<PluginSettingField>) => {
+    const next = schemaList.map((item, idx) => (idx === index ? { ...item, ...patch } : item));
+    updateSchemaAndSyncCode(next);
+  };
+
+  const handleRemoveSettingField = (index: number) => {
+    const next = schemaList.filter((_, idx) => idx !== index);
+    updateSchemaAndSyncCode(next);
+  };
+
+  const handleLiveValueChange = (key: string, val: PluginSettingValue) => {
+    const updated = setPluginSettingValue(form.id, key, val);
+    setLiveValues({ ...updated });
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Tab") {
@@ -675,34 +725,6 @@ function PluginEditModal({
     }
   };
 
-  const insertSettingFieldTemplate = () => {
-    const fieldSnippet = `  {
-    key: "customOption_${Date.now().toString(36).slice(-3)}",
-    label: "自訂選項名稱",
-    type: "string",
-    default: "預設內容",
-    description: "說明此插件設置的作用",
-  },\n`;
-
-    if (form.code.includes("settingsSchema")) {
-      const updated = form.code.replace(
-        /(export\s+const\s+settingsSchema[^=]*=\s*\[\s*\n?)/,
-        `$1${fieldSnippet}`,
-      );
-      setForm({ ...form, code: updated });
-    } else {
-      const schemaRegion = `// ============================================================================
-// 🛠️ 插件設置區域 (Plugin Settings Schema)
-// 在此定義此插件可讓用家在「⚙️ 插件設置」介面修改的選項
-// ============================================================================
-export const settingsSchema: PluginSettingField[] = [
-${fieldSnippet}];
-
-`;
-      setForm({ ...form, code: schemaRegion + form.code });
-    }
-  };
-
   return (
     <div className="kbr-modal-backdrop" onClick={onClose}>
       <div className="kbr-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -710,8 +732,8 @@ ${fieldSnippet}];
           <h3>
             {form.icon || "⚙️"}{" "}
             {isZh
-              ? `編輯 TypeScript (.kbr) 插件代碼 - ${form.name}`
-              : `Edit TypeScript (.kbr) Plugin - ${form.name}`}
+              ? `編輯代碼與專屬設置區 (TypeScript .kbr) — ${form.name}`
+              : `Edit Code & Settings Schema (TypeScript .kbr) — ${form.name}`}
           </h3>
           <button type="button" className="kbr-btn" onClick={onClose}>
             ✕
@@ -719,6 +741,7 @@ ${fieldSnippet}];
         </div>
 
         <div className="kbr-modal-body">
+          {/* 基本資訊區 */}
           <div className="kbr-form-row">
             <div className="kbr-form-group">
               <label className="kbr-form-label">{isZh ? "唯一標識 (ID)" : "Plugin ID"}</label>
@@ -772,77 +795,191 @@ ${fieldSnippet}];
             />
           </div>
 
-          <details className="kbr-api-docs">
-            <summary>
-              {isZh
-                ? "📖 點此查看 TypeScript (.kbr) 插件設置區域與極致開放 API 指引"
-                : "📖 TypeScript (.kbr) Settings Schema & Open API Reference"}
-            </summary>
-            <div style={{ marginTop: "10px", lineHeight: "1.7" }}>
-              <p>
-                <strong>{isZh ? "1. 腳本內插件設置區域：" : "1. Script Settings Region: "}</strong>
-                {isZh
-                  ? "在腳本頂部定義 `export const settingsSchema: PluginSettingField[] = [...]`，系統會自動在插件卡片的「⚙️ 插件設置」生成圖形化控制面板！"
-                  : "Define `export const settingsSchema: PluginSettingField[] = [...]` at the top of your script to auto-generate the graphical settings UI!"}
-              </p>
-              <ul>
-                <li>
-                  <code>context.settings.get&lt;T&gt;(key, defaultVal)</code>：
-                  {isZh ? "讀取此插件的當前設置值" : "Read current plugin setting value"}
-                </li>
-                <li>
-                  <code>context.settings.onChange((values) =&gt; ...)</code>：
-                  {isZh
-                    ? "當用家修改「⚙️ 插件設置」時即時觸發回調"
-                    : "Listen to live setting changes"}
-                </li>
-                <li>
-                  <code>context.ui.injectStyle(id, css)</code>：
-                  {isZh
-                    ? "動態注入 CSS 樣式，停用時自動還原"
-                    : "Inject CSS rules with auto-cleanup"}
-                </li>
-                <li>
-                  <code>context.ui.mountElement(selector, element)</code>：
-                  {isZh ? "將 DOM 節點掛載到任意容器中" : "Mount custom DOM element anywhere"}
-                </li>
-                <li>
-                  <code>context.ui.showToast(message, type)</code>：
-                  {isZh ? "彈出即時通知浮窗" : "Show toast message"}
-                </li>
-              </ul>
-            </div>
-          </details>
-
-          <div className="kbr-code-wrapper">
+          {/* 編輯代碼內建：🛠️ 插件專屬設置區 (視覺化新增/修改設置項目 + 即時改值 + 自動同步至下方腳本) */}
+          <div className="kbr-api-docs" style={{ padding: "14px" }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: "8px",
+                marginBottom: "10px",
               }}
             >
-              <label className="kbr-form-label">
-                {isZh
-                  ? `TypeScript 插件原始碼 (.kbr) — 已偵測到 ${detectedSchema.length} 項插件設置`
-                  : `TypeScript Plugin Source (.kbr) — ${detectedSchema.length} settings detected`}
-              </label>
+              <div>
+                <strong style={{ color: "var(--accent, #ec4899)", fontSize: "13px" }}>
+                  🛠️{" "}
+                  {isZh
+                    ? `插件專屬設置區 (共 ${schemaList.length} 項可調設置 — 自動同步至下方 TS 腳本)`
+                    : `Plugin Dedicated Settings Region (${schemaList.length} fields — auto-synced to TS script)`}
+                </strong>
+                <div style={{ fontSize: "11px", color: "var(--muted, #d4a5be)", marginTop: "2px" }}>
+                  {isZh
+                    ? "在此定義或修改插件的設置項目，下方 TypeScript 腳本內的 `export const settingsSchema` 區域會自動同步更新！"
+                    : "Define or edit plugin settings here; the `export const settingsSchema` region in the TS script below updates automatically!"}
+                </div>
+              </div>
               <button
                 type="button"
-                className="kbr-btn"
-                style={{ padding: "3px 10px", fontSize: "12px" }}
-                onClick={insertSettingFieldTemplate}
+                className="kbr-btn kbr-btn-primary"
+                style={{ padding: "4px 12px", fontSize: "12px" }}
+                onClick={handleAddSettingField}
               >
-                ➕ {isZh ? "在腳本插入新設置項目" : "Insert Setting Field in Script"}
+                ➕ {isZh ? "新增設置項目" : "Add Setting Field"}
               </button>
             </div>
+
+            {schemaList.length === 0 ? (
+              <div style={{ fontSize: "12px", color: "var(--muted, #d4a5be)", padding: "6px 0" }}>
+                {isZh
+                  ? "目前尚未定義設置項目，點擊右上角「➕ 新增設置項目」即可為此插件建立專屬設置！"
+                  : "No setting fields defined yet. Click '+ Add Setting Field' to add one!"}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {schemaList.map((field, idx) => {
+                  const currentLiveVal = liveValues[field.key] ?? field.default;
+                  return (
+                    <div
+                      key={`${field.key}-${idx}`}
+                      className="kbr-setting-item"
+                      style={{ flexWrap: "wrap", gap: "8px", padding: "10px 12px" }}
+                    >
+                      <input
+                        className="kbr-form-input"
+                        style={{ width: "130px", fontSize: "12px" }}
+                        placeholder="鍵名 (key)"
+                        title={isZh ? "腳本讀取用的鍵名 (key)" : "Setting Key"}
+                        value={field.key}
+                        onChange={(e) =>
+                          handleUpdateSettingField(idx, { key: e.target.value.trim() })
+                        }
+                      />
+                      <input
+                        className="kbr-form-input"
+                        style={{ width: "170px", fontSize: "12px" }}
+                        placeholder="顯示名稱 (label)"
+                        title={isZh ? "設置介面顯示的名稱" : "Display Label"}
+                        value={field.label}
+                        onChange={(e) => handleUpdateSettingField(idx, { label: e.target.value })}
+                      />
+                      <select
+                        className="kbr-form-input"
+                        style={{ width: "105px", fontSize: "12px" }}
+                        value={field.type}
+                        onChange={(e) => {
+                          const nextType = e.target.value as PluginSettingFieldType;
+                          const nextDefault: PluginSettingValue =
+                            nextType === "boolean"
+                              ? true
+                              : nextType === "number"
+                                ? 10
+                                : nextType === "color"
+                                  ? "#ec4899"
+                                  : "";
+                          handleUpdateSettingField(idx, {
+                            type: nextType,
+                            default: nextDefault,
+                          });
+                        }}
+                      >
+                        <option value="string">{isZh ? "文字 (string)" : "string"}</option>
+                        <option value="number">{isZh ? "數值 (number)" : "number"}</option>
+                        <option value="boolean">{isZh ? "開關 (boolean)" : "boolean"}</option>
+                        <option value="color">{isZh ? "顏色 (color)" : "color"}</option>
+                      </select>
+
+                      {/* 預設值與即時當前值調整 */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          flex: 1,
+                          minWidth: "160px",
+                        }}
+                      >
+                        <span style={{ fontSize: "11px", color: "var(--muted, #d4a5be)" }}>
+                          {isZh ? "當前值:" : "Value:"}
+                        </span>
+                        {field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(currentLiveVal)}
+                            onChange={(e) => {
+                              handleUpdateSettingField(idx, { default: e.target.checked });
+                              handleLiveValueChange(field.key, e.target.checked);
+                            }}
+                          />
+                        ) : field.type === "color" ? (
+                          <input
+                            type="color"
+                            value={String(currentLiveVal)}
+                            onChange={(e) => {
+                              handleUpdateSettingField(idx, { default: e.target.value });
+                              handleLiveValueChange(field.key, e.target.value);
+                            }}
+                          />
+                        ) : field.type === "number" ? (
+                          <input
+                            type="number"
+                            className="kbr-form-input"
+                            style={{ width: "85px", fontSize: "12px" }}
+                            value={Number(currentLiveVal)}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              handleUpdateSettingField(idx, { default: n });
+                              handleLiveValueChange(field.key, n);
+                            }}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            className="kbr-form-input"
+                            style={{ flex: 1, fontSize: "12px" }}
+                            value={String(currentLiveVal)}
+                            onChange={(e) => {
+                              handleUpdateSettingField(idx, { default: e.target.value });
+                              handleLiveValueChange(field.key, e.target.value);
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="kbr-btn kbr-btn-danger"
+                        style={{ padding: "4px 8px", fontSize: "11px" }}
+                        onClick={() => handleRemoveSettingField(idx)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="kbr-code-wrapper">
+            <label className="kbr-form-label">
+              {isZh
+                ? "TypeScript 插件原始碼 (.kbr) — 頂部包含 `export const settingsSchema` 設置區域"
+                : "TypeScript Plugin Source (.kbr) — includes `export const settingsSchema` region"}
+            </label>
             <textarea
               className="kbr-code-editor"
               value={form.code}
               spellCheck={false}
               onKeyDown={handleKeyDown}
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              onChange={(e) => {
+                const nextCode = e.target.value;
+                const extracted = extractPluginSettingsSchema({ ...form, code: nextCode });
+                setForm({
+                  ...form,
+                  code: nextCode,
+                  ...(extracted.length > 0 ? { settingsSchema: extracted } : {}),
+                });
+              }}
             />
           </div>
 

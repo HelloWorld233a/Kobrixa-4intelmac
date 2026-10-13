@@ -9,10 +9,12 @@ import { initAllPlugins } from "./plugins/plugin-manager.js";
 
 initializeEditorServices();
 applyAppearance(settingsStore.getSnapshot().values, document.documentElement);
-initAllPlugins();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
   </StrictMode>,
 );
+
+// 在 React 根節點掛載後啟動所有已啟用的插件，並由 MutationObserver 確保跨頁面切換自動掛載
+initAllPlugins();
