@@ -44,7 +44,7 @@ describe("renderer CSP", () => {
       "wss://collab.kobrixa.com",
     ]);
     expect(policy).toBe(
-      "default-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src https://collab.kobrixa.com wss://collab.kobrixa.com",
+      "default-src 'self' data: blob:; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src https://collab.kobrixa.com wss://collab.kobrixa.com",
     );
     expect(
       directive(rendererContentSecurityPolicy("http://127.0.0.1:8787", false), "connect-src"),

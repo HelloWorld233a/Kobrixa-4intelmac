@@ -12,5 +12,5 @@ export function rendererContentSecurityPolicy(collabServerUrl: string, dev: bool
   const collab = collabConnectSources(collabServerUrl);
   return dev
     ? `default-src 'self' 'unsafe-inline' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' data: blob: ws: ${collab}`
-    : `default-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src ${collab}`;
+    : `default-src 'self' data: blob:; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src ${collab}`;
 }
