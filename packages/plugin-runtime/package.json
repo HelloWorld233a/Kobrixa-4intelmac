@@ -1,6 +1,6 @@
 {
   "name": "@kobrixa/plugin-runtime",
-  "version": "1.0.1-beta.1",
+  "version": "0.1.0-v1-candidate.14",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

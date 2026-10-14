@@ -14,7 +14,10 @@ def _valid_header_line(line: str) -> bool:
 
 
 def encode(text: str) -> bytes:
-    body = text.encode("utf-8")
+    try:
+        body = text.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise FramingError("Message body is not valid UTF-8.") from error
     if len(body) > MAX_MESSAGE_BYTES:
         raise FramingError("Message exceeds 1 MiB.")
     return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body

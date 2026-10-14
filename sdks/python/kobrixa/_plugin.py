@@ -1,7 +1,9 @@
 """Python plugin runtime: JSON-RPC 2.0 over stdio with Content-Length framing."""
 import asyncio
+import inspect
 import json
 import os
+import re
 import sys
 import threading
 
@@ -11,6 +13,23 @@ from ._schema import SchemaError, Validator
 API_VERSION = "1.0.0"
 SDK_VERSION = "0.1.0"
 _CANCELLED, _INVALID_PARAMS, _METHOD_NOT_FOUND, _INTERNAL = -32800, -32602, -32601, -32603
+_CONTROL_CHARS = re.compile(r"[\u0000-\u001f\u007f]+")
+
+# Reserve the original binary stdout immediately on import so top-level print() calls before
+# Plugin() or plugin.run() go to stderr instead of corrupting the Content-Length stream.
+_PROTOCOL_OUTPUT = getattr(sys.stdout, "buffer", None)
+if _PROTOCOL_OUTPUT is not None and sys.stdout is not sys.stderr:
+    sys.stdout = sys.stderr
+
+
+def _task_key(request_id):
+    return (type(request_id), request_id)
+
+
+def _sanitize_error_message(text: str, fallback: str = "Plugin error") -> str:
+    safe_utf8 = text.encode("utf-8", "replace").decode("utf-8")
+    single_line = _CONTROL_CHARS.sub(" ", safe_utf8).strip()
+    return (single_line or fallback)[:2000]
 
 
 class RpcError(Exception):
@@ -36,6 +55,8 @@ class CommandContext:
 
 class Plugin:
     def __init__(self) -> None:
+        if sys.stdout is not sys.stderr:
+            sys.stdout = sys.stderr
         self.plugin_id = ""
         self.locale = "en"
         self._commands = {}
@@ -47,14 +68,18 @@ class Plugin:
 
     def command(self, command_id: str):
         def register(handler):
-            if not asyncio.iscoroutinefunction(handler):
+            if not inspect.iscoroutinefunction(handler):
                 raise TypeError("Kobrixa command handlers must be async functions.")
             self._commands[command_id] = handler
             return handler
         return register
 
     def run(self) -> None:
-        output = sys.stdout.buffer
+        output = (
+            sys.stdout.buffer
+            if sys.stdout is not sys.stderr and hasattr(sys.stdout, "buffer")
+            else _PROTOCOL_OUTPUT
+        )
         sys.stdout = sys.stderr
         asyncio.run(self._main(sys.stdin.fileno(), output))
 
@@ -91,13 +116,19 @@ class Plugin:
         if self._stopping:
             return
         try:
-            self._output.write(encode(json.dumps(message, ensure_ascii=False, separators=(",", ":"))))
+            payload = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
+            frame = encode(payload)
+        except (FramingError, TypeError, ValueError) as error:
+            print(f"kobrixa: dropped unencodable outgoing message: {error}", file=sys.stderr)
+            return
+        try:
+            self._output.write(frame)
             self._output.flush()
         except (OSError, ValueError):
             self._stopping = True
 
     def _finished(self, request_id, method: str, task: "asyncio.Future") -> None:
-        self._tasks.pop(request_id, None)
+        self._tasks.pop(_task_key(request_id), None)
         if task.cancelled():
             self._send({"jsonrpc": "2.0", "id": request_id,
                         "error": {"code": _CANCELLED, "message": f"{method} was cancelled."}})
@@ -112,17 +143,26 @@ class Plugin:
         if "method" in message and "id" in message:
             request_id, method = message["id"], message["method"]
             task = asyncio.ensure_future(self._handle(message))
-            self._tasks[request_id] = task
+            self._tasks[_task_key(request_id)] = task
             task.add_done_callback(lambda done: self._finished(request_id, method, done))
         elif "method" in message:
-            if message["method"] == "$/cancelRequest":
-                task = self._tasks.get(message.get("params", {}).get("id"))
+            method = message["method"]
+            if not self._validator.has(f"{method}.params"):
+                print(f"kobrixa: ignored unknown notification {method}", file=sys.stderr)
+                return
+            try:
+                self._validator.validate(f"{method}.params", message.get("params"))
+            except SchemaError as error:
+                print(f"kobrixa: ignored invalid notification {method}: {error}", file=sys.stderr)
+                return
+            if method == "$/cancelRequest":
+                task = self._tasks.get(_task_key(message["params"]["id"]))
                 if task:
                     task.cancel()
-            elif message["method"] == "exit":
+            elif method == "exit":
                 self._stopping = True
         else:
-            future = self._pending.pop(message["id"], None)
+            future = self._pending.pop(_task_key(message["id"]), None)
             if future and not future.done():
                 future.set_result(message)
 
@@ -143,10 +183,10 @@ class Plugin:
                         "error": {"code": _CANCELLED, "message": f"{method} was cancelled."}})
         except RpcError as error:
             self._send({"jsonrpc": "2.0", "id": request_id,
-                        "error": {"code": error.code, "message": str(error)[:2000]}})
+                        "error": {"code": error.code, "message": _sanitize_error_message(str(error))}})
         except Exception as error:  # noqa: BLE001
             self._send({"jsonrpc": "2.0", "id": request_id,
-                        "error": {"code": _INTERNAL, "message": str(error)[:2000] or type(error).__name__}})
+                        "error": {"code": _INTERNAL, "message": _sanitize_error_message(str(error), type(error).__name__)}})
 
     async def _dispatch(self, method: str, params: dict):
         if method == "initialize":
@@ -167,12 +207,12 @@ class Plugin:
         request_id = self._next_id
         self._next_id += 1
         future = self._loop.create_future()
-        self._pending[request_id] = future
+        self._pending[_task_key(request_id)] = future
         self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
         try:
             reply = await asyncio.wait_for(future, 10)
         finally:
-            self._pending.pop(request_id, None)
+            self._pending.pop(_task_key(request_id), None)
         if "error" in reply:
             raise RpcError(reply["error"]["code"], reply["error"]["message"])
         self._validator.validate(f"{method}.result", reply["result"])

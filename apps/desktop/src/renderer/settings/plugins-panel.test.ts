@@ -127,3 +127,15 @@ it("explains how to load development plugins and safe mode", async () => {
   expect(container.textContent).toContain("--plugin-dev-dir");
   expect(container.textContent).toContain("安全模式");
 });
+
+it("shows an alert instead of hanging on loading when IPC state() or execute() rejects", async () => {
+  api.state.mockRejectedValueOnce(new Error("ipc channel closed"));
+  await render();
+  expect(container.textContent).not.toContain("正在載入插件…");
+  expect(container.querySelector("[role=alert]")?.textContent).toContain("ipc channel closed");
+
+  await act(async () => emit({ type: "state", state: snapshot }));
+  api.execute.mockRejectedValueOnce(new Error("execute ipc rejected"));
+  await act(async () => button("打招呼").click());
+  expect(container.querySelector("[role=alert]")?.textContent).toContain("execute ipc rejected");
+});

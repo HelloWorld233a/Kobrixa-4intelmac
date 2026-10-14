@@ -85,6 +85,8 @@ class Validator:
                 return [f"{path}: expected {schema['type']}"]
         errors = []
         if isinstance(value, str):
+            if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):
+                errors.append(f"{path}: contains unpaired UTF-16 surrogate")
             length = len(value)
             if length < schema.get("minLength", 0) or length > schema.get("maxLength", length):
                 errors.append(f"{path}: length {length} is out of range")

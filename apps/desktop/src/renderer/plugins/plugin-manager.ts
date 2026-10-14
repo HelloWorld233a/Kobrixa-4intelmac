@@ -23,6 +23,18 @@ interface ActivePluginInstance {
 }
 
 const activePlugins = new Map<string, ActivePluginInstance>();
+let kbrSafeMode = false;
+
+export function isKbrSafeMode(): boolean {
+  return kbrSafeMode;
+}
+
+export function setKbrSafeMode(enabled: boolean): void {
+  kbrSafeMode = enabled;
+  if (enabled) {
+    activePlugins.forEach((_, id) => deactivatePlugin(id));
+  }
+}
 
 /**
  * 將 TypeScript (.kbr) 插件原始碼轉譯為純 JavaScript
@@ -645,6 +657,17 @@ function createPluginContext(
 /** 執行/啟動指定 TypeScript (.kbr) 插件 */
 export function activatePlugin(manifest: KobrixaPluginManifest): boolean {
   deactivatePlugin(manifest.id);
+  if (kbrSafeMode) {
+    activePlugins.set(manifest.id, {
+      manifest,
+      cleanupFns: [],
+      settingsListeners: [],
+      status: "stopped",
+      lastError: "Safe mode active (--safe-mode): .kbr execution is paused.",
+      logs: ["[SafeMode] Execution skipped while Kobrixa is in safe mode."],
+    });
+    return false;
+  }
 
   const cleanupList: (() => void)[] = [];
   const settingsListeners: ((values: Record<string, PluginSettingValue>) => void)[] = [];
@@ -768,7 +791,12 @@ export function deletePlugin(pluginId: string): void {
 
 /** 重新啟動/重載所有已啟用的插件（支援 DOM 渲染後自動執行與掛載） */
 export function initAllPlugins(): void {
-  const runAll = () => {
+  const runAll = (safeMode = false) => {
+    setKbrSafeMode(safeMode);
+    if (safeMode) {
+      window.dispatchEvent(new CustomEvent(EVENT_CHANGE, { detail: loadSavedPlugins() }));
+      return;
+    }
     const plugins = loadSavedPlugins();
     plugins.forEach((p) => {
       if (p.enabled) {
@@ -777,7 +805,23 @@ export function initAllPlugins(): void {
     });
   };
 
-  runAll();
+  const pluginsApi = (
+    window as unknown as {
+      kobrixa?: { plugins?: { state?: () => Promise<{ safeMode?: boolean }> } };
+    }
+  ).kobrixa?.plugins;
+  if (pluginsApi && typeof pluginsApi.state === "function") {
+    void pluginsApi
+      .state()
+      .then((snapshot) => {
+        runAll(Boolean(snapshot?.safeMode));
+      })
+      .catch(() => {
+        runAll(false);
+      });
+  } else {
+    runAll(false);
+  }
   // 若於頁面初次載入時呼叫，於下一幀 React 完成首屏渲染後確保所有狀態同步
   if (typeof requestAnimationFrame === "function") {
     requestAnimationFrame(() => {
