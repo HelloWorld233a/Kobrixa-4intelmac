@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@kobrixa/plugin-protocol": "workspace:*",
-    "semver": "7.8.5",
-    "zod": "^4.6.5"
+    "semver": "7.7.2",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@types/semver": "7.8.0"
+    "@types/semver": "7.7.0"
   }
 }

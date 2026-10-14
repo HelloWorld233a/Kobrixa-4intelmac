@@ -86,6 +86,12 @@ importers:
       "@kobrixa/ir":
         specifier: workspace:*
         version: link:../../packages/ir
+      "@kobrixa/plugin-protocol":
+        specifier: workspace:*
+        version: link:../../packages/plugin-protocol
+      "@kobrixa/plugin-runtime":
+        specifier: workspace:*
+        version: link:../../packages/plugin-runtime
       electron-updater:
         specifier: 6.8.9
         version: 6.8.9
@@ -249,6 +255,34 @@ importers:
         version: 3.4.0
 
   packages/ir: {}
+
+  packages/plugin-protocol:
+    dependencies:
+      zod:
+        specifier: ^4.1.5
+        version: 4.4.3
+
+  packages/plugin-runtime:
+    dependencies:
+      "@kobrixa/plugin-protocol":
+        specifier: workspace:*
+        version: link:../plugin-protocol
+      semver:
+        specifier: 7.7.2
+        version: 7.7.2
+      zod:
+        specifier: ^4.1.5
+        version: 4.4.3
+    devDependencies:
+      "@types/semver":
+        specifier: 7.7.0
+        version: 7.7.0
+
+  packages/plugin-sdk-js:
+    dependencies:
+      "@kobrixa/plugin-protocol":
+        specifier: workspace:*
+        version: link:../plugin-protocol
 
 packages:
   "@asamuzakjp/css-color@7.0.1":

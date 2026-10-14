@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  maxCodePoints,
   MULTI_LINE,
   namespacedIdSchema,
   permissionSchema,
@@ -31,7 +32,7 @@ export const requestMethods = {
   "ui/showMessage": {
     params: z.strictObject({
       severity: severitySchema,
-      message: z.string().min(1).max(PLUGIN_LIMITS.messageLength).regex(MULTI_LINE),
+      message: maxCodePoints(z.string().min(1), PLUGIN_LIMITS.messageLength).regex(MULTI_LINE),
     }),
     result: z.null(),
   },
