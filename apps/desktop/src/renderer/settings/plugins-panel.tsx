@@ -7,17 +7,22 @@ import type {
   PluginSummary,
 } from "../../shared/plugins.js";
 import { pluginCopy, problemText } from "./plugin-copy.js";
-import { PluginsPanel as KbrStudioPanel } from "../plugins/plugins-panel.js";
+import {
+  DEFAULT_PLUGIN_TEMPLATE,
+  PluginEditModal,
+  PluginSettingsModal,
+} from "../plugins/plugins-panel.js";
 import {
   deletePlugin,
   exportPluginToKbr,
   getPluginRuntimeStates,
   parseKbrFile,
+  resetToBuiltinPlugins,
   saveOrUpdatePlugin,
   setKbrSafeMode,
   togglePlugin,
 } from "../plugins/plugin-manager.js";
-import type { PluginRuntimeState } from "../plugins/plugin-types.js";
+import type { KobrixaPluginManifest, PluginRuntimeState } from "../plugins/plugin-types.js";
 
 export const localizedText = (text: LocalizedText, locale: Locale): string =>
   typeof text === "string" ? text : locale === "zh-TW" ? (text["zh-TW"] ?? text.en) : text.en;
@@ -35,14 +40,12 @@ export interface StagedPluginPackage {
 }
 
 /**
- * Automatically inspects a plugin file before installation to determine whether it is
- * a `.kbr` (TypeScript UI/script plugin) or a `Python` (`.py` / `kobrixa-plugin.json`) plugin.
+ * 安裝前自動檢測插件檔案類型：判斷屬於 Python (.py / kobrixa-plugin.json) 定係 TypeScript (.kbr)
  */
 export function detectPluginPackage(filename: string, content: string): StagedPluginPackage {
   const lower = filename.toLowerCase();
   const trimmed = content.trim();
 
-  // 1. Explicit .py extension or Python shebang / kobrixa Python SDK import
   if (
     lower.endsWith(".py") ||
     trimmed.startsWith("#!/usr/bin/env python") ||
@@ -68,13 +71,10 @@ export function detectPluginPackage(filename: string, content: string): StagedPl
       id: slug,
       name: nameMatch?.[1]?.trim() || baseName,
       version: "1.0.0",
-      description:
-        descMatch?.[1]?.trim() ||
-        "Python 獨立程序插件（透過 JSON-RPC 2.0 over stdio 執行，自動配置環境）",
+      description: descMatch?.[1]?.trim() || "Python 插件（JSON-RPC 2.0 over stdio）",
     };
   }
 
-  // 2. Check if JSON is a kobrixa-plugin.json with runtime.kind === "python"
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     try {
       const parsed = JSON.parse(trimmed) as {
@@ -96,15 +96,14 @@ export function detectPluginPackage(filename: string, content: string): StagedPl
           id: parsed.id || "user.python-plugin",
           name: title,
           version: parsed.version || "1.0.0",
-          description: `Python 插件設定檔 (${parsed.runtime.entry || "main.py"})`,
+          description: `Python 插件 (${parsed.runtime.entry || "main.py"})`,
         };
       }
     } catch {
-      // fall through to .kbr parser
+      // 繼續以 .kbr 解析
     }
   }
 
-  // 3. Otherwise treat as .kbr TypeScript plugin
   const kbr = parseKbrFile(content, filename);
   return {
     filename,
@@ -113,7 +112,7 @@ export function detectPluginPackage(filename: string, content: string): StagedPl
     id: kbr.id,
     name: kbr.name,
     version: kbr.version,
-    description: kbr.description || "TypeScript (.kbr) 互動式擴充插件",
+    description: kbr.description || "TypeScript (.kbr) 插件",
   };
 }
 
@@ -134,10 +133,17 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
       return "unified";
     }
   });
+  const [query, setQuery] = useState("");
   const [stagedPkg, setStagedPkg] = useState<StagedPluginPackage | null>(null);
   const [installNotice, setInstallNotice] = useState<string>();
   const [kbrStates, setKbrStates] = useState<PluginRuntimeState[]>(() => getPluginRuntimeStates());
+  const [editingPlugin, setEditingPlugin] = useState<KobrixaPluginManifest | null>(null);
+  const [configuringPlugin, setConfiguringPlugin] = useState<KobrixaPluginManifest | null>(null);
   const filePickerRef = useRef<HTMLInputElement>(null);
+
+  const refreshKbr = () => {
+    setKbrStates(getPluginRuntimeStates());
+  };
 
   const switchViewMode = (mode: "unified" | "split") => {
     setViewMode(mode);
@@ -184,9 +190,7 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
         setNotices((list) => [custom.detail, ...list].slice(0, 20));
       }
     };
-    const onKbrChange = () => {
-      setKbrStates(getPluginRuntimeStates());
-    };
+    const onKbrChange = () => refreshKbr();
     window.addEventListener("kobrixa:kbr-notice", onKbrNotice);
     window.addEventListener("kobrixa:plugins-change", onKbrChange);
     return () => {
@@ -229,8 +233,7 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
     reader.onload = (ev) => {
       const content = ev.target?.result;
       if (typeof content !== "string") return;
-      const detected = detectPluginPackage(file.name, content);
-      setStagedPkg(detected);
+      setStagedPkg(detectPluginPackage(file.name, content));
       setInstallNotice(undefined);
     };
     reader.readAsText(file);
@@ -243,17 +246,16 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
       parsed.id = stagedPkg.id || parsed.id;
       parsed.name = stagedPkg.name || parsed.name;
       saveOrUpdatePlugin(parsed);
-      setKbrStates(getPluginRuntimeStates());
+      refreshKbr();
       setInstallNotice(
         isZh
-          ? `✅ 已成功安裝並啟用 .kbr 插件：「${parsed.name}」`
-          : `✅ Installed and enabled .kbr plugin: "${parsed.name}"`,
+          ? `已安裝並啟用 .kbr 插件：「${parsed.name}」`
+          : `Installed .kbr plugin: "${parsed.name}"`,
       );
       setStagedPkg(null);
       return;
     }
 
-    // Python plugin installation via IPC
     if (typeof window.kobrixa.plugins.installFile === "function") {
       await perform(`install:${stagedPkg.id}`, async () => {
         const res = await window.kobrixa.plugins.installFile!({
@@ -265,8 +267,8 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
         if (res.ok) {
           setInstallNotice(
             isZh
-              ? `✅ 已成功安裝 Python 插件：「${stagedPkg.name}」（免命令自動掛載）`
-              : `✅ Installed Python plugin: "${stagedPkg.name}"`,
+              ? `已安裝 Python 插件：「${stagedPkg.name}」`
+              : `Installed Python plugin: "${stagedPkg.name}"`,
           );
           setStagedPkg(null);
         }
@@ -275,9 +277,36 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
     }
   };
 
+  const handleExportKbr = (manifest: KobrixaPluginManifest) => {
+    const content = exportPluginToKbr(manifest);
+    const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${manifest.id}.kbr`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!state) return <p className="settings-hint">{t.loading}</p>;
 
-  const toggle = (plugin: PluginSummary) => {
+  const q = query.trim().toLowerCase();
+  const filteredHostPlugins = state.plugins.filter((p) => {
+    if (!q) return true;
+    const name = p.displayName ? localizedText(p.displayName, locale) : p.id;
+    return name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
+  });
+
+  const filteredKbrPlugins = kbrStates.filter(({ manifest }) => {
+    if (!q) return true;
+    return (
+      manifest.name.toLowerCase().includes(q) ||
+      manifest.id.toLowerCase().includes(q) ||
+      (manifest.description || "").toLowerCase().includes(q)
+    );
+  });
+
+  const renderHostPluginToggle = (plugin: PluginSummary) => {
     if (plugin.source !== "development" || plugin.status === "invalid") return null;
     const enabling = plugin.status === "disabled" && plugin.disabledBy === "user";
     const label = enabling
@@ -287,6 +316,8 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
         : t.disable;
     return (
       <button
+        type="button"
+        className="up-btn"
         disabled={busy !== undefined || (enabling && state.safeMode)}
         onClick={() =>
           void perform(plugin.id, () => window.kobrixa.plugins.setEnabled(plugin.id, enabling))
@@ -297,99 +328,294 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
     );
   };
 
-  return (
-    <div className="plugins-panel">
-      {/* 頂部：App 式一鍵安裝器 + 兩種顯示模式切換器 */}
-      <div
-        className="appearance-studio-board"
-        style={{ marginBottom: 18 }}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const f = e.dataTransfer.files[0];
-          if (f) handleSelectFileToStage(f);
-        }}
-      >
-        <input
-          ref={filePickerRef}
-          type="file"
-          accept=".kbr,.py,.ts,.js,.json"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              handleSelectFileToStage(f);
-              e.target.value = "";
-            }
-          }}
-        />
-        <div className="appearance-studio-header">
-          <div>
-            <span className="appearance-studio-kicker">
-              {isZh ? "📲 零命令 App 式插件中心" : "📲 Zero-Command App Plugin Center"}
-            </span>
-            <h3>
-              {isZh
-                ? "一鍵安裝插件（自動判斷 .kbr 或 Python）"
-                : "One-Click Plugin Installer (Auto-detects .kbr or Python)"}
-            </h3>
-            <p>
-              {isZh
-                ? "唔使打任何終端機命令！直接揀選或拖入 .kbr / .py 檔案，系統會喺安裝前自動識別屬於 TypeScript (.kbr) 定係 Python 插件並自動配置環境。"
-                : "No terminal commands needed! Pick or drop a .kbr or .py file—Kobrixa detects whether it is TypeScript (.kbr) or Python before installing."}
+  const renderHostPluginItem = (plugin: PluginSummary) => {
+    const isPy = plugin.runtime === "python";
+    const isBuiltin = plugin.source === "builtin";
+    return (
+      <li key={`${plugin.source}:${plugin.directory ?? plugin.id}`} className="up-card">
+        <div className="up-card-top">
+          <div className="up-card-title-group">
+            <span className="up-card-icon">{isPy ? "🐍" : isBuiltin ? "📦" : "🟢"}</span>
+            <div className="up-card-title-text">
+              <div className="up-card-name-row">
+                <h3 className="settings-subheading">
+                  {plugin.displayName ? localizedText(plugin.displayName, locale) : plugin.id}
+                </h3>
+                <span className={`up-tag ${isPy ? "up-tag-py" : "up-tag-sys"}`}>
+                  {isPy ? "Python" : isBuiltin ? t.builtin : (plugin.runtime ?? t.development)}
+                </span>
+                <span className={`up-tag up-tag-status-${plugin.status}`}>
+                  {t.status[plugin.status]}
+                </span>
+                {plugin.running && <span className="up-tag up-tag-running">{t.running}</span>}
+              </div>
+              <p className="settings-hint">
+                {[
+                  plugin.id,
+                  plugin.version,
+                  plugin.source === "builtin" ? t.builtin : t.development,
+                  plugin.runtime,
+                  t.status[plugin.status],
+                  plugin.running ? t.running : undefined,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
+          </div>
+
+          <div className="up-card-actions">
+            {plugin.commands.length > 0 && (
+              <div role="group" aria-label={t.commands} className="up-cmd-group">
+                {plugin.commands.map((command) => (
+                  <button
+                    key={command.id}
+                    type="button"
+                    className="up-btn up-btn-primary"
+                    disabled={busy !== undefined}
+                    onClick={() =>
+                      void perform(command.id, () => window.kobrixa.plugins.execute(command.id))
+                    }
+                  >
+                    {localizedText(command.title, locale)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {renderHostPluginToggle(plugin)}
+            {plugin.source === "development" &&
+              typeof window.kobrixa.plugins.uninstall === "function" &&
+              plugin.directory?.includes("/plugins/installed/") && (
+                <button
+                  type="button"
+                  className="up-btn up-btn-danger"
+                  disabled={busy !== undefined}
+                  onClick={() =>
+                    void perform(`uninstall:${plugin.id}`, () =>
+                      window.kobrixa.plugins.uninstall!(plugin.id),
+                    )
+                  }
+                >
+                  {isZh ? "移除插件" : "Uninstall"}
+                </button>
+              )}
+          </div>
+        </div>
+
+        {plugin.directory && <p className="settings-hint up-path">{plugin.directory}</p>}
+        {plugin.problems.map((problem, index) => (
+          <p className="settings-hint up-problem" key={index}>
+            {problemText(problem, locale)}
+          </p>
+        ))}
+      </li>
+    );
+  };
+
+  const renderKbrPluginItem = ({
+    manifest,
+    status,
+    lastError,
+    settingsSchema,
+  }: PluginRuntimeState) => (
+    <li key={`kbr:${manifest.id}`} className={`up-card ${!manifest.enabled ? "is-disabled" : ""}`}>
+      <div className="up-card-top">
+        <div className="up-card-title-group">
+          <span className="up-card-icon">{manifest.icon || "🧩"}</span>
+          <div className="up-card-title-text">
+            <div className="up-card-name-row">
+              <h3 className="settings-subheading">{manifest.name}</h3>
+              <span className="up-tag up-tag-kbr">TypeScript · .kbr</span>
+              <span className="up-tag">v{manifest.version}</span>
+              <span
+                className={`up-tag ${status === "running" ? "up-tag-running" : status === "error" ? "up-tag-error" : ""}`}
+              >
+                {status === "running"
+                  ? isZh
+                    ? "運行中"
+                    : "Running"
+                  : status === "error"
+                    ? isZh
+                      ? "錯誤"
+                      : "Error"
+                    : isZh
+                      ? "已停止"
+                      : "Stopped"}
+              </span>
+            </div>
+            <p className="settings-hint">
+              ID: {manifest.id}
+              {manifest.author ? ` · ${manifest.author}` : ""}
+              {settingsSchema.length > 0
+                ? isZh
+                  ? ` · ${settingsSchema.length} 項可調設置`
+                  : ` · ${settingsSchema.length} settings`
+                : ""}
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        </div>
+
+        <label className="up-switch-label">
+          <input
+            type="checkbox"
+            checked={manifest.enabled}
+            onChange={() => {
+              togglePlugin(manifest.id);
+              refreshKbr();
+            }}
+          />
+          <span>
+            {manifest.enabled ? (isZh ? "已啟用" : "Enabled") : isZh ? "已停用" : "Disabled"}
+          </span>
+        </label>
+      </div>
+
+      {manifest.description && <p className="up-desc">{manifest.description}</p>}
+      {lastError && <p className="settings-hint up-problem">{lastError}</p>}
+
+      {/* 按鈕順序：編輯代碼 -> 設置 (在編輯代碼與匯出中間) -> 匯出 .kbr -> 刪除 */}
+      <div className="up-card-footer">
+        <button type="button" className="up-btn" onClick={() => setEditingPlugin({ ...manifest })}>
+          ✏️ {isZh ? "編輯代碼" : "Edit Code"}
+        </button>
+        <button
+          type="button"
+          className="up-btn up-btn-accent"
+          onClick={() => setConfiguringPlugin({ ...manifest })}
+        >
+          ⚙️ {isZh ? "設置" : "Settings"}
+          {settingsSchema.length > 0 ? ` (${settingsSchema.length})` : ""}
+        </button>
+        <button type="button" className="up-btn" onClick={() => handleExportKbr(manifest)}>
+          📤 {isZh ? "匯出 .kbr" : "Export .kbr"}
+        </button>
+        <button
+          type="button"
+          className="up-btn up-btn-danger"
+          onClick={() => {
+            deletePlugin(manifest.id);
+            refreshKbr();
+          }}
+        >
+          🗑️ {isZh ? "刪除" : "Delete"}
+        </button>
+      </div>
+    </li>
+  );
+
+  return (
+    <div
+      className="plugins-panel"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f) handleSelectFileToStage(f);
+      }}
+    >
+      <input
+        ref={filePickerRef}
+        type="file"
+        accept=".kbr,.py,.ts,.js,.json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            handleSelectFileToStage(f);
+            e.target.value = "";
+          }
+        }}
+      />
+
+      {/* 頂部工具列：模式切換 + 搜尋 + App 式一鍵安裝 */}
+      <div className="up-toolbar">
+        <div className="up-toolbar-row">
+          <div className="up-mode-tabs">
             <span
-              className="appearance-studio-open-theme"
+              className={`up-mode-tab ${viewMode === "unified" ? "active" : ""}`}
               role="presentation"
+              onClick={() => switchViewMode("unified")}
+            >
+              {isZh ? "🔀 方式一：合埋一齊" : "🔀 Mode 1: Unified List"}
+            </span>
+            <span
+              className={`up-mode-tab ${viewMode === "split" ? "active" : ""}`}
+              role="presentation"
+              onClick={() => switchViewMode("split")}
+            >
+              {isZh ? "📑 方式二：分開顯示" : "📑 Mode 2: Split Sections"}
+            </span>
+          </div>
+
+          <input
+            type="search"
+            className="up-search-input"
+            value={query}
+            placeholder={isZh ? "搜尋插件名稱或 ID…" : "Search plugins by name or ID…"}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+
+          <div className="up-toolbar-btns">
+            <button
+              type="button"
+              className="up-btn up-btn-primary"
               onClick={() => filePickerRef.current?.click()}
             >
-              📥 {isZh ? "安裝插件檔案 (.kbr / .py)" : "Install Plugin File (.kbr / .py)"}
-            </span>
+              📲 {isZh ? "安裝插件 (.kbr / .py)" : "Install Plugin (.kbr / .py)"}
+            </button>
             {typeof window.kobrixa.plugins.installFromDisk === "function" && (
-              <span
-                className="appearance-scale-pill"
-                role="presentation"
+              <button
+                type="button"
+                className="up-btn"
                 onClick={() =>
                   void perform("install-disk", () => window.kobrixa.plugins.installFromDisk!())
                 }
               >
-                📂 {isZh ? "選擇插件資料夾" : "Install Folder"}
-              </span>
+                📂 {isZh ? "安裝資料夾" : "Install Folder"}
+              </button>
             )}
+            <button
+              type="button"
+              className="up-btn"
+              onClick={() =>
+                setEditingPlugin({
+                  ...DEFAULT_PLUGIN_TEMPLATE,
+                  id: `plugin-${Date.now().toString(36)}`,
+                })
+              }
+            >
+              ➕ {isZh ? "新增 .kbr" : "New .kbr"}
+            </button>
+            <button
+              type="button"
+              className="up-btn"
+              onClick={() => {
+                resetToBuiltinPlugins();
+                refreshKbr();
+              }}
+            >
+              🔄 {isZh ? "重置預設" : "Reset Built-ins"}
+            </button>
           </div>
         </div>
 
-        {/* 安裝前自動識別確認卡 (Staged Pre-Install Inspector) */}
+        {/* 安裝前自動判斷 (.kbr vs Python) 確認列 */}
         {stagedPkg && (
-          <div
-            className="appearance-strip-block"
-            style={{
-              borderColor: stagedPkg.detectedType === "python" ? "#10b981" : "#ec4899",
-              background: "var(--bg-elevated)",
-            }}
-          >
-            <div className="appearance-strip-label">
-              <strong>
-                {stagedPkg.detectedType === "python"
-                  ? isZh
-                    ? "🐍 安裝前檢測結果：識別為 Python 插件 (.py)"
-                    : "🐍 Pre-Install Check: Detected Python Plugin (.py)"
-                  : isZh
-                    ? "⚡ 安裝前檢測結果：識別為 TypeScript 擴充插件 (.kbr)"
-                    : "⚡ Pre-Install Check: Detected TypeScript Extension (.kbr)"}
-              </strong>
-              <span>{stagedPkg.filename}</span>
-            </div>
-            <p className="settings-hint" style={{ margin: "4px 0" }}>
-              <strong>{stagedPkg.name}</strong> ({stagedPkg.id} · v{stagedPkg.version}) —{" "}
-              {stagedPkg.description}
-            </p>
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <div className="up-staged-bar">
+            <div className="up-staged-info">
               <span
-                className="appearance-scale-pill active"
-                role="presentation"
+                className={`up-tag ${stagedPkg.detectedType === "python" ? "up-tag-py" : "up-tag-kbr"}`}
+              >
+                {stagedPkg.detectedType === "python" ? "🐍 Python (.py)" : "⚡ TypeScript (.kbr)"}
+              </span>
+              <strong>{stagedPkg.name}</strong>
+              <span className="settings-hint">({stagedPkg.filename})</span>
+              <span className="settings-hint">— {stagedPkg.description}</span>
+            </div>
+            <div className="up-staged-actions">
+              <button
+                type="button"
+                className="up-btn"
                 onClick={() =>
                   setStagedPkg({
                     ...stagedPkg,
@@ -399,68 +625,25 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
               >
                 🔄{" "}
                 {isZh
-                  ? `切換類型（目前：${stagedPkg.detectedType === "python" ? "Python" : ".kbr"}）`
-                  : `Switch Type (Current: ${stagedPkg.detectedType.toUpperCase()})`}
-              </span>
-              <span
-                className="appearance-studio-open-theme"
-                role="presentation"
+                  ? `改為 ${stagedPkg.detectedType === "python" ? ".kbr" : "Python"}`
+                  : `Switch to ${stagedPkg.detectedType === "python" ? ".kbr" : "Python"}`}
+              </button>
+              <button
+                type="button"
+                className="up-btn up-btn-primary"
                 onClick={() => void handleConfirmStagedInstall()}
               >
-                ✅ {isZh ? "確認安裝並立即啟用" : "Confirm Install & Enable"}
-              </span>
-              <span
-                className="appearance-scale-pill"
-                role="presentation"
-                onClick={() => setStagedPkg(null)}
-              >
-                ✖ {isZh ? "取消" : "Cancel"}
-              </span>
+                ✅ {isZh ? "確認安裝" : "Confirm Install"}
+              </button>
+              <button type="button" className="up-btn" onClick={() => setStagedPkg(null)}>
+                ✕ {isZh ? "取消" : "Cancel"}
+              </button>
             </div>
           </div>
         )}
-
-        {installNotice && <p className="settings-hint">{installNotice}</p>}
-
-        {/* 兩種顯示方式切換列 */}
-        <div className="appearance-strip-block">
-          <div className="appearance-strip-label">
-            <strong>
-              {isZh ? "🎛️ 插件設置顯示方式（兩種模式自由切換）" : "🎛️ Plugin Panel Display Mode"}
-            </strong>
-            <span>
-              {viewMode === "unified"
-                ? isZh
-                  ? "方式一：合二為一整合視圖"
-                  : "Mode 1: Unified All-in-One"
-                : isZh
-                  ? "方式二：上下分開獨立視圖"
-                  : "Mode 2: Split Dual View"}
-            </span>
-          </div>
-          <div className="appearance-scale-pills">
-            <span
-              className={`appearance-scale-pill ${viewMode === "unified" ? "active" : ""}`}
-              role="presentation"
-              onClick={() => switchViewMode("unified")}
-            >
-              {isZh
-                ? "🔀 方式一：合埋一齊（自動區分 .kbr / Python）"
-                : "🔀 Mode 1: Unified (.kbr + Python Together)"}
-            </span>
-            <span
-              className={`appearance-scale-pill ${viewMode === "split" ? "active" : ""}`}
-              role="presentation"
-              onClick={() => switchViewMode("split")}
-            >
-              {isZh
-                ? "📑 方式二：分開顯示（獨立程序與 .kbr 分區）"
-                : "📑 Mode 2: Split Sections (Separate Panels)"}
-            </span>
-          </div>
-        </div>
       </div>
 
+      {installNotice && <p className="settings-hint">{installNotice}</p>}
       <p className="settings-hint">{t.trust}</p>
       {!state.developmentMode && <p className="settings-hint">{t.howTo}</p>}
       {state.safeMode && (
@@ -474,163 +657,73 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
         </p>
       )}
 
-      {/* 獨立程序與內建插件清單（在方式一與方式二皆完整呈現，並在方式一整合 .kbr 卡片） */}
-      <ul className="plugins-list">
-        {state.plugins.map((plugin) => (
-          <li key={`${plugin.source}:${plugin.directory ?? plugin.id}`}>
-            <h3 className="settings-subheading">
-              {plugin.runtime === "python" ? "🐍 " : plugin.source === "builtin" ? "📦 " : "🟢 "}
-              {plugin.displayName ? localizedText(plugin.displayName, locale) : plugin.id}
+      {viewMode === "unified" ? (
+        /* 方式一：合埋一齊 — 只有單一整合清單，絕不重複顯示第二個 .kbr 區塊！ */
+        <ul className="plugins-list up-list">
+          {filteredHostPlugins.map(renderHostPluginItem)}
+          {filteredKbrPlugins.map(renderKbrPluginItem)}
+        </ul>
+      ) : (
+        /* 方式二：分開顯示 — 上方 Python / 系統程序插件，下方 .kbr 擴充插件 */
+        <div className="up-split-container">
+          <div className="up-split-section">
+            <h3 className="up-section-heading">
+              🐍 {isZh ? "Python 與系統程序插件" : "Python & System Process Plugins"}
             </h3>
-            <p className="settings-hint">
-              {[
-                plugin.id,
-                plugin.version,
-                plugin.source === "builtin" ? t.builtin : t.development,
-                plugin.runtime,
-                t.status[plugin.status],
-                plugin.running ? t.running : undefined,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            {plugin.directory && <p className="settings-hint">{plugin.directory}</p>}
-            {plugin.problems.map((problem, index) => (
-              <p className="settings-hint" key={index}>
-                {problemText(problem, locale)}
-              </p>
-            ))}
-            {plugin.commands.length > 0 && (
-              <div role="group" aria-label={t.commands}>
-                {plugin.commands.map((command) => (
-                  <button
-                    key={command.id}
-                    disabled={busy !== undefined}
-                    onClick={() =>
-                      void perform(command.id, () => window.kobrixa.plugins.execute(command.id))
-                    }
-                  >
-                    {localizedText(command.title, locale)}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
-              {toggle(plugin)}
-              {plugin.source === "development" &&
-                typeof window.kobrixa.plugins.uninstall === "function" &&
-                plugin.directory?.includes("/plugins/installed/") && (
-                  <span
-                    className="appearance-scale-pill"
-                    style={{ flex: "0 0 auto" }}
-                    role="presentation"
-                    onClick={() =>
-                      void perform(`uninstall:${plugin.id}`, () =>
-                        window.kobrixa.plugins.uninstall!(plugin.id),
-                      )
-                    }
-                  >
-                    🗑️ {isZh ? "移除插件" : "Uninstall"}
-                  </span>
-                )}
-            </div>
-          </li>
-        ))}
+            <ul className="plugins-list up-list">
+              {filteredHostPlugins.map(renderHostPluginItem)}
+            </ul>
+          </div>
 
-        {/* 方式一（合埋一齊）：將所有 .kbr TypeScript 插件直接合併喺同一個 App 清單入面顯示！ */}
-        {viewMode === "unified" &&
-          kbrStates.map(({ manifest, status, lastError }) => (
-            <li key={`kbr:${manifest.id}`}>
-              <h3 className="settings-subheading">
-                ⚡ {manifest.icon || "🧩"} {manifest.name}
-              </h3>
-              <p className="settings-hint">
-                {[
-                  manifest.id,
-                  manifest.version,
-                  "TypeScript (.kbr)",
-                  manifest.enabled ? t.status.enabled : t.status.disabled,
-                  status === "running" ? t.running : undefined,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {manifest.description && <p className="settings-hint">{manifest.description}</p>}
-              {lastError && <p className="settings-hint">❌ {lastError}</p>}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                <span
-                  className={`appearance-scale-pill ${manifest.enabled ? "active" : ""}`}
-                  style={{ flex: "0 0 auto" }}
-                  role="presentation"
-                  onClick={() => {
-                    togglePlugin(manifest.id);
-                    setKbrStates(getPluginRuntimeStates());
-                  }}
-                >
-                  {manifest.enabled
-                    ? isZh
-                      ? "🟢 已啟用 (.kbr)"
-                      : "🟢 Enabled (.kbr)"
-                    : isZh
-                      ? "⚪ 已停用 (.kbr)"
-                      : "⚪ Disabled (.kbr)"}
-                </span>
-                <span
-                  className="appearance-scale-pill"
-                  style={{ flex: "0 0 auto" }}
-                  role="presentation"
-                  onClick={() => {
-                    const content = exportPluginToKbr(manifest);
-                    const blob = new Blob([content], { type: "application/json;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `${manifest.id}.kbr`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  📤 {isZh ? "匯出 .kbr" : "Export .kbr"}
-                </span>
-                <span
-                  className="appearance-scale-pill"
-                  style={{ flex: "0 0 auto" }}
-                  role="presentation"
-                  onClick={() => {
-                    deletePlugin(manifest.id);
-                    setKbrStates(getPluginRuntimeStates());
-                  }}
-                >
-                  🗑️ {isZh ? "刪除 .kbr" : "Delete .kbr"}
-                </span>
-              </div>
+          <div className="up-split-section">
+            <h3 className="up-section-heading">
+              ⚡ {isZh ? "TypeScript (.kbr) 腳本擴充插件" : "TypeScript (.kbr) Script Extensions"}
+            </h3>
+            <ul className="up-list">{filteredKbrPlugins.map(renderKbrPluginItem)}</ul>
+          </div>
+        </div>
+      )}
+
+      <div className="up-notices-box">
+        <h3 className="settings-subheading">{t.notices}</h3>
+        <ul aria-live="polite" className="up-notices-list">
+          {notices.length === 0 && <li className="settings-hint">{t.noNotices}</li>}
+          {notices.map((notice, index) => (
+            <li key={`${notice.at}-${index}`}>
+              <strong>{notice.pluginId}</strong> {notice.message}
             </li>
           ))}
-      </ul>
-
-      <h3 className="settings-subheading">{t.notices}</h3>
-      <ul aria-live="polite">
-        {notices.length === 0 && <li className="settings-hint">{t.noNotices}</li>}
-        {notices.map((notice, index) => (
-          <li key={`${notice.at}-${index}`}>
-            <strong>{notice.pluginId}</strong> {notice.message}
-          </li>
-        ))}
-      </ul>
-
-      {/* 完整 .kbr 程式碼編輯與專屬設置工作坊（在方式二直接獨立分區展開；在方式一亦可直接管理詳細設置與編輯代碼） */}
-      <div className="kbr-unified-section" style={{ marginTop: 24 }}>
-        <h3 className="settings-subheading">
-          {viewMode === "split"
-            ? isZh
-              ? "⚡ 獨立分區二：TypeScript (.kbr) 腳本與插件專屬設置工作坊"
-              : "⚡ Section 2: TypeScript (.kbr) Scripts & Plugin Settings Studio"
-            : isZh
-              ? "🛠️ .kbr 插件代碼編輯器與專屬設置表單"
-              : "🛠️ .kbr Code Editor & Custom Settings Forms"}
-        </h3>
-        <KbrStudioPanel locale={locale} />
+        </ul>
       </div>
+
+      {configuringPlugin && (
+        <PluginSettingsModal
+          plugin={configuringPlugin}
+          locale={locale}
+          onClose={() => {
+            setConfiguringPlugin(null);
+            refreshKbr();
+          }}
+          onOpenCodeEditor={() => {
+            const target = configuringPlugin;
+            setConfiguringPlugin(null);
+            setEditingPlugin({ ...target });
+          }}
+        />
+      )}
+
+      {editingPlugin && (
+        <PluginEditModal
+          plugin={editingPlugin}
+          locale={locale}
+          onSave={(manifest) => {
+            saveOrUpdatePlugin(manifest);
+            setEditingPlugin(null);
+            refreshKbr();
+          }}
+          onClose={() => setEditingPlugin(null)}
+        />
+      )}
     </div>
   );
 }

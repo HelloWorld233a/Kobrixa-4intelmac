@@ -23,7 +23,7 @@ import {
   togglePlugin,
 } from "./plugin-manager.js";
 
-const DEFAULT_PLUGIN_TEMPLATE: KobrixaPluginManifest = {
+export const DEFAULT_PLUGIN_TEMPLATE: KobrixaPluginManifest = {
   id: "my-custom-ts-plugin",
   name: "我的自訂 TypeScript 插件 (My TS Plugin)",
   version: "1.0.0",
@@ -498,7 +498,7 @@ export function PluginsPanel({ locale }: { locale: Locale }): React.JSX.Element 
 }
 
 /** 插件專屬設置面板 Modal (可即時修改腳本 settingsSchema 定義的項目) */
-function PluginSettingsModal({
+export function PluginSettingsModal({
   plugin,
   locale,
   onClose,
@@ -651,7 +651,7 @@ function PluginSettingsModal({
  * 編輯代碼視窗 (PluginEditModal)
  * 內建視覺化「🛠️ 插件專屬設置區 (Plugin Settings Schema & Values)」與 TypeScript 腳本編輯器雙向同步
  */
-function PluginEditModal({
+export function PluginEditModal({
   plugin,
   locale,
   onSave,
