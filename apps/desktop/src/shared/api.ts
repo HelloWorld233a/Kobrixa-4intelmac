@@ -1,3 +1,4 @@
+import type { PluginsApi } from "./plugins.js";
 import type { FilePreferences } from "./file-preferences.js";
 import type { OfflinePreviewProgram } from "./offline-preview.js";
 import type { SimulationPrepareResult } from "./simulator.js";
@@ -196,6 +197,7 @@ export type DeviceEvent =
   | { type: "error"; category: DeviceErrorCategory; message: string; recoverable: boolean };
 
 export interface KobrixaApi {
+  plugins: PluginsApi;
   collab: CollabApi;
   simulator: {
     cancel(workspaceId: string): Promise<void>;

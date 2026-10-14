@@ -1,3 +1,4 @@
+import type { PluginEvent } from "../shared/plugins.js";
 import type { MotorTestState } from "../shared/motor-test.js";
 import type { UpdateState } from "../shared/updates.js";
 import { contextBridge, ipcRenderer } from "electron";
@@ -49,6 +50,16 @@ const api: KobrixaApi = {
       const handler = (_event: Electron.IpcRendererEvent, state: SensorLabState) => listener(state);
       ipcRenderer.on("sensor-lab:state", handler);
       return () => ipcRenderer.removeListener("sensor-lab:state", handler);
+    },
+  },
+  plugins: {
+    state: () => ipcRenderer.invoke("plugins:state"),
+    execute: (commandId) => ipcRenderer.invoke("plugins:execute", commandId),
+    setEnabled: (pluginId, enabled) => ipcRenderer.invoke("plugins:set-enabled", pluginId, enabled),
+    onEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, value: PluginEvent) => listener(value);
+      ipcRenderer.on("plugins:event", handler);
+      return () => ipcRenderer.removeListener("plugins:event", handler);
     },
   },
   documentation: { open: (request) => ipcRenderer.invoke("documentation:open", request) },

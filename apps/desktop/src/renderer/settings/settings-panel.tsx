@@ -1,5 +1,5 @@
 import { UpdatesPanel } from "../updates/updates.js";
-import { PluginsPanel } from "../plugins/plugins-panel.js";
+import { PluginsPanel } from "./plugins-panel.js";
 import {
   CustomThemePanel,
   loadCustomTheme,
@@ -14,7 +14,7 @@ import type { KeyboardSettings } from "../keybindings/keyboard-state.js";
 import { ShortcutsPanel } from "../keybindings/shortcuts-panel.js";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../i18n/copy.js";
-import { defaultSettings, type Settings } from "./settings.js";
+import { defaultSettings, SETTINGS_CHOICES, type Settings } from "./settings.js";
 import {
   CATEGORY_LABELS,
   filterSettings,
@@ -119,7 +119,7 @@ export function SettingsQuickControls({
   shortcut: string;
 }): React.JSX.Element {
   const t = settingsCopy[settings.locale];
-  const [customTheme, setCustomTheme] = useState<CustomThemeConfig>(() => loadCustomTheme());
+  const [customTheme, setCustomTheme] = useState<CustomThemeConfig | null>(() => loadCustomTheme());
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
@@ -130,7 +130,7 @@ export function SettingsQuickControls({
     return () => window.removeEventListener("kobrixa:theme-change", handleThemeChange);
   }, []);
 
-  const hasWallpaper = Boolean(customTheme.backgroundImage);
+  const hasWallpaper = Boolean(customTheme?.backgroundImage);
 
   return (
     <>
@@ -152,8 +152,10 @@ export function SettingsQuickControls({
             onChange("theme", next);
             try {
               const current = loadCustomTheme();
-              const toggled = toggleThemeMode(current, next);
-              saveCustomTheme(toggled);
+              if (current) {
+                const toggled = toggleThemeMode(current, next);
+                saveCustomTheme(toggled);
+              }
             } catch {
               // ignore
             }
@@ -217,6 +219,157 @@ export function SettingsError({
     </div>
   );
 }
+
+function AppearanceOverviewCards({
+  settings,
+  onChange,
+  onOpenThemeStudio,
+}: {
+  settings: Settings;
+  onChange: Change;
+  onOpenThemeStudio(): void;
+}): React.JSX.Element {
+  const local = (zh: string, en: string) => (settings.locale === "zh-TW" ? zh : en);
+  const modeCards: readonly {
+    id: Settings["theme"];
+    title: [string, string];
+    desc: [string, string];
+    previewClass: string;
+  }[] = [
+    {
+      id: "dark",
+      title: ["深色工程模式", "Dark Studio"],
+      desc: ["低眩光高對比深邃底色", "Low-glare high-contrast dark canvas"],
+      previewClass: "dark-preview",
+    },
+    {
+      id: "light",
+      title: ["淺色晨光模式", "Daylight Mode"],
+      desc: ["清爽明亮紙感與清晰字體", "Crisp daylight surface and ink"],
+      previewClass: "light-preview",
+    },
+    {
+      id: "system",
+      title: ["跟隨系統外觀", "Follow System"],
+      desc: ["依 macOS / Windows 日夜自動切換", "Syncs automatically with OS appearance"],
+      previewClass: "system-preview",
+    },
+  ];
+
+  return (
+    <div
+      className="appearance-studio-board"
+      aria-label={local("外觀視覺面板", "Appearance Studio")}
+    >
+      <div className="appearance-studio-header">
+        <div>
+          <span className="appearance-studio-kicker">
+            {local("✨ 視覺與互動體驗中心", "✨ Visual & Interaction Deck")}
+          </span>
+          <h3>{local("工作台外觀與顯示比例", "Workbench Appearance & Display Scale")}</h3>
+          <p>
+            {local(
+              "快速切換深淺外觀、介面縮放比例與語言環境，或前往「主題與個性化」定製毛玻璃桌布。",
+              "Switch appearance modes, UI scaling, and language, or open Theme & Personalization for custom glass wallpapers.",
+            )}
+          </p>
+        </div>
+        <div
+          className="appearance-studio-open-theme"
+          onClick={onOpenThemeStudio}
+          role="presentation"
+        >
+          <span>🎨 {local("進階毛玻璃與主題工坊 →", "Open Theme & Glass Studio →")}</span>
+        </div>
+      </div>
+
+      <div className="appearance-mode-cards">
+        {modeCards.map((card) => {
+          const active = settings.theme === card.id;
+          return (
+            <div
+              key={card.id}
+              className={`appearance-mode-card ${active ? "active" : ""}`}
+              onClick={() => onChange("theme", card.id)}
+              role="presentation"
+            >
+              <div className={`appearance-mode-illustration ${card.previewClass}`}>
+                <div className="illus-topbar">
+                  <span className="illus-dot" />
+                  <span className="illus-dot" />
+                  <span className="illus-dot" />
+                </div>
+                <div className="illus-body">
+                  <div className="illus-sidebar" />
+                  <div className="illus-editor">
+                    <div className="illus-line accent" />
+                    <div className="illus-line" />
+                    <div className="illus-line short" />
+                  </div>
+                </div>
+              </div>
+              <div className="appearance-mode-meta">
+                <div className="appearance-mode-title-row">
+                  <strong>{local(card.title[0], card.title[1])}</strong>
+                  {active && (
+                    <span className="appearance-mode-active-pill">{local("使用中", "Active")}</span>
+                  )}
+                </div>
+                <span>{local(card.desc[0], card.desc[1])}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="appearance-quick-strip">
+        <div className="appearance-strip-block">
+          <div className="appearance-strip-label">
+            <strong>{local("🔍 介面縮放比例", "🔍 Interface Scale")}</strong>
+            <span>{settings.uiScale}%</span>
+          </div>
+          <div className="appearance-scale-pills">
+            {SETTINGS_CHOICES.uiScale.map((scale) => (
+              <span
+                key={scale}
+                className={`appearance-scale-pill ${settings.uiScale === scale ? "active" : ""}`}
+                onClick={() => onChange("uiScale", scale)}
+                role="presentation"
+              >
+                {scale}%
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="appearance-strip-block">
+          <div className="appearance-strip-label">
+            <strong>{local("🌐 介面語言環境", "🌐 Interface Language")}</strong>
+            <span>{settings.locale === "zh-TW" ? "繁體中文" : "English"}</span>
+          </div>
+          <div className="appearance-scale-pills">
+            {(
+              [
+                ["zh-TW", "繁體中文"],
+                ["en", "English"],
+              ] as const
+            ).map(([loc, text]) => (
+              <span
+                key={loc}
+                className={`appearance-scale-pill ${settings.locale === loc ? "active" : ""}`}
+                onClick={() => onChange("locale", loc)}
+                role="presentation"
+              >
+                {text}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPanel({
   settings,
   onChange,
@@ -251,9 +404,7 @@ export function SettingsPanel({
 }): React.JSX.Element {
   const t = settingsCopy[settings.locale];
   const local = (zh: string, en: string) => (settings.locale === "zh-TW" ? zh : en);
-  const [category, setCategory] = useState<SettingsCategory | "all" | "shortcuts" | "plugins">(
-    "appearance",
-  );
+  const [category, setCategory] = useState<SettingsCategory | "all" | "shortcuts">("appearance");
   const [query, setQuery] = useState("");
   const [modified, setModified] = useState(false);
   const [defaults] = useState(() => defaultSettings(navigator.language));
@@ -308,10 +459,10 @@ export function SettingsPanel({
   useEffect(() => {
     content.current?.scrollTo({ top: 0 });
   }, [category, query, modified]);
-  const entries = filterSettings(context, query, modified).filter(
-    (entry) => category === "all" || entry.category === category,
-  );
   const searching = Boolean(query.trim() || modified);
+  const entries = filterSettings(context, query, modified).filter(
+    (entry) => searching || category === "all" || entry.category === category,
+  );
   const labelValue = (entry: SettingDefinition, value: string | number | boolean | null) =>
     typeof value === "boolean"
       ? value
@@ -513,13 +664,13 @@ export function SettingsPanel({
               "all",
               "appearance",
               "theme",
-              "plugins",
               "editor",
               "saving",
               "fileHistory",
               "layout",
               "device",
               "shortcuts",
+              "plugins",
               "updates",
             ] as const
           ).map((value) => (
@@ -532,20 +683,16 @@ export function SettingsPanel({
                 ? local("全部設定", "All settings")
                 : value === "shortcuts"
                   ? t.shortcuts
-                  : value === "plugins"
-                    ? local("外掛與插件", "Plugins & Extensions")
-                    : localText(CATEGORY_LABELS[value], settings.locale)}
+                  : localText(CATEGORY_LABELS[value], settings.locale)}
             </button>
           ))}
         </nav>
         <div className="settings-content" ref={content}>
           {category === "shortcuts" ? (
             active && <ShortcutsPanel keyboard={keyboard} locale={settings.locale} />
-          ) : category === "plugins" ? (
-            active && <PluginsPanel locale={settings.locale} />
           ) : (
             <>
-              {entries.length === 0 && category !== "theme" && (
+              {entries.length === 0 && category !== "theme" && category !== "plugins" && (
                 <p className="settings-empty">
                   {local(
                     "沒有符合的設定。試試其他關鍵字，或清除條件。",
@@ -553,25 +700,18 @@ export function SettingsPanel({
                   )}
                 </p>
               )}
-              {category === "all" && (
-                <section key="plugins" aria-labelledby="settings-plugins">
-                  <h2 id="settings-plugins">
-                    {local("外掛與插件 (.kbr)", "Plugins & Extensions (.kbr)")}
-                  </h2>
-                  <PluginsPanel locale={settings.locale} />
-                </section>
-              )}
               {(Object.keys(CATEGORY_LABELS) as SettingsCategory[]).map((group) => {
                 if (group === "theme") {
                   if (category !== "theme" && category !== "all") return null;
                   const groupEntries = entries.filter((entry) => entry.category === group);
+                  if (searching && !groupEntries.length) return null;
                   return (
                     <section key="theme" aria-labelledby="settings-theme">
                       <h2 id="settings-theme">
                         {localText(CATEGORY_LABELS.theme, settings.locale)}
                       </h2>
                       {groupEntries.map(row)}
-                      <CustomThemePanel locale={settings.locale} />
+                      {!searching && <CustomThemePanel locale={settings.locale} />}
                     </section>
                   );
                 }
@@ -582,6 +722,13 @@ export function SettingsPanel({
                     <h2 id={`settings-${group}`}>
                       {localText(CATEGORY_LABELS[group], settings.locale)}
                     </h2>
+                    {group === "appearance" && !searching && (
+                      <AppearanceOverviewCards
+                        settings={settings}
+                        onChange={onChange}
+                        onOpenThemeStudio={() => setCategory("theme")}
+                      />
+                    )}
                     {group === "device" && (
                       <p className="settings-hint">
                         {local(
@@ -604,6 +751,9 @@ export function SettingsPanel({
                         <button onClick={onReset}>{t.reset}</button>
                         <p>{t.resetHint}</p>
                       </div>
+                    )}
+                    {group === "plugins" && category === "plugins" && !searching && (
+                      <PluginsPanel locale={settings.locale} />
                     )}
                     {group === "updates" && category === "updates" && !searching && (
                       <UpdatesPanel

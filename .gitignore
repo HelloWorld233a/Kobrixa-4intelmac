@@ -33,3 +33,5 @@ apps/web/worker-configuration.d.ts
 *.keychain
 *.keychain-db
 apps/collab/worker-configuration.d.ts
+
+__pycache__/

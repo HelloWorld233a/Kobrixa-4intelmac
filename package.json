@@ -36,11 +36,13 @@
     "check:desktop": "pnpm --filter \"@kobrixa/desktop...\" -r check && eslint apps/desktop packages frontends tools tests assets",
     "check:common": "pnpm format:check && eslint \"*.mjs\" \"*.ts\" tools/ci && pnpm test:ci-routing",
     "test:web": "vitest run --project web --project @kobrixa/ir && pnpm --filter @kobrixa/web test:worker",
-    "test:desktop": "vitest run --project \"!web\" && pnpm test:bytecode && pnpm test:examples:audit && pnpm test:release",
+    "test:desktop": "vitest run --project \"!web\" && pnpm test:bytecode && pnpm test:examples:audit && pnpm test:release && pnpm test:python-sdk",
     "test:ci-routing": "node --test tools/ci/*.test.mjs",
     "package:installers": "pnpm --filter @kobrixa/desktop make",
     "package:updates": "node tools/release/update-assets.mjs",
-    "test:desktop:packaged": "node tests/desktop/packaged-smoke.mjs"
+    "test:desktop:packaged": "node tests/desktop/packaged-smoke.mjs",
+    "test:python-sdk": "node tools/run-python-tests.mjs",
+    "test:plugins:smoke": "node tests/desktop/run-plugins-smoke.mjs"
   },
   "devDependencies": {
     "@electron/asar": "3.4.1",

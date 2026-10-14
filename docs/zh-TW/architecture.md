@@ -105,6 +105,15 @@ src/
 - 設備操作維持在各參與者本機的 main process。房間啟用期間，未持有設備控制權的視窗所發出的設備寫入操作會被拒絕；停止程式則一律允許。
 - 房間狀態會經過 Cloudflare 網路。記錄檔不得包含原始碼內容、聊天文字、密碼或權杖。
 
+## 插件（開發預覽）
+
+- **套件邊界**：`@kobrixa/plugin-protocol` 以 Zod 撰寫 manifest 與 JSON-RPC 2.0 定義，輸出已提交的 JSON Schema（`schema/plugin-protocol.schema.json`）並以共用一致性案例（`conformance/cases.json`）驗證；`@kobrixa/plugin-runtime` 負責插件登錄與程序生命週期管理，不依賴 Electron；`@kobrixa/plugin-sdk` 與 `sdks/python` 提供 JS/TS 與 Python SDK。
+- **傳輸機制**：JS/TS 插件跑在 Electron `utilityProcess` 並透過 `MessagePort` 通訊；Python 開發插件透過 `stdio` 加 `Content-Length` 分幀通訊（`stdout` 只放協定訊息，`stderr` 用於日誌）。
+- **啟動開關與狀態檔**：支援 `--plugin-dev-dir`、`--plugin-python` 與 `--safe-mode`；停用狀態儲存在 `<userData>/plugins/state.json`，且在註冊任何貢獻前先完成停用判斷。
+- **第一階段 API 與生命週期**：包含 `initialize`、`command/execute`、`shutdown`、`exit`、`ui/showMessage` 與 `$/cancelRequest`；呼叫者身分由宿主通道綁定，當機不自動重播命令，5 分鐘內失敗 3 次即停止重啟。
+- **信任界線**：v1 為可信任的本機插件，權限清單僅限制插件透過 Kobrixa 呼叫的 API，並不是沙箱。
+- **編譯前端註冊**：Basic Plus 經由內建插件 `kobrixa.basic-plus` 註冊為 `bp` 語言前端；通用成品契約、`Diagnostic.source`、語言靜態貢獻與 `devices` API 規劃於第二、三階段實作。
+
 ## 專案 manifest
 
 每個專案使用 `kobrixa.json`。為了向前相容，允許未知欄位；已知欄位無效時則回報錯誤。

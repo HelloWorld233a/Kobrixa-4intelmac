@@ -2,3 +2,6 @@
 **/worker-configuration.d.ts
 **/.wrangler/**
 .claude/
+
+packages/plugin-protocol/schema/plugin-protocol.schema.json
+sdks/python/kobrixa/plugin-protocol.schema.json

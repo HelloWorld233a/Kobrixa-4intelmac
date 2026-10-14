@@ -42,6 +42,15 @@ contextBridge.exposeInMainWorld("kobrixa", {
     },
   },
   keyboard: { updateContext: call("keyboard") },
+  plugins: {
+    state: async () => ({ safeMode: false, developmentMode: false, plugins: [] }),
+    execute: async () => ({ ok: true }),
+    setEnabled: async () => ({
+      ok: true,
+      state: { safeMode: false, developmentMode: false, plugins: [] },
+    }),
+    onEvent: () => () => {},
+  },
   documentation: { open: call("documentationOpen") },
   workspace: {
     getPreferences: call("filePreferences"),

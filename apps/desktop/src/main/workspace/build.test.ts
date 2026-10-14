@@ -404,3 +404,60 @@ it("does not send into destroyed windows and rejects new builds after disposal",
   service.dispose();
   await expect(service.start("project", {})).rejects.toThrow("disposed");
 });
+
+it("asks the plugin registry for the project's frontend", async () => {
+  service.dispose();
+  const requests: BuildRequest[] = [];
+  service = new BuildService(
+    { project: async (_id, overlays) => (await loadProject(root, overlays, "main.bp")).project! },
+    () =>
+      ({
+        isDestroyed: () => false,
+        send: (_channel: string, event: BuildEvent) => events.push(event),
+      }) as unknown as WebContents,
+    (request) => {
+      requests.push(request);
+      const worker = new Worker(path.join(workerRoot, "worker.cjs"), { workerData: request });
+      workers.push(worker);
+      return worker;
+    },
+    (language) => (language === "bp" ? "kobrixa.basic-plus" : undefined),
+  );
+  await service.start("project", {});
+  await vi.waitFor(() => expect(events.some((event) => event.type === "complete")).toBe(true));
+  expect(requests[0]!.frontend).toBe("kobrixa.basic-plus");
+  expect(events.find((event) => event.type === "complete")).toMatchObject({
+    result: { success: true },
+  });
+});
+
+it("fails the build clearly when no enabled plugin provides the language", async () => {
+  service.dispose();
+  service = new BuildService(
+    { project: async (_id, overlays) => (await loadProject(root, overlays, "main.bp")).project! },
+    () =>
+      ({
+        isDestroyed: () => false,
+        send: (_channel: string, event: BuildEvent) => events.push(event),
+      }) as unknown as WebContents,
+    (request) => {
+      const worker = new Worker(path.join(workerRoot, "worker.cjs"), { workerData: request });
+      workers.push(worker);
+      return worker;
+    },
+    () => undefined,
+  );
+  await service.start("project", {});
+  await vi.waitFor(() => expect(events.some((event) => event.type === "complete")).toBe(true));
+  expect(events.find((event) => event.type === "complete")).toMatchObject({
+    result: {
+      success: false,
+      diagnostics: [
+        {
+          code: "BUILD9000",
+          message: expect.stringContaining('No enabled plugin provides language "bp"'),
+        },
+      ],
+    },
+  });
+});

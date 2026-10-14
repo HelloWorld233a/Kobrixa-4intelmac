@@ -6,6 +6,7 @@ import { useSettings, settingsStore } from "./settings-state.js";
 import { SettingsQuickControls } from "./settings-panel.js";
 vi.mock("../keybindings/shortcuts-panel.js", () => ({ ShortcutsPanel: () => null }));
 vi.mock("../updates/updates.js", () => ({ UpdatesPanel: () => null }));
+vi.mock("./plugins-panel.js", () => ({ PluginsPanel: () => null }));
 it("tracks system appearance and motion, while quick theme toggles persist an explicit choice", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const media = new Map<string, { matches: boolean; listeners: Set<() => void> }>();

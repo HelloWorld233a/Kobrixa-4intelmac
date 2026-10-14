@@ -10,6 +10,7 @@ import { SettingsPanel } from "./settings-panel.js";
 import { useFilePreferences } from "./file-settings.js";
 vi.mock("../keybindings/shortcuts-panel.js", () => ({ ShortcutsPanel: () => null }));
 vi.mock("../updates/updates.js", () => ({ UpdatesPanel: () => null }));
+vi.mock("./plugins-panel.js", () => ({ PluginsPanel: () => null }));
 let root: Root, container: HTMLDivElement, values: Settings;
 const patch = vi.fn();
 const filePatch = vi.fn();

@@ -88,3 +88,7 @@ Release checks verify final hashes, metadata, packaged runtime modules and platf
 Hardware acceptance for these preferences requires Windows, macOS and Linux with an EV3: verify fixed/backoff USB recovery, a three-attempt limit (including the immediate first scan), cancellation during recovery, a new recovery adopting changed parameters, successful manually entered Wi-Fi address persistence, and both Wi-Fi connection/handshake timeout presets. Confirm that recovery never starts the program. Mocked transport tests and renderer smoke tests do not establish physical-device acceptance; record each platform's actual results separately.
 
 For the faster headless version of the 1,700 ms regression, run `KOBRIXA_MAIN_SIMPLE_PROJECT=/path/to/project node node_modules/vitest/vitest.mjs run apps/desktop/src/simulation/main-simple-project.test.ts`. The private project is optional, so this test is skipped in ordinary CI.
+
+## Plugin smoke
+
+`pnpm test:plugins:smoke` runs `tests/desktop/run-plugins-smoke.mjs` inside real Electron to verify `utilityProcess` + `MessagePort` TypeScript plugins, Python `stdio` plugins, crash isolation across plugins, and bounded shutdown/quit cleanup without orphan processes. Set `KOBRIXA_TEST_PYTHON` to override the Python 3.10+ interpreter.

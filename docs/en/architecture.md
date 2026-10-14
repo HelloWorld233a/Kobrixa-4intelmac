@@ -105,6 +105,15 @@ Host main process                        Guest main process
 - Device operations stay local to each participant's main process. While a room is active, device writes are rejected unless that window holds device control; stopping a program is always allowed.
 - Room state crosses the Cloudflare network. Logs must not contain source contents, chat text, passwords or tokens.
 
+## Plugins (development preview)
+
+- **Package boundaries**: `@kobrixa/plugin-protocol` authors manifest and JSON-RPC 2.0 schemas in Zod and publishes a committed JSON Schema (`schema/plugin-protocol.schema.json`) verified by shared conformance cases (`conformance/cases.json`); `@kobrixa/plugin-runtime` manages plugin registration and process lifecycles without depending on Electron; `@kobrixa/plugin-sdk` and `sdks/python` provide the JavaScript/TypeScript and Python SDKs.
+- **Transports**: JavaScript/TypeScript plugins run in an Electron `utilityProcess` over a transferred `MessagePort`; Python development plugins run over `stdio` with `Content-Length` framing (`stdout` carries protocol messages only and `stderr` captures logs).
+- **Launch switches & state**: `--plugin-dev-dir`, `--plugin-python`, and `--safe-mode`; disabled plugin IDs persist in `<userData>/plugins/state.json`, and disable checks run before any contributions are registered.
+- **Phase 1 API & lifecycle**: `initialize`, `command/execute`, `shutdown`, `exit`, `ui/showMessage`, and `$/cancelRequest`. Caller identity is bound to the host channel; crashed commands are never replayed, and 3 crashes within 5 minutes transition the plugin to `failed`.
+- **Trust boundary**: Development plugins run as trusted local programs; permissions only gate Kobrixa host APIs and are not a sandbox.
+- **Compiler frontend registration**: Basic Plus is registered as the `bp` frontend through the built-in `kobrixa.basic-plus` plugin manifest. Generic build artifact contracts, `Diagnostic.source`, static language contributions, and `devices` APIs are planned for Phases 2 and 3.
+
 ## Project manifest
 
 Each project uses `kobrixa.json`. Unknown fields are allowed for forward compatibility; invalid known fields are errors.

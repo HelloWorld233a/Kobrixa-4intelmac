@@ -266,3 +266,23 @@ it("keeps offline checks recoverable and a normal quit never installs a download
   service.dispose();
   expect(backend.install).not.toHaveBeenCalled();
 });
+
+it("reports installations that end without quitting", async () => {
+  const { service, backend } = fixture();
+  const failed = vi.fn();
+  service.onInstallationFailed(failed);
+  await service.check();
+  expect(() => service.install()).toThrow("busy");
+  expect(failed).toHaveBeenCalledTimes(1);
+  service.prepareInstall();
+  backend.install.mockImplementationOnce(() => {
+    throw new Error("spawn failed");
+  });
+  expect(() => service.install()).toThrow("spawn failed");
+  expect(failed).toHaveBeenCalledTimes(2);
+  service.prepareInstall();
+  service.install();
+  expect(failed).toHaveBeenCalledTimes(2);
+  service.installationFailed("install-failed");
+  expect(failed).toHaveBeenCalledTimes(3);
+});

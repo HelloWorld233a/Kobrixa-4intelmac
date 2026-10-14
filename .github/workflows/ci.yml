@@ -91,6 +91,18 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm check:collab && pnpm test:collab:live
       - run: pnpm test:desktop
+        env:
+          KOBRIXA_TEST_PYTHON: ${{ runner.os == 'Windows' && 'python' || 'python3' }}
+      - name: Plugin smoke (utilityProcess, Python, crash isolation)
+        shell: bash
+        env:
+          KOBRIXA_TEST_PYTHON: ${{ runner.os == 'Windows' && 'python' || 'python3' }}
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a pnpm test:plugins:smoke
+          else
+            pnpm test:plugins:smoke
+          fi
       - run: pnpm build:desktop
       - name: Smoke test the packaged application
         if: runner.arch == matrix.arch

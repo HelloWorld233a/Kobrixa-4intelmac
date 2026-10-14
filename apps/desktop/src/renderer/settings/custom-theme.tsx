@@ -1599,6 +1599,110 @@ export function CustomThemePanel({ locale }: { locale: Locale }): React.JSX.Elem
       className="custom-theme-container"
       style={{ display: "flex", flexDirection: "column", gap: "20px" }}
     >
+      <div className="theme-studio-hero" style={{ marginBottom: 18 }}>
+        <div className="theme-studio-hero-info">
+          <div className="theme-studio-badge-row">
+            <span className="theme-studio-pill">
+              {t("✨ 即時主題預覽引擎", "✨ Live Theme Preview Engine")}
+            </span>
+            {theme.backgroundImage && (
+              <span className="theme-studio-pill glass">
+                {t("🖼️ 毛玻璃背景已啟用", "🖼️ Frosted Wallpaper Active")}
+              </span>
+            )}
+          </div>
+          <h3>{theme.name}</h3>
+          <p>
+            {t(
+              "在下方切換 2 合 1 主題預設、智慧擷取圖片主色、微調毛玻璃模糊度或調整語法高光，右側視窗將即時同步預覽效果。",
+              "Switch 2-in-1 presets, extract image colors, tune frosted glass blur, or customize syntax tokens with instant live preview on the right.",
+            )}
+          </p>
+        </div>
+        <div
+          className="theme-live-preview-window"
+          style={{
+            backgroundColor: theme.editorBg || "#0a0a0a",
+            borderColor: theme.border || "#2e2e2e",
+            color: theme.textColor || "#f8fafc",
+          }}
+        >
+          {theme.backgroundImage && (
+            <div
+              className="theme-live-preview-wallpaper"
+              style={{
+                backgroundImage: `url(${theme.backgroundImage})`,
+                opacity: 1 - (theme.bgOpacity ?? 0.82) * 0.65,
+              }}
+            />
+          )}
+          <div
+            className="theme-live-preview-topbar"
+            style={{
+              backgroundColor: theme.raised || "#1e1e1e",
+              borderBottomColor: theme.border || "#2e2e2e",
+            }}
+          >
+            <span className="dot red" />
+            <span className="dot yellow" />
+            <span className="dot green" />
+            <span className="preview-title">main.bp — Kobrixa Studio</span>
+            <span
+              className="preview-run-pill"
+              style={{
+                backgroundColor: theme.accent || "#ec4899",
+                color: theme.onAccent || "#ffffff",
+              }}
+            >
+              ▶ Run
+            </span>
+          </div>
+          <div className="theme-live-preview-body">
+            <div
+              className="theme-live-preview-sidebar"
+              style={{
+                backgroundColor: theme.surface || "#121212",
+                borderRightColor: theme.border || "#2e2e2e",
+              }}
+            >
+              <div
+                className="preview-tree-item active"
+                style={{ borderLeftColor: theme.accent || "#ec4899" }}
+              >
+                📄 main.bp
+              </div>
+              <div className="preview-tree-item">📄 sensors.bp</div>
+              <div className="preview-tree-item">⚡ helper.kbr</div>
+            </div>
+            <div className="theme-live-preview-editor">
+              <div className="preview-code-line">
+                <span style={{ color: theme.syntax?.keyword || theme.accent, fontWeight: 700 }}>
+                  Sub
+                </span>{" "}
+                <span style={{ color: theme.syntax?.function || theme.textColor }}>
+                  DriveForward()
+                </span>
+              </div>
+              <div className="preview-code-line indent">
+                <span style={{ color: theme.syntax?.variable || theme.textColor }}>
+                  Motor.Move(
+                </span>
+                <span style={{ color: theme.syntax?.string || "#10b981" }}>&quot;BC&quot;</span>
+                <span>, </span>
+                <span style={{ color: theme.syntax?.number || "#f59e0b" }}>75</span>
+                <span>, </span>
+                <span style={{ color: theme.syntax?.number || "#f59e0b" }}>360</span>
+                <span>)</span>
+              </div>
+              <div className="preview-code-line">
+                <span style={{ color: theme.syntax?.keyword || theme.accent, fontWeight: 700 }}>
+                  EndSub
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       {/* Dedication Banner */}
       <div
         style={{

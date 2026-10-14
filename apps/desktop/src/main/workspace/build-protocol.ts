@@ -5,6 +5,8 @@ import type { SimulationPrepareResult } from "../../shared/simulator.js";
 export interface BuildRequest {
   project: SourceProject;
   cancellation: SharedArrayBuffer;
+  /** Plugin id of the frontend selected by the plugin registry; unknown ids fail the build. */
+  frontend: string;
   preview?: boolean;
   simulation?: { entries: string[]; files: Record<string, number[]> };
 }

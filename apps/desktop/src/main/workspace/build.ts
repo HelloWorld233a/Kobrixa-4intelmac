@@ -50,6 +50,8 @@ export class BuildService {
     private readonly renderer: () => WebContents | undefined,
     private readonly createWorker = (request: BuildRequest): Worker =>
       new Worker(path.join(__dirname, "build-worker.cjs"), { workerData: request }),
+    private readonly frontendFor: (language: string) => string | undefined = () =>
+      "kobrixa.basic-plus",
   ) {}
 
   async start(
@@ -65,6 +67,7 @@ export class BuildService {
     const worker = this.createWorker({
       project,
       cancellation: cancellation.buffer as SharedArrayBuffer,
+      frontend: this.frontendFor(project.manifest.language) ?? "",
       preview,
     });
     const record: BuildRecord = { cancellation, worker, artifacts: [] };
@@ -148,6 +151,7 @@ export class BuildService {
       const worker = this.createWorker({
         project,
         cancellation: preparation.cancellation.buffer as SharedArrayBuffer,
+        frontend: this.frontendFor(project.manifest.language) ?? "",
         simulation: { entries, files },
       });
       preparation.worker = worker;
