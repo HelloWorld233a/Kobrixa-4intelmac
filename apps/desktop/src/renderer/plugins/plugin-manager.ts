@@ -148,7 +148,7 @@ export function transpilePluginCode(tsCode: string): string {
   masked = masked.replace(/\bexport\s+default\s+/g, "const __defaultExport = ");
 
   // 5. 移除泛型呼叫與函數泛型參數，如 .get<string>(...) 或 .set<{ count: number }>(...)
-  masked = masked.replace(/([a-zA-Z0-9_$])\s*<[a-zA-Z0-9_$[\]{}:;|,&\s<>]+>\s*\(/g, "$1(");
+  masked = masked.replace(/([a-zA-Z0-9_$])<(?:[a-zA-Z0-9_$.[\]|&,\s]|\{[^{}]*\})+>\s*\(/g, "$1(");
 
   // 6. 移除變數型別標註，如 const x: string = ... 或 let count: Record<string, number>;
   masked = masked.replace(
@@ -162,18 +162,20 @@ export function transpilePluginCode(tsCode: string): string {
     ")",
   );
 
-  // 8. 移除函數與箭頭函數參數內的型別標註，支援巢狀括號與泛型如 (vals: Record<string, PluginSettingValue>)
-  let prevMasked = "";
-  while (prevMasked !== masked) {
-    prevMasked = masked;
-    masked = masked.replace(/\(([^()]*)\)/g, (_full, inner: string) => {
-      const cleaned = inner.replace(
-        /\b([a-zA-Z0-9_$]+)\s*\??\s*:\s*(?:[a-zA-Z0-9_$.[\]|&\s]|<[^>]*>|\{[^}]*\})+(?=\s*(?:[,=]|$))/g,
-        "$1",
-      );
-      return `(${cleaned})`;
-    });
-  }
+  // 8. 移除函數與箭頭函數參數內的型別標註，支援泛型如 (vals: Record<string, PluginSettingValue>)
+  const stripParamTypes = (inner: string): string =>
+    inner.replace(
+      /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\??\s*:\s*(?:[a-zA-Z_$][a-zA-Z0-9_$.[\]|&\s]*|<[^>]*>|\{[^}]*\})+(?=\s*(?:[,=]|$))/g,
+      "$1",
+    );
+  masked = masked.replace(
+    /(\bfunction\s*[a-zA-Z0-9_$]*\s*)\(([^()]*)\)/g,
+    (_full, prefix: string, inner: string) => `${prefix}(${stripParamTypes(inner)})`,
+  );
+  masked = masked.replace(
+    /\(([^()"{};]*)\)(\s*(?::\s*(?:[a-zA-Z0-9_$.[\]|&\s]|<[^>]*>|\{[^}]*\})+)?\s*=>)/g,
+    (_full, inner: string, suffix: string) => `(${stripParamTypes(inner)})${suffix}`,
+  );
 
   // 9. 移除 TypeScript as 型別斷言，如 as HTMLElement, as string, as const
   masked = masked.replace(
@@ -400,6 +402,19 @@ export function loadSavedPlugins(): KobrixaPluginManifest[] {
         }
         return item;
       });
+      const seededKey = "kobrixa.seededBuiltinIds";
+      const seededRaw = localStorage.getItem(seededKey);
+      const seededIds = new Set<string>(seededRaw ? (JSON.parse(seededRaw) as string[]) : []);
+      for (const builtin of BUILTIN_PLUGINS) {
+        if (!upgraded.some((p) => p.id === builtin.id) && !seededIds.has(builtin.id)) {
+          upgraded.unshift({ ...builtin });
+          seededIds.add(builtin.id);
+          migrated = true;
+        } else {
+          seededIds.add(builtin.id);
+        }
+      }
+      localStorage.setItem(seededKey, JSON.stringify([...seededIds]));
       if (migrated) {
         savePlugins(upgraded);
       }

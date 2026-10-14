@@ -3,6 +3,13 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { PluginEvent, PluginsSnapshot } from "../../shared/plugins.js";
+import { BUILTIN_PLUGINS } from "../plugins/builtin-plugins.js";
+import {
+  activatePlugin,
+  checkPluginSyntax,
+  deactivatePlugin,
+  extractPluginSettingsSchema,
+} from "../plugins/plugin-manager.js";
 import { detectPluginPackage, PluginsPanel } from "./plugins-panel.js";
 
 let root: Root;
@@ -162,4 +169,31 @@ it("detects whether a plugin file is .kbr or Python before installing", () => {
   );
   expect(kbr.detectedType).toBe("kbr");
   expect(kbr.name).toBe("My Widget");
+});
+
+it("transpiles, activates, and cleans up the Cyber Thunder parallelogram sci-fi plugin", () => {
+  const cyber = BUILTIN_PLUGINS.find((p) => p.id === "kbr-cyber-thunder-hud");
+  expect(cyber).toBeDefined();
+  const syntax = checkPluginSyntax(cyber!.code);
+  expect(syntax.valid).toBe(true);
+
+  const schema = extractPluginSettingsSchema(cyber!);
+  expect(schema.map((s) => s.key)).toEqual([
+    "electricColor",
+    "skewAngle",
+    "lightningIntensity",
+    "keystrokeThunder",
+    "fullInterfaceSkew",
+    "hudPosition",
+  ]);
+
+  activatePlugin(cyber!);
+  expect(document.getElementById("kbr-cyber-thunder-hud-root")).not.toBeNull();
+  expect(document.getElementById("kbr-cyber-thunder-canvas")).not.toBeNull();
+  expect(document.body.classList.contains("kbr-cyber-thunder-ui")).toBe(true);
+
+  deactivatePlugin("kbr-cyber-thunder-hud");
+  expect(document.getElementById("kbr-cyber-thunder-hud-root")).toBeNull();
+  expect(document.getElementById("kbr-cyber-thunder-canvas")).toBeNull();
+  expect(document.body.classList.contains("kbr-cyber-thunder-ui")).toBe(false);
 });
