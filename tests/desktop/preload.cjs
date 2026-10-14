@@ -45,6 +45,18 @@ contextBridge.exposeInMainWorld("kobrixa", {
   plugins: {
     state: async () => ({ safeMode: false, developmentMode: false, plugins: [] }),
     execute: async () => ({ ok: true }),
+    installFile: async () => ({
+      ok: true,
+      state: { safeMode: false, developmentMode: true, plugins: [] },
+    }),
+    installFromDisk: async () => ({
+      ok: true,
+      state: { safeMode: false, developmentMode: true, plugins: [] },
+    }),
+    uninstall: async () => ({
+      ok: true,
+      state: { safeMode: false, developmentMode: false, plugins: [] },
+    }),
     setEnabled: async () => ({
       ok: true,
       state: { safeMode: false, developmentMode: false, plugins: [] },

@@ -56,6 +56,9 @@ const api: KobrixaApi = {
     state: () => ipcRenderer.invoke("plugins:state"),
     execute: (commandId) => ipcRenderer.invoke("plugins:execute", commandId),
     setEnabled: (pluginId, enabled) => ipcRenderer.invoke("plugins:set-enabled", pluginId, enabled),
+    installFile: (request) => ipcRenderer.invoke("plugins:install-file", request),
+    installFromDisk: () => ipcRenderer.invoke("plugins:install-disk"),
+    uninstall: (pluginId) => ipcRenderer.invoke("plugins:uninstall", pluginId),
     onEvent: (listener) => {
       const handler = (_event: Electron.IpcRendererEvent, value: PluginEvent) => listener(value);
       ipcRenderer.on("plugins:event", handler);

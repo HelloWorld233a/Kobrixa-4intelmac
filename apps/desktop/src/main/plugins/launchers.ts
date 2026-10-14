@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { MessageChannelMain, utilityProcess } from "electron";
 import {
   escalatingKill,
@@ -9,6 +10,34 @@ import {
   type PluginLauncher,
   type PluginProcess,
 } from "@kobrixa/plugin-runtime";
+
+let cachedAutoPython: string | null | undefined;
+
+/** Automatically finds a usable Python 3.10+ interpreter so users don't need CLI flags. */
+export function detectSystemPython(): string | undefined {
+  if (cachedAutoPython !== undefined) return cachedAutoPython ?? undefined;
+  const candidates = [
+    process.env.KOBRIXA_TEST_PYTHON,
+    "python3",
+    "/opt/homebrew/bin/python3",
+    "/usr/local/bin/python3",
+    "/usr/bin/python3",
+    "python",
+  ].filter((item): item is string => Boolean(item));
+  const found = candidates.find((cmd) => {
+    try {
+      return (
+        spawnSync(cmd, ["-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)"], {
+          timeout: 3000,
+        }).status === 0
+      );
+    } catch {
+      return false;
+    }
+  });
+  cachedAutoPython = found ?? null;
+  return found;
+}
 
 async function launchNode(plugin: LaunchablePlugin): Promise<PluginProcess> {
   const child = utilityProcess.fork(plugin.entry, [], {
@@ -59,17 +88,33 @@ async function launchNode(plugin: LaunchablePlugin): Promise<PluginProcess> {
   };
 }
 
-export function createDesktopLauncher(options: { python?: string }): PluginLauncher {
+export function createDesktopLauncher(options: {
+  python?: string;
+  sdkPythonPath?: string;
+}): PluginLauncher {
   return async (plugin) => {
     if (plugin.runtime === "node") return launchNode(plugin);
-    if (!options.python)
+    const python = options.python || detectSystemPython();
+    if (!python)
       throw new PluginError(
         "PLUGIN_E_LAUNCH",
-        "Start Kobrixa with --plugin-python=<interpreter> to run Python development plugins.",
+        "Python 3.10+ was not found on this computer. Please install Python 3.10+ to run Python plugins.",
       );
-    return spawnPluginProcess(options.python, ["-u", plugin.entry], {
+    const existingPythonPath = process.env.PYTHONPATH;
+    const pythonPath = options.sdkPythonPath
+      ? existingPythonPath
+        ? `${options.sdkPythonPath}${process.platform === "win32" ? ";" : ":"}${existingPythonPath}`
+        : options.sdkPythonPath
+      : existingPythonPath;
+    return spawnPluginProcess(python, ["-u", plugin.entry], {
       cwd: plugin.directory,
-      env: { ...process.env, PYTHONUNBUFFERED: "1", PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" },
+      env: {
+        ...process.env,
+        ...(pythonPath ? { PYTHONPATH: pythonPath } : {}),
+        PYTHONUNBUFFERED: "1",
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUTF8: "1",
+      },
     });
   };
 }

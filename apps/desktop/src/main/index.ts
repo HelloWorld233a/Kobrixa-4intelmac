@@ -4,6 +4,12 @@ import { createDesktopLauncher } from "./plugins/launchers.js";
 import { pluginLocale, pluginOptions } from "./plugins/options.js";
 import { filePluginStateStore } from "./plugins/state-store.js";
 import { registerPluginIpc } from "./plugins/ipc.js";
+import {
+  installPluginDirectory,
+  installPythonFilePlugin,
+  listInstalledPluginSources,
+  uninstallInstalledPlugin,
+} from "./plugins/installer.js";
 import { installPluginQuitCleanup } from "./plugins/quit.js";
 import { loadDevicePreferences } from "./device/preferences.js";
 import { createUpdateService } from "./updates/runtime.js";
@@ -164,20 +170,41 @@ void app.whenReady().then(async () => {
   });
   const workspaces = new WorkspaceService();
   const pluginSettings = pluginOptions(app.commandLine);
-  const plugins = await PluginManager.create({
-    sources: [
-      ...BUILTIN_PLUGIN_SOURCES,
-      ...pluginSettings.developmentDirectories.map((directory) => ({
-        kind: "development" as const,
-        directory,
-      })),
-    ],
-    store: filePluginStateStore(app.getPath("userData")),
-    safeMode: pluginSettings.safeMode,
-    launcher: createDesktopLauncher(pluginSettings),
-    locale: pluginLocale(app.getLocale()),
+  const sdkPythonPath = path.resolve(__dirname, "../../../../sdks/python");
+  const buildPluginManager = async () => {
+    const installedSources = await listInstalledPluginSources(app.getPath("userData"));
+    return PluginManager.create({
+      sources: [
+        ...BUILTIN_PLUGIN_SOURCES,
+        ...installedSources,
+        ...pluginSettings.developmentDirectories.map((directory) => ({
+          kind: "development" as const,
+          directory,
+        })),
+      ],
+      store: filePluginStateStore(app.getPath("userData")),
+      safeMode: pluginSettings.safeMode,
+      launcher: createDesktopLauncher({ ...pluginSettings, sdkPythonPath }),
+      locale: pluginLocale(app.getLocale()),
+    });
+  };
+  let plugins = await buildPluginManager();
+  let offPluginEvents = plugins.onEvent((event) => send("plugins:event", event));
+  const reloadPlugins = async () => {
+    offPluginEvents();
+    await plugins.shutdown();
+    plugins = await buildPluginManager();
+    offPluginEvents = plugins.onEvent((event) => send("plugins:event", event));
+    const state = plugins.state();
+    send("plugins:event", { type: "state", state });
+    return { ok: true as const, state };
+  };
+  installPluginQuitCleanup(app, {
+    get active() {
+      return plugins.active;
+    },
+    shutdown: (deadlineMs?: number) => plugins.shutdown(deadlineMs),
   });
-  installPluginQuitCleanup(app, plugins);
   const renderer = () => {
     // Reading webContents itself throws once its BrowserWindow is destroyed.
     // Services may finish saving or disconnecting after the last window closes.
@@ -334,7 +361,57 @@ void app.whenReady().then(async () => {
           new CollabProjects(collab, workspaces, app.getPath("userData")),
         ),
       (handle) => {
-        registerPluginIpc(handle, plugins, (event) => send("plugins:event", event));
+        registerPluginIpc(
+          handle,
+          {
+            state: () => plugins.state(),
+            executeCommand: (id) => plugins.executeCommand(id),
+            setEnabled: (id, enabled) => plugins.setEnabled(id, enabled),
+            onEvent: () => () => {},
+          },
+          (event) => send("plugins:event", event),
+          {
+            installFile: async (req) => {
+              try {
+                await installPythonFilePlugin(app.getPath("userData"), req);
+                return await reloadPlugins();
+              } catch (error) {
+                return {
+                  ok: false,
+                  code: "PLUGIN_E_MANIFEST",
+                  message: error instanceof Error ? error.message : String(error),
+                };
+              }
+            },
+            installFromDisk: async () => {
+              const picked = await dialog.showOpenDialog({
+                title: "Select Plugin (.py, kobrixa-plugin.json, or Folder) / 選擇插件檔案或資料夾",
+                properties: ["openFile", "openDirectory"],
+                filters: [{ name: "Plugins (.py, .json)", extensions: ["py", "json"] }],
+              });
+              if (picked.canceled || !picked.filePaths[0]) {
+                return { ok: true, state: plugins.state() };
+              }
+              try {
+                const target = picked.filePaths[0].endsWith("kobrixa-plugin.json")
+                  ? path.dirname(picked.filePaths[0])
+                  : picked.filePaths[0];
+                await installPluginDirectory(app.getPath("userData"), target);
+                return await reloadPlugins();
+              } catch (error) {
+                return {
+                  ok: false,
+                  code: "PLUGIN_E_MANIFEST",
+                  message: error instanceof Error ? error.message : String(error),
+                };
+              }
+            },
+            uninstall: async (pluginId) => {
+              await uninstallInstalledPlugin(app.getPath("userData"), pluginId);
+              return await reloadPlugins();
+            },
+          },
+        );
       },
     ],
     () => plugins.shutdown(),

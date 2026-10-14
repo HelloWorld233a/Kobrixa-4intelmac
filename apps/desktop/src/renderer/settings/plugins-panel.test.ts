@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { PluginEvent, PluginsSnapshot } from "../../shared/plugins.js";
-import { PluginsPanel } from "./plugins-panel.js";
+import { detectPluginPackage, PluginsPanel } from "./plugins-panel.js";
 
 let root: Root;
 let container: HTMLDivElement;
@@ -138,4 +138,28 @@ it("shows an alert instead of hanging on loading when IPC state() or execute() r
   api.execute.mockRejectedValueOnce(new Error("execute ipc rejected"));
   await act(async () => button("打招呼").click());
   expect(container.querySelector("[role=alert]")?.textContent).toContain("execute ipc rejected");
+});
+
+it("detects whether a plugin file is .kbr or Python before installing", () => {
+  const py = detectPluginPackage("sensor_tool.py", "from kobrixa import Plugin\nprint(123)");
+  expect(py.detectedType).toBe("python");
+  expect(py.id).toBe("user.sensor-tool");
+
+  const pyManifest = detectPluginPackage(
+    "kobrixa-plugin.json",
+    JSON.stringify({
+      id: "acme.py-tool",
+      version: "1.2.0",
+      runtime: { kind: "python", entry: "main.py" },
+    }),
+  );
+  expect(pyManifest.detectedType).toBe("python");
+  expect(pyManifest.id).toBe("acme.py-tool");
+
+  const kbr = detectPluginPackage(
+    "my-widget.kbr",
+    "// @name My Widget\nexport function activate(ctx) {}",
+  );
+  expect(kbr.detectedType).toBe("kbr");
+  expect(kbr.name).toBe("My Widget");
 });
