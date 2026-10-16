@@ -2,6 +2,7 @@ import { SIMULATOR_ENABLED } from "../shared/features.js";
 import { ProjectSessions, type ProjectSession } from "./workspace/project-sessions.js";
 import { ProjectTabs } from "./workspace/project-tabs.js";
 import { QuickOpen } from "./workspace/quick-open.js";
+import { EntryPickerDialog, rankEntryCandidates } from "./workspace/entry-picker-dialog.js";
 import { SearchPanel } from "./workspace/search-panel.js";
 import {
   isSearchableFile,
@@ -1527,8 +1528,9 @@ export function App(): React.JSX.Element {
     if (!next) return;
     await flushDrafts();
     if (next.entryCandidates.length > 1) {
+      const ranked = rankEntryCandidates(next.entryCandidates, next.rootLabel, locale);
       setPendingWorkspace(next);
-      setSelectedEntry(next.entryCandidates[0] ?? "");
+      setSelectedEntry(ranked[0]?.path ?? next.entryCandidates[0] ?? "");
       return;
     }
     await loadWorkspace(next);
@@ -1773,13 +1775,11 @@ export function App(): React.JSX.Element {
     }
   }
 
-  async function confirmEntry(): Promise<void> {
-    if (!pendingWorkspace || !pendingWorkspace.entryCandidates.includes(selectedEntry)) return;
+  async function confirmEntry(overrideEntry?: string): Promise<void> {
+    const targetEntry = overrideEntry ?? selectedEntry;
+    if (!pendingWorkspace || !pendingWorkspace.entryCandidates.includes(targetEntry)) return;
     try {
-      const selected = await window.kobrixa.workspace.selectEntry(
-        pendingWorkspace.id,
-        selectedEntry,
-      );
+      const selected = await window.kobrixa.workspace.selectEntry(pendingWorkspace.id, targetEntry);
       setPendingWorkspace(undefined);
       await loadWorkspace(selected);
     } catch (error) {
@@ -3750,36 +3750,19 @@ export function App(): React.JSX.Element {
         </Dialog>
       )}
       {pendingWorkspace && (
-        <Dialog
+        <EntryPickerDialog
+          workspace={pendingWorkspace}
+          locale={locale}
+          selectedEntry={selectedEntry}
+          onSelectEntry={setSelectedEntry}
+          onConfirm={(entry) => {
+            void confirmEntry(entry);
+          }}
           onClose={() => {
             setPendingWorkspace(undefined);
           }}
-          title={t.chooseEntry}
-          titleId="entry-title"
-          onSubmit={() => {
-            void confirmEntry();
-          }}
-        >
-          <Picker<string>
-            locale={locale}
-            label={t.chooseEntry}
-            searchable
-            value={selectedEntry}
-            onChange={setSelectedEntry}
-            options={pendingWorkspace.entryCandidates.map((entry) => ({
-              value: entry,
-              label: entry,
-            }))}
-          />
-          <DialogActions>
-            <button type="button" onClick={() => setPendingWorkspace(undefined)}>
-              {t.close}
-            </button>
-            <button className="primary" type="submit" disabled={!selectedEntry}>
-              {t.continue}
-            </button>
-          </DialogActions>
-        </Dialog>
+          readFile={(workspaceId, file) => window.kobrixa.workspace.readFile(workspaceId, file)}
+        />
       )}
       {pendingCreate && (
         <Dialog
